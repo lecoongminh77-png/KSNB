@@ -86,16 +86,13 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-st.set_page_config(page_title="KSNB - Kiểm Soát Tồn Kho", layout="wide", page_icon="🛡️")
 
 st.title("🛡️ HỆ THỐNG KIỂM SOÁT TỒN KHO HÀNG NGÀY")
 st.caption("Kiểm soát nội bộ (KSNB) • Tự động quét lỗi tỷ trọng & kiểm tra phẩm cấp cuộn")
 
 # 1. KHU VỰC NẠP DỮ LIỆU
-with st.sidebar:
-    st.header("📂 Nạp Dữ Liệu")
-    uploaded_file = st.file_uploader("Kéo thả file Excel tồn kho (.xlsx):", type=["xlsx"])
-    st.markdown("---")
+
+uploaded_file = st.file_uploader("Kéo thả file Excel tồn kho (.xlsx):", type=["xlsx"])
 
 def load_data(file_source):
     headers = [
