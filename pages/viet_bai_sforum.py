@@ -187,7 +187,7 @@ YÊU CẦU: Hãy đọc kỹ toàn bộ nội dung bài gốc trên, viết mộ
             try:
                 client = genai.Client(api_key=api_key)
                 response = client.models.generate_content(
-                    model='gemini-2.0-flash',
+                    model='gemini-3.8-flash',
                     contents=user_prompt,
                     config=types.GenerateContentConfig(
                         system_instruction=SYSTEM_PROMPT,
