@@ -14,8 +14,10 @@ st.set_page_config(
     layout="wide"
 )
 
+# Chèn CSS: Nền sáng Apple, nút bấm viên thuốc, ẩn menu bên trái
 st.markdown("""
 <style>
+    /* Ẩn danh sách menu trang thừa ở thanh bên trái */
     [data-testid="stSidebarNav"] { display: none !important; }
     .stApp {
         background-color: #f5f5f7;
@@ -105,7 +107,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Dãy nút chuyển đổi tiện ích
+# Dãy nút chuyển đổi tiện ích lớn
 col_nav1, col_nav2, col_nav3, _ = st.columns([1.5, 1.5, 1.8, 5])
 with col_nav1:
     st.button("✍️ Sforum", use_container_width=True)
@@ -118,11 +120,11 @@ with col_nav3:
 st.markdown("<hr style='border: none; border-top: 1px solid #e2e8f0; margin: 15px 0 20px 0;'>", unsafe_allow_html=True)
 
 # -------------------------------------------------------------
-# 3. KẾT NỐI VÀ ĐỌC MẪU TRỰC TIẾP TỪ GOOGLE DOCS
+# 3. KẾT NỐI VÀ TỰ ĐỘNG ĐỌC QUY CHUẨN TỪ GOOGLE DOCS
 # -------------------------------------------------------------
 st.markdown("""
 <div style="margin-bottom: 12px;">
-    <h2 style="font-size: 26px; font-weight: 700; color: #1d1d1f; margin: 0;">Sforum Content Studio. <span style="color: #6e6e73; font-weight: 500;">Tự động học mẫu từ Google Docs.</span></h2>
+    <h2 style="font-size: 26px; font-weight: 700; color: #1d1d1f; margin: 0;">Sforum Content Studio. <span style="color: #6e6e73; font-weight: 500;">Hệ thống AI tự động hóa bài viết.</span></h2>
 </div>
 """, unsafe_allow_html=True)
 
@@ -139,20 +141,14 @@ def fetch_google_doc_text(doc_url: str):
     except Exception:
         return None
 
-# Khung cài đặt liên kết Google Doc quy chuẩn
-with st.expander("📖 Cấu hình file Google Docs Quy chuẩn (Bấm để xem/sửa link)", expanded=False):
-    doc_link = st.text_input(
-        "Đường dẫn file Google Doc chứa mẫu quy chuẩn của bạn:",
-        value="https://docs.google.com/document/d/1_bl4RrRBs4mv521i45FqVJzUe9Yh4ZOlJtk31QR0tuQ/edit"
-    )
-    st.caption("💡 Lưu ý: File Google Doc cần được bật quyền chia sẻ: **'Bất kỳ ai có đường liên kết đều có thể xem'** để hệ thống có thể đọc tự động.")
-
-# Đọc thử nội dung từ Doc
+# Đọc nội dung file Google Doc Mẫu
+doc_link = "https://docs.google.com/document/d/1_bl4RrRBs4mv521i45FqVJzUe9Yh4ZOlJtk31QR0tuQ/edit"
 loaded_rules = fetch_google_doc_text(doc_link)
+
 if loaded_rules:
-    st.success(f"🟢 Đã kết nối thành công với Google Docs ({len(loaded_rules.split())} từ quy chuẩn). Khi bạn sửa file Google Doc, web sẽ tự cập nhật theo!")
+    st.success(f"🟢 Đã kết nối trực tiếp với Google Docs ({len(loaded_rules.split())} từ quy chuẩn). Khi bạn thêm mục 'So sánh' hay sửa luật trong Doc, web sẽ tự cập nhật theo!")
 else:
-    st.warning("⚠️ Chưa đọc được file Google Doc (vui lòng kiểm tra quyền chia sẻ 'Bất kỳ ai có liên kết đều xem được'). Hệ thống đang dùng bộ quy chuẩn dự phòng.")
+    st.warning("⚠️ Chưa đọc được file Google Doc, vui lòng đảm bảo file bật quyền 'Bất kỳ ai có liên kết đều xem được'.")
 
 # Lấy API Key
 api_key = None
@@ -204,7 +200,7 @@ def extract_content_from_url(url: str):
         return "", "", []
 
 # -------------------------------------------------------------
-# 4. KHUNG NHẬP LIỆU GIAO DIỆN CHUẨN APPLE
+# 4. KHUNG NHẬP LIỆU GIAO DIỆN (SẠCH SẼ, KHÔNG HỘP RỖNG)
 # -------------------------------------------------------------
 with st.container(border=True):
     c1, c2 = st.columns([2, 1], gap="large")
@@ -218,24 +214,29 @@ with st.container(border=True):
         )
 
     with c2:
-        product_type = st.selectbox(
-            "📦 Phân loại sản phẩm:",
-            ["Phụ kiện / Thiết bị khác (Chỉ dùng H2, không dùng H3)", "Laptop (Chuẩn H2 + H3)"]
+        article_genre = st.selectbox(
+            "🎯 Chế độ áp dụng thể loại:",
+            [
+                "🤖 Tự động nhận diện (Theo bài gốc & Google Docs)",
+                "👋 Ép viết theo: Trên tay",
+                "⭐ Ép viết theo: Đánh giá chi tiết",
+                "⚖️ Ép viết theo: So sánh (A vs B)"
+            ]
         )
         source_name = st.text_input("🌐 Tên trang web nguồn:", placeholder="Ví dụ: Windows Central, PCMag, NotebookCheck...")
         exchange_rate = st.number_input("💱 Tỷ giá quy đổi (USD/VND):", value=25850, step=50)
 
     st.markdown("<br>", unsafe_allow_html=True)
-    btn_generate = st.button("🚀 Bắt đầu tạo bài viết tự động", use_container_width=True)
+    btn_generate = st.button("🚀 BẮT ĐẦU TẠO BÀI VIẾT TỰ ĐỘNG", use_container_width=True)
 
 # -------------------------------------------------------------
-# 5. XỬ LÝ VIẾT BÀI VỚI QUY CHUẨN TỪ GOOGLE DOCS
+# 5. XỬ LÝ VIẾT BÀI VỚI QUY CHUẨN TỰ ĐỘNG TỪ GOOGLE DOCS
 # -------------------------------------------------------------
 if btn_generate:
     if not api_key:
         st.error("⚠️ Vui lòng cung cấp Gemini API Key!")
     else:
-        with st.spinner("Đang đọc quy chuẩn từ Google Doc và biên tập bài viết..."):
+        with st.spinner("Đang phân tích bài gốc, đối chiếu quy chuẩn Google Docs và biên tập..."):
             extracted_title = ""
             extracted_text = manual_content.strip()
             images_found = []
@@ -256,36 +257,31 @@ if btn_generate:
                 
             detected_source = source_name if source_name else ("bài gốc" if not url_input else url_input.split("//")[-1].split("/")[0])
             
-            # Sử dụng quy chuẩn đọc từ Google Docs (hoặc dự phòng)
-            rules_prompt = loaded_rules if loaded_rules else """
-QUY TẮC MẪU TRÊN TAY:
-1. Title: "Trên tay + [Tên sản phẩm]:... + [giá quy đổi tiền Việt]"
-2. Slug: Viết thường, không dấu, cách nhau dấu gạch ngang.
-3. Page title: Bắt buộc từ 50 đến 60 ký tự.
-4. Page description: Bắt buộc từ 150 đến 160 ký tự.
-5. Meta Keywords: Bắt buộc đúng 3 từ khóa, chỉ gồm "trên tay + tên sản phẩm", viết thường toàn bộ, cách nhau bằng dấu phẩy.
-6. Sapo: Bắt đầu bằng "Trên tay + [Tên sản phẩm]", đúng 1 câu dài 2 dòng.
-7. Đoạn mở bài: 1 đoạn ngắn (3-4 câu) sau Sapo trước H2 đầu tiên.
-8. Thân bài:
-- Laptop: H2 Thiết kế (H3 Thiết kế 1 ảnh, H3 Bàn phím 2 ảnh); H2 Màn hình; H2 Cấu hình; H2 Tạm kết (2 đoạn có quy đổi giá).
-- Phụ kiện: 3 - 5 mục H2 (không dùng H3), mỗi H2 có câu tóm tắt, khung ảnh 1200x675 (Alt text bắt đầu bằng Trên tay + tên sản phẩm), câu dẫn sản phẩm CellphoneS.
-9. Dòng cuối cùng: "Nguồn: [Tên nguồn]"
-"""
+            rules_prompt = loaded_rules if loaded_rules else "Áp dụng cấu trúc bài viết chuẩn Sforum."
 
             SYSTEM_PROMPT = f"""
 Bạn là Tổng biên tập kiêm Biên tập viên công nghệ cao cấp của Sforum (CellphoneS).
-Nhiệm vụ của bạn là áp dụng BỘ QUY CHUẨN ĐƯỢC CUNG CẤP DƯỚI ĐÂY để chuyển thể bài đánh giá nước ngoài thành bài viết tiếng Việt CHUYÊN SÂU (1000 - 1500 từ), ĐẦY ĐỦ TẤT CẢ CÁC Ý, TUYỆT ĐỐI KHÔNG TÓM TẮT SƠ SÀI.
+Nhiệm vụ của bạn là đọc kỹ BỘ QUY CHUẨN ĐƯỢC ĐỌC TỪ GOOGLE DOCS DƯỚI ĐÂY, tự động đối chiếu với nội dung bài viết gốc để biên tập thành một bài viết tiếng Việt CHUYÊN SÂU (1000 - 1500 từ), ĐẦY ĐỦ TẤT CẢ CÁC Ý, TUYỆT ĐỐI KHÔNG TÓM TẮT SƠ SÀI.
 
 Tỷ giá quy đổi hiện tại: 1 USD = {exchange_rate:,} VNĐ.
+Nguồn bài viết: {detected_source}
+Chế độ yêu cầu: {article_genre}
 
-BỘ QUY CHUẨN THỰC THI (ĐƯỢC ĐỌC TỪ GOOGLE DOCS):
+TOÀN BỘ BỘ QUY CHUẨN THỰC THI (ĐỌC TRỰC TIẾP TỪ GOOGLE DOCS CỦA NGƯỜI DÙNG):
 ---
 {rules_prompt}
 ---
 
-LƯU Ý THÊM:
-- Phân loại sản phẩm hiện tại: {product_type}
-- Nguồn bài viết: {detected_source}
+HƯỚNG DẪN THỰC THI TỰ ĐỘNG:
+1. Xác định thể loại và sản phẩm:
+   - Phân tích bài gốc để biết sản phẩm là Laptop hay Phụ kiện / Thiết bị khác.
+   - Nhận diện đúng thể loại bài (Nếu chế độ yêu cầu là Ép viết thì làm theo chế độ đó; nếu là Tự động thì tự nhận diện là Trên tay, Đánh giá, hay So sánh dựa trên nội dung bài gốc).
+2. Đối chiếu mục tương ứng trong Google Docs:
+   - Hãy tìm đúng phần hướng dẫn tương ứng trong văn bản Google Docs ở trên (Ví dụ: 'Trên tay đối với sản phẩm là laptop', 'Trên tay đối với sản phẩm khác không phải laptop', 'Đánh giá đối với sản phẩm là laptop', 'So sánh...', v.v.) và làm đúng 100% từng đề mục H1, Sapo, H2, H3, hình ảnh, alt text, câu tóm tắt, phần kết bài.
+   - Bất kỳ thể loại nào mới (như So sánh, Tin tức, Thủ thuật) mà người dùng thêm vào văn bản Google Docs ở trên, bạn phải nhận diện và tuân thủ tuyệt đối.
+3. Độ dài & Chi tiết:
+   - Bài viết bắt buộc dài 1000 - 1500 từ, hành văn tự nhiên, cuốn hút.
+   - Giữ nguyên các thông số kỹ thuật, trải nghiệm khen chê, chi tiết phụ kiện, phần mềm từ bài gốc.
 """
 
             user_prompt = f"""
@@ -298,7 +294,7 @@ NỘI DUNG BÀI GỐC:
 ---
 {extracted_text[:25000]}
 ---
-Hãy viết hoàn chỉnh bài viết theo đúng 100% các tiêu chí trong Bộ quy chuẩn Google Docs ở trên.
+Hãy đọc kỹ toàn bộ quy chuẩn Google Docs và viết bài viết hoàn chỉnh, sâu sắc nhất.
 """
             try:
                 client = genai.Client(api_key=api_key)
