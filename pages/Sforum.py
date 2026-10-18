@@ -214,13 +214,14 @@ with st.container(border=True):
         )
 
     with c2:
-        article_genre = st.selectbox(
-            "🎯 Chế độ áp dụng thể loại:",
+               article_genre = st.selectbox(
+            "🎯 Thể loại bài viết:",
             [
                 "🤖 Tự động nhận diện (Theo bài gốc & Google Docs)",
-                "👋 Ép viết theo: Trên tay",
-                "⭐ Ép viết theo: Đánh giá chi tiết",
-                "⚖️ Ép viết theo: So sánh (A vs B)"
+                "👋 Trên tay",
+                "⭐ Đánh giá chi tiết",
+                "⚖️ So sánh (A vs B)",
+                "💡 Tuyến bài: Tư vấn"
             ]
         )
         source_name = st.text_input("🌐 Tên trang web nguồn:", placeholder="Ví dụ: Windows Central, PCMag, NotebookCheck...")
