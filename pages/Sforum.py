@@ -146,7 +146,7 @@ doc_link = "https://docs.google.com/document/d/1_bl4RrRBs4mv521i45FqVJzUe9Yh4ZOl
 loaded_rules = fetch_google_doc_text(doc_link)
 
 if loaded_rules:
-    st.success(f"🟢 Đã kết nối trực tiếp với Google Docs ({len(loaded_rules.split())} từ quy chuẩn). Khi bạn thêm mục 'So sánh' hay sửa luật trong Doc, web sẽ tự cập nhật theo!")
+    st.success(f"🟢 Đã kết nối trực tiếp với Google Docs ({len(loaded_rules.split())} từ quy chuẩn). Mọi thay đổi trong Doc đều tự động cập nhật ngay!")
 else:
     st.warning("⚠️ Chưa đọc được file Google Doc, vui lòng đảm bảo file bật quyền 'Bất kỳ ai có liên kết đều xem được'.")
 
@@ -200,7 +200,7 @@ def extract_content_from_url(url: str):
         return "", "", []
 
 # -------------------------------------------------------------
-# 4. KHUNG NHẬP LIỆU GIAO DIỆN (SẠCH SẼ, KHÔNG HỘP RỖNG)
+# 4. KHUNG NHẬP LIỆU GIAO DIỆN
 # -------------------------------------------------------------
 with st.container(border=True):
     c1, c2 = st.columns([2, 1], gap="large")
@@ -214,13 +214,13 @@ with st.container(border=True):
         )
 
     with c2:
-               article_genre = st.selectbox(
+        article_genre = st.selectbox(
             "🎯 Thể loại bài viết:",
             [
                 "🤖 Tự động nhận diện (Theo bài gốc & Google Docs)",
-                "👋 Trên tay",
-                "⭐ Đánh giá chi tiết",
-                "⚖️ So sánh (A vs B)",
+                "👋 Tuyến bài: Trên tay",
+                "⭐ Tuyến bài: Đánh giá chi tiết",
+                "⚖️ Tuyến bài: So sánh (A vs B)",
                 "💡 Tuyến bài: Tư vấn"
             ]
         )
@@ -276,10 +276,10 @@ TOÀN BỘ BỘ QUY CHUẨN THỰC THI (ĐỌC TRỰC TIẾP TỪ GOOGLE DOCS C�
 HƯỚNG DẪN THỰC THI TỰ ĐỘNG:
 1. Xác định thể loại và sản phẩm:
    - Phân tích bài gốc để biết sản phẩm là Laptop hay Phụ kiện / Thiết bị khác.
-   - Nhận diện đúng thể loại bài (Nếu chế độ yêu cầu là Ép viết thì làm theo chế độ đó; nếu là Tự động thì tự nhận diện là Trên tay, Đánh giá, hay So sánh dựa trên nội dung bài gốc).
+   - Nhận diện đúng thể loại bài (Nếu chọn tuyến bài cụ thể thì làm theo tuyến bài đó; nếu là Tự động thì tự nhận diện là Trên tay, Đánh giá, So sánh, hay Tư vấn dựa trên nội dung bài gốc).
 2. Đối chiếu mục tương ứng trong Google Docs:
-   - Hãy tìm đúng phần hướng dẫn tương ứng trong văn bản Google Docs ở trên (Ví dụ: 'Trên tay đối với sản phẩm là laptop', 'Trên tay đối với sản phẩm khác không phải laptop', 'Đánh giá đối với sản phẩm là laptop', 'So sánh...', v.v.) và làm đúng 100% từng đề mục H1, Sapo, H2, H3, hình ảnh, alt text, câu tóm tắt, phần kết bài.
-   - Bất kỳ thể loại nào mới (như So sánh, Tin tức, Thủ thuật) mà người dùng thêm vào văn bản Google Docs ở trên, bạn phải nhận diện và tuân thủ tuyệt đối.
+   - Tìm đúng phần hướng dẫn tương ứng trong văn bản Google Docs ở trên (Ví dụ: Trên tay, Đánh giá, So sánh, Tư vấn... dành cho Laptop hoặc Phụ kiện) và làm đúng 100% từng đề mục H1, Sapo, H2, H3, hình ảnh, alt text, câu tóm tắt, phần kết bài.
+   - Bất kỳ thể loại nào mới mà người dùng thêm vào văn bản Google Docs, bạn phải nhận diện và tuân thủ tuyệt đối.
 3. Độ dài & Chi tiết:
    - Bài viết bắt buộc dài 1000 - 1500 từ, hành văn tự nhiên, cuốn hút.
    - Giữ nguyên các thông số kỹ thuật, trải nghiệm khen chê, chi tiết phụ kiện, phần mềm từ bài gốc.
