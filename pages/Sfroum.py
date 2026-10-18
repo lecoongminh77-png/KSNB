@@ -6,60 +6,167 @@ from google import genai
 from google.genai import types
 
 # -------------------------------------------------------------
-# CẤU HÌNH TRANG STREAMLIT
+# 1. CẤU HÌNH TRANG & GIAO DIỆN DARK TECH SFORUM
 # -------------------------------------------------------------
 st.set_page_config(
     page_title="Sforum Auto Content Creator",
-    page_icon="✍️",
-    layout="wide"
+    page_icon="🔥",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-st.title("✍️ Sforum Content Generator - Chuẩn Form Trên Tay (Bản Chuyên Sâu)")
-st.caption("Chuyển thể bài review quốc tế thành bài viết Trên tay chi tiết, đầy đủ 100% ý, chuẩn SEO Sforum.")
+# Chèn CSS tùy biến giao diện cao cấp
+st.markdown("""
+<style>
+    /* Nền tổng thể phong cách Tech Dark */
+    .stApp {
+        background: radial-gradient(circle at 10% 20%, #171923 0%, #0c0d12 90%);
+        color: #f1f5f9;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    /* Tiêu đề chính hiệu ứng Gradient Đỏ CellphoneS */
+    .hero-title {
+        font-size: 2.3rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #ff2a55 0%, #d70018 50%, #ff6b4a 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 4px;
+        letter-spacing: -0.5px;
+    }
+
+    .hero-subtitle {
+        color: #94a3b8;
+        font-size: 0.95rem;
+        margin-bottom: 24px;
+    }
+
+    /* Thẻ bao bọc nội dung (Glassmorphism card) */
+    .tech-box {
+        background: rgba(30, 41, 59, 0.45);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 16px;
+        padding: 20px 24px;
+        margin-bottom: 20px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        backdrop-filter: blur(12px);
+    }
+
+    /* Tùy biến nút bấm chính màu đỏ rực rỡ */
+    div.stButton > button:first-child {
+        background: linear-gradient(135deg, #d70018 0%, #ff2a55 100%) !important;
+        color: #ffffff !important;
+        border: none !important;
+        border-radius: 12px !important;
+        padding: 14px 28px !important;
+        font-weight: 700 !important;
+        font-size: 1.05rem !important;
+        letter-spacing: 0.5px !important;
+        box-shadow: 0 6px 20px rgba(215, 0, 24, 0.4) !important;
+        transition: all 0.25s ease-in-out !important;
+        width: 100% !important;
+    }
+
+    div.stButton > button:first-child:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 10px 28px rgba(255, 42, 85, 0.6) !important;
+        filter: brightness(1.1) !important;
+    }
+
+    /* Tùy biến các ô nhập liệu (Inputs) */
+    .stTextInput > div > div > input, 
+    .stTextArea > div > div > textarea, 
+    .stSelectbox > div > div {
+        background-color: rgba(15, 23, 42, 0.7) !important;
+        border: 1px solid rgba(255, 255, 255, 0.12) !important;
+        border-radius: 10px !important;
+        color: #ffffff !important;
+        font-size: 0.95rem !important;
+    }
+
+    .stTextInput > div > div > input:focus, 
+    .stTextArea > div > div > textarea:focus {
+        border-color: #ff2a55 !important;
+        box-shadow: 0 0 0 2px rgba(255, 42, 85, 0.25) !important;
+    }
+
+    /* Thanh Menu Tab chuyển đổi */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 10px;
+        background-color: rgba(15, 23, 42, 0.6);
+        padding: 6px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .stTabs [data-baseweb="tab"] {
+        border-radius: 8px;
+        color: #94a3b8;
+        font-weight: 600;
+        padding: 8px 18px;
+    }
+
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, #d70018 0%, #ff2a55 100%) !important;
+        color: #ffffff !important;
+        border-radius: 8px !important;
+    }
+
+    /* Thanh Sidebar bên trái */
+    [data-testid="stSidebar"] {
+        background-color: #0b0d13;
+        border-right: 1px solid rgba(255, 255, 255, 0.05);
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # -------------------------------------------------------------
-# LẤY API KEY
+# 2. HEADER
+# -------------------------------------------------------------
+st.markdown('<div class="hero-title">🔥 Sforum Content Studio</div>', unsafe_allow_html=True)
+st.markdown('<div class="hero-subtitle">Hệ thống AI tự động hóa bài viết Trên tay & Đánh giá công nghệ chuẩn SEO CellphoneS</div>', unsafe_allow_html=True)
+
+# -------------------------------------------------------------
+# 3. LẤY API KEY
 # -------------------------------------------------------------
 api_key = None
 if "GEMINI_API_KEY" in st.secrets:
     api_key = st.secrets["GEMINI_API_KEY"]
 else:
-    api_key = st.sidebar.text_input("🔑 Nhập Gemini API Key:", type="password")
+    api_key = st.sidebar.text_input("🔑 Gemini API Key:", type="password")
 
 # -------------------------------------------------------------
-# HÀM CÀO DỮ LIỆU NÂNG CAO
+# 4. HÀM CÀO DỮ LIỆU
 # -------------------------------------------------------------
 def extract_content_from_url(url: str):
     try:
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             "Accept-Language": "en-US,en;q=0.9,vi;q=0.8",
         }
         resp = requests.get(url, headers=headers, timeout=20)
         resp.raise_for_status()
         soup = BeautifulSoup(resp.text, "html.parser")
         
-        # Bỏ script, style và menu thừa
         for s in soup(["script", "style", "nav", "footer", "header", "noscript", "aside"]):
             s.decompose()
             
         title = soup.find("h1")
         title_text = title.get_text(strip=True) if title else ""
         
-        # Tìm vùng chứa bài viết chính
         article_body = soup.find("article") or soup.find(id=re.compile(r"article-body|content|main", re.I)) or soup.find("main")
         target = article_body if article_body else soup
         
         paragraphs = []
         for elem in target.find_all(["h2", "h3", "p", "li"]):
             txt = elem.get_text(strip=True)
-            if len(txt) > 25 and not any(skip in txt.lower() for skip in ["subscribe", "sign up", "newsletter", "cookie", "privacy policy"]):
+            if len(txt) > 25 and not any(skip in txt.lower() for skip in ["subscribe", "sign up", "newsletter", "cookie", "privacy"]):
                 paragraphs.append(txt)
                 
         content = "\n\n".join(paragraphs)
         
-        # Lấy link ảnh
         images = []
         for img in target.find_all("img"):
             src = img.get("src") or img.get("data-src") or img.get("data-original")
@@ -74,34 +181,37 @@ def extract_content_from_url(url: str):
         return "", "", []
 
 # -------------------------------------------------------------
-# GIAO DIỆN NHẬP LIỆU
+# 5. KHUNG NHẬP LIỆU GIAO DIỆN
 # -------------------------------------------------------------
-col1, col2 = st.columns([2, 1])
+st.markdown('<div class="tech-box">', unsafe_allow_html=True)
+col1, col2 = st.columns([2, 1], gap="medium")
 
 with col1:
-    url_input = st.text_input("🔗 Nhập URL bài viết gốc:")
+    url_input = st.text_input("🔗 Nhập URL bài viết gốc:", placeholder="https://www.windowscentral.com/...")
     manual_content = st.text_area(
-        "📝 Hoặc dán trực tiếp toàn bộ nội dung bài gốc (Khuyên dùng để lấy đủ 100% ý):", 
-        height=250,
-        placeholder="Mẹo: Nếu bài gốc dài hoặc chặn cào tự động, bạn chỉ cần mở link bài gốc, bấm Ctrl + A > Ctrl + C rồi dán vào đây để AI phân tích đầy đủ nhất!"
+        "📝 Hoặc dán trực tiếp toàn bộ nội dung bài gốc (Khuyên dùng):", 
+        height=220,
+        placeholder="Mẹo: Mở trang báo gốc, bấm Ctrl + A > Ctrl + C rồi dán vào đây để AI đọc đủ 100% nội dung không bị thiếu chữ..."
     )
 
 with col2:
     product_type = st.selectbox(
-        "📦 Loại sản phẩm:",
+        "📦 Phân loại sản phẩm:",
         ["Phụ kiện / Thiết bị khác (Chỉ dùng H2, không dùng H3)", "Laptop (Chuẩn H2 + H3)"]
     )
     source_name = st.text_input("🌐 Tên trang web nguồn:", placeholder="Ví dụ: Windows Central, PCMag, NotebookCheck...")
-    exchange_rate = st.number_input("💱 Tỷ giá USD/VND hiện tại:", value=25850, step=50)
+    exchange_rate = st.number_input("💱 Tỷ giá quy đổi (USD/VND):", value=25850, step=50)
+
+st.markdown('</div>', unsafe_allow_html=True)
 
 # -------------------------------------------------------------
-# NÚT XỬ LÝ
+# 6. BỘ XỬ LÝ & TẠO BÀI VIẾT
 # -------------------------------------------------------------
-if st.button("🚀 Bắt đầu tạo bài viết tự động", type="primary", use_container_width=True):
+if st.button("🚀 BẮT ĐẦU TẠO BÀI VIẾT CHUẨN SFORUM", use_container_width=True):
     if not api_key:
-        st.error("Vui lòng nhập API Key!")
+        st.error("⚠️ Vui lòng nhập hoặc cấu hình Gemini API Key!")
     else:
-        with st.spinner("Đang xử lý nội dung chuyên sâu..."):
+        with st.spinner("⚡ Đang phân tích dữ liệu và biên tập bài viết chuyên sâu..."):
             extracted_title = ""
             extracted_text = manual_content.strip()
             images_found = []
@@ -111,13 +221,13 @@ if st.button("🚀 Bắt đầu tạo bài viết tự động", type="primary",
                 if not extracted_text:
                     extracted_text = web_content
                     if extracted_text:
-                        st.info(f"📊 Đã cào được khoảng {len(extracted_text.split())} từ từ URL.")
+                        st.info(f"📊 Đã cào được khoảng **{len(extracted_text.split())} từ** từ bài gốc.")
                     else:
-                        st.warning("⚠️ Không thể tự động cào văn bản từ URL do trang web chặn. Bạn hãy copy toàn bộ chữ bài gốc dán vào ô bên dưới nhé!")
+                        st.warning("⚠️ Trang web chặn cào tự động. Bạn hãy copy toàn bộ chữ bài gốc dán vào ô bên dưới nhé!")
                         st.stop()
             
             if not extracted_text:
-                st.error("Chưa có nội dung bài gốc! Vui lòng nhập link hoặc dán chữ bài gốc.")
+                st.error("Chưa có nội dung bài gốc! Vui lòng nhập URL hoặc dán nội dung văn bản.")
                 st.stop()
                 
             detected_source = source_name if source_name else ("bài gốc" if not url_input else url_input.split("//")[-1].split("/")[0])
@@ -196,16 +306,23 @@ YÊU CẦU: Hãy đọc kỹ toàn bộ nội dung bài gốc trên, viết mộ
                 )
                 
                 result_text = response.text
+                st.balloons()
                 st.success("🎉 Bài viết đã được tạo hoàn chỉnh và chuyên sâu!")
                 
                 tab_article, tab_seo, tab_raw = st.tabs(["📄 Bài viết hoàn chỉnh", "🎯 Trường SEO CMS", "📋 Mã Markdown"])
                 
                 with tab_article:
-                    st.markdown(result_text)
-                    st.download_button("📥 Tải bài viết (.txt)", data=result_text, file_name="bai-viet-sforum.txt", mime="text/plain")
+                    st.markdown(f'<div class="tech-box">{result_text}</div>', unsafe_allow_html=True)
+                    st.download_button(
+                        "📥 Tải bài viết (.txt)", 
+                        data=result_text, 
+                        file_name="bai-viet-sforum.txt", 
+                        mime="text/plain"
+                    )
                     
                 with tab_seo:
-                    st.subheader("Copy nhanh vào hệ thống CMS:")
+                    st.markdown('<div class="tech-box">', unsafe_allow_html=True)
+                    st.subheader("📋 Sao chép nhanh vào CMS:")
                     title_match = re.search(r"Title:(.*)", result_text, re.IGNORECASE)
                     slug_match = re.search(r"Slug:(.*)", result_text, re.IGNORECASE)
                     page_title_match = re.search(r"Page title:(.*)", result_text, re.IGNORECASE)
@@ -219,6 +336,7 @@ YÊU CẦU: Hãy đọc kỹ toàn bộ nội dung bài gốc trên, viết mộ
                     st.text_area("Page Description (< 160 ký tự):", value=page_desc_match.group(1).strip() if page_desc_match else "", height=80)
                     st.text_input("Meta Keywords (3 từ cách nhau dấu phẩy):", value=keywords_match.group(1).strip() if keywords_match else "")
                     st.text_input("Tags:", value=tags_match.group(1).strip() if tags_match else "")
+                    st.markdown('</div>', unsafe_allow_html=True)
                     
                 with tab_raw:
                     st.code(result_text, language="markdown")
