@@ -49,7 +49,6 @@ st.markdown(
         margin-top: 2px;
         font-weight: 500;
     }
-    /* Style cho các nút điều hướng */
     div.stButton > button:first-child {
         background: #0071e3 !important;
         color: #ffffff !important;
@@ -68,10 +67,9 @@ st.markdown(
 # ==============================================================================
 # THANH ĐIỀU HƯỚNG CỐ ĐỊNH (LUÔN HIỆN Ở MỌI TRANG)
 # ==============================================================================
-col_nav1, col_nav2, _ = st.columns([1.5, 1.8, 6.7])
+col_nav1, col_nav2, _ = st.columns([2.2, 1.8, 6.0])
 with col_nav1:
-  # Nút này đang ở trang HRC, nên ta có thể để dạng đang chọn hoặc nút bấm chuyển
-  if st.button('📑 Đối Chiếu HRC', use_container_width=True):
+  if st.button('📑 Đối Chiếu Nghiệm Thu HRC', use_container_width=True):
     pass
 with col_nav2:
   if st.button('✍️ Sforum', use_container_width=True):
