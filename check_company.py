@@ -1,6 +1,5 @@
 import os
 import smtplib
-import ssl
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -33,13 +32,18 @@ def send_email(companies):
     message.attach(MIMEText(html_content, "html"))
 
     try:
-        context = ssl.create_default_context()
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
-            server.login(sender_email, sender_password)
-            server.sendmail(sender_email, receiver_email, message.as_string())
+        # Sử dụng port 587 và STARTTLS thích hợp tuyệt đối cho môi trường cloud của GitHub Actions
+        print(f"Đang kết nối tới SMTP server bằng tài khoản: {sender_email}")
+        server = smtplib.SMTP("smtp.gmail.com", 587, timeout=15)
+        server.ehlo()
+        server.starttls()
+        server.ehlo()
+        server.login(sender_email, sender_password)
+        server.sendmail(sender_email, receiver_email, message.as_string())
+        server.quit()
         print("Gửi email thành công!")
     except Exception as e:
-        print(f"Lỗi gửi email: {e}")
+        print(f"Lỗi gửi email chi tiết: {e}")
 
 if __name__ == "__main__":
     data = check_new_companies()
