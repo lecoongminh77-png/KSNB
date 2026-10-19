@@ -82,6 +82,12 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# Thanh nút bấm tiện ích trên cùng màn hình (Có lại nút Sforum)
+col_nav1, _ = st.columns([1.5, 8.5])
+with col_nav1:
+  if st.button('✍️ Sforum', use_container_width=True):
+    st.switch_page('pages/Sforum.py')
+
 st.markdown(
     "<hr style='border: none; border-top: 1px solid #e2e8f0; margin: 15px 0"
     " 25px 0;'>",
