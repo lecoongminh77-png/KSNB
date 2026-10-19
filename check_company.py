@@ -1,11 +1,10 @@
 import os
 import smtplib
+import ssl
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 def check_new_companies():
-    # TODO: Thêm logic lấy dữ liệu công ty mới đăng ký tại các khu vực: Biên Hòa, Nhơn Trạch, Long Thành và Đồng Nai
-    # Danh sách giả lập mẫu các khu vực bạn yêu cầu:
     companies = [
         {"name": "Công ty TNHH Nhơn Trạch Phát", "address": "Khu công nghiệp Nhơn Trạch, Đồng Nai", "date": "2026-10-19"},
         {"name": "Công ty CP Long Thành Logistics", "address": "Huyện Long Thành, Đồng Nai", "date": "2026-10-19"},
@@ -28,18 +27,16 @@ def send_email(companies):
     html_content += "</ul>"
 
     message = MIMEMultipart("alternative")
-    message["Subject"] = "Báo cáo công ty mới khu vực Đồng Nai (Biên Hòa, Long Thành, Nhơn Trạch)"
+    message["Subject"] = "Báo cáo công ty mới khu vực Đồng Nai"
     message["From"] = sender_email
     message["To"] = receiver_email
     message.attach(MIMEText(html_content, "html"))
 
     try:
-        # Sử dụng cổng 587 và STARTTLS chuẩn để kết nối ổn định với Gmail
-        server = smtplib.SMTP("smtp.gmail.com", 587)
-        server.starttls()
-        server.login(sender_email, sender_password)
-        server.sendmail(sender_email, receiver_email, message.as_string())
-        server.quit()
+        context = ssl.create_default_context()
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
+            server.login(sender_email, sender_password)
+            server.sendmail(sender_email, receiver_email, message.as_string())
         print("Gửi email thành công!")
     except Exception as e:
         print(f"Lỗi gửi email: {e}")
