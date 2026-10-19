@@ -22,7 +22,7 @@ def send_email(companies):
     sender_password = os.environ.get("MAIL_PASSWORD")
     receiver_email = os.environ.get("MAIL_USERNAME")
 
-    html_content = "<h2>Danh sách công ty mới đăng ký (Biên Hòa, Nhơn Trạch, Long Thành):</h2><ul>"
+    html_content = "<h2>Danh sách công ty mới đăng ký (Biên Hòa, Nhơn Trạch, Long Thành, Đồng Nai):</h2><ul>"
     for c in companies:
         html_content += f"<li><b>{c['name']}</b> - Địa chỉ: {c['address']} (Ngày ĐK: {c['date']})</li>"
     html_content += "</ul>"
@@ -34,9 +34,12 @@ def send_email(companies):
     message.attach(MIMEText(html_content, "html"))
 
     try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(sender_email, sender_password)
-            server.sendmail(sender_email, receiver_email, message.as_string())
+        # Sử dụng cổng 587 và STARTTLS chuẩn để kết nối ổn định với Gmail
+        server = smtplib.SMTP("smtp.gmail.com", 587)
+        server.starttls()
+        server.login(sender_email, sender_password)
+        server.sendmail(sender_email, receiver_email, message.as_string())
+        server.quit()
         print("Gửi email thành công!")
     except Exception as e:
         print(f"Lỗi gửi email: {e}")
