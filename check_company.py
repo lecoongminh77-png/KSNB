@@ -32,9 +32,9 @@ def send_email(companies):
     message.attach(MIMEText(html_content, "html"))
 
     try:
-        # Sử dụng port 587 và STARTTLS thích hợp tuyệt đối cho môi trường cloud của GitHub Actions
-        print(f"Đang kết nối tới SMTP server bằng tài khoản: {sender_email}")
-        server = smtplib.SMTP("smtp.gmail.com", 587, timeout=15)
+        print(f"Đang kết nối tới Gmail qua cổng 587 cho tài khoản: {sender_email}")
+        # Chuyển sang cổng 587 và STARTTLS - cổng tối ưu nhất cho GitHub Actions
+        server = smtplib.SMTP("smtp.gmail.com", 587, timeout=30)
         server.ehlo()
         server.starttls()
         server.ehlo()
