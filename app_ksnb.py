@@ -192,3 +192,237 @@ with t2:
 
 with t3:
     st.dataframe(df[['Kho', 'Ma_cuon', 'Ma_hang', 'Ten_hang', 'Phan_loai', 'BMT', 'Net_KG', 'So_met', 'Ty_trong']], use_container_width=True)
+# ==============================================================================
+# KHỐI ĐỐI CHIẾU NGHIỆM THU HRC (5 FILE RỜI)
+# ==============================================================================
+import io
+import pandas as pd
+import streamlit as st
+
+
+def doi_chieu_hrc_tung_file():
+  st.markdown('---')
+  st.subheader('📑 ĐỐI CHIẾU NGHIỆM THU HRC (PHÚ MỸ)')
+  st.caption('Nạp trực tiếp các file báo cáo thô từ từng nguồn để đối soát.')
+
+  col1, col2 = st.columns(2)
+  with col1:
+    f_bbnt = st.file_uploader(
+        '1. File Biên bản nghiệm thu (BBNT)', type=['xlsx', 'xls']
+    )
+    f_pl = st.file_uploader(
+        '2. File Packing List nhà cung cấp', type=['xlsx', 'xls']
+    )
+    f_tc = st.file_uploader('3. File Dữ liệu Trạm cân', type=['xlsx', 'xls'])
+  with col2:
+    f_bv = st.file_uploader('4. File Dữ liệu Nhập Bảo vệ', type=['xlsx', 'xls'])
+    f_opm = st.file_uploader(
+        '5. File Báo cáo ERP OPM 105', type=['xlsx', 'xls']
+    )
+
+  if f_bbnt is not None:
+    if st.button('🚀 Bắt đầu đối chiếu tự động', use_container_width=True):
+      with st.spinner('Đang đối soát dữ liệu 4 bên...'):
+        try:
+          # 1. Đọc BBNT
+          df_bbnt = pd.read_excel(f_bbnt, skiprows=7)
+          df_bbnt = df_bbnt.dropna(subset=[df_bbnt.columns[3]]).copy()
+
+          col_ma_cuon = df_bbnt.columns[3]
+          col_phieu_can = df_bbnt.columns[4]
+          col_net_ct = df_bbnt.columns[7]
+          col_gross_ct = df_bbnt.columns[8]
+
+          df_bbnt['Mã số cuộn'] = (
+              df_bbnt[col_ma_cuon].astype(str).str.strip().str.upper()
+          )
+          df_bbnt['Số phiếu cân'] = (
+              df_bbnt[col_phieu_can]
+              .astype(str)
+              .str.replace(r'\.0$', '', regex=True)
+              .str.strip()
+          )
+          df_bbnt['Mã hóa'] = df_bbnt['Mã số cuộn'] + 'A'
+
+          # 2. Packing List
+          if f_pl is not None:
+            df_pl = pd.read_excel(f_pl, skiprows=6)
+            col_pl_ma = df_pl.columns[7]
+            col_pl_net = df_pl.columns[11]
+            df_pl_clean = df_pl.dropna(subset=[col_pl_ma, col_pl_net]).copy()
+            df_pl_clean['Mã hóa'] = (
+                df_pl_clean[col_pl_ma].astype(str).str.strip().str.upper() + 'A'
+            )
+            df_pl_clean[col_pl_net] = pd.to_numeric(
+                df_pl_clean[col_pl_net], errors='coerce'
+            ).fillna(0)
+            dict_pl = (
+                df_pl_clean.groupby('Mã hóa')[col_pl_net].sum().to_dict()
+            )
+            df_bbnt['KL net theo PL'] = (
+                df_bbnt['Mã hóa'].map(dict_pl).fillna(0)
+            )
+            df_bbnt['Đối chiếu PL'] = (
+                pd.to_numeric(df_bbnt[col_net_ct], errors='coerce').fillna(0)
+                - df_bbnt['KL net theo PL']
+            )
+
+          # 3. Bảo vệ
+          if f_bv is not None:
+            df_bv = pd.read_excel(f_bv)
+            dict_bv_phieu = {}
+            dict_bv_kl = {}
+            df_bv_sub = df_bv.dropna(subset=['TÊN HÀNG HÓA']).copy()
+            df_bv_sub['TÊN HÀNG HÓA'] = (
+                df_bv_sub['TÊN HÀNG HÓA'].astype(str).str.upper()
+            )
+
+            for _, r in df_bv_sub.iterrows():
+              txt = r['TÊN HÀNG HÓA']
+              p_can = str(r['MÃ PHIẾU CÂN']).replace('.0', '').strip()
+              kl_can = r['KHỐI LƯỢNG PHIẾU CÂN']
+              for m in df_bbnt['Mã số cuộn']:
+                if m in txt and m not in dict_bv_phieu:
+                  dict_bv_phieu[m] = p_can
+                  dict_bv_kl[m] = kl_can
+
+            df_bbnt['Số phiếu cân (BV)'] = df_bbnt['Mã số cuộn'].map(
+                dict_bv_phieu
+            )
+            df_bbnt['Đối chiếu số phiếu cân'] = (
+                df_bbnt['Số phiếu cân'] == df_bbnt['Số phiếu cân (BV)']
+            )
+
+          # 4. Trạm cân & Dung sai
+          if f_tc is not None:
+            df_tc = pd.read_excel(f_tc)
+            df_tc['PHIẾU CÂN STR'] = (
+                df_tc['PHIẾU CÂN']
+                .astype(str)
+                .str.replace(r'\.0$', '', regex=True)
+                .str.strip()
+            )
+            df_tc['KHỐI LƯỢNG PHIẾU CÂN'] = pd.to_numeric(
+                df_tc['KHỐI LƯỢNG PHIẾU CÂN'], errors='coerce'
+            ).fillna(0)
+            dict_tc = dict(
+                zip(df_tc['PHIẾU CÂN STR'], df_tc['KHỐI LƯỢNG PHIẾU CÂN'])
+            )
+
+            df_bbnt['KL theo bc trạm cân'] = (
+                df_bbnt['Số phiếu cân'].map(dict_tc).fillna(0)
+            )
+            gross_val = (
+                pd.to_numeric(df_bbnt[col_gross_ct], errors='coerce')
+                .replace(0, pd.NA)
+                .fillna(1)
+            )
+            df_bbnt['Chênh lệch cân (kg)'] = (
+                df_bbnt['KL theo bc trạm cân'] - gross_val
+            )
+            df_bbnt['Chênh lệch dung sai'] = (
+                df_bbnt['Chênh lệch cân (kg)'] / gross_val
+            )
+            df_bbnt['Đánh giá dung sai (>+-0.3%)'] = df_bbnt[
+                'Chênh lệch dung sai'
+            ].apply(lambda x: 'VUOT DUNG SAI' if abs(x) > 0.003 else 'OK')
+
+          # 5. OPM105
+          if f_opm is not None:
+            df_opm = pd.read_excel(f_opm, skiprows=8)
+            col_opm_ma = df_opm.columns[0]
+            col_opm_loai = df_opm.columns[1]
+            col_opm_kl = df_opm.columns[10]
+            col_opm_kho = df_opm.columns[35]
+
+            df_opm_clean = df_opm.dropna(
+                subset=[col_opm_ma, col_opm_loai, col_opm_kl]
+            ).copy()
+            df_opm_clean['Mã Lô'] = (
+                df_opm_clean[col_opm_ma].astype(str).str.strip().str.upper()
+            )
+            df_opm_clean['Khối Lượng'] = pd.to_numeric(
+                df_opm_clean[col_opm_kl], errors='coerce'
+            ).fillna(0)
+            df_opm_clean['Mã Kho'] = (
+                df_opm_clean[col_opm_kho].astype(str).str.strip()
+            )
+
+            opm_035_po = (
+                df_opm_clean[
+                    (df_opm_clean['Mã Kho'] == '035')
+                    & (df_opm_clean[col_opm_loai] == 'PO Receipt')
+                ]
+                .groupby('Mã Lô')['Khối Lượng']
+                .sum()
+                .to_dict()
+            )
+            opm_035_rtv = (
+                df_opm_clean[
+                    (df_opm_clean['Mã Kho'] == '035')
+                    & (df_opm_clean[col_opm_loai] == 'Return to Vendor')
+                ]
+                .groupby('Mã Lô')['Khối Lượng']
+                .sum()
+                .to_dict()
+            )
+
+            df_bbnt['KL Nhập kho 035'] = df_bbnt['Mã hóa'].map(
+                lambda x: opm_035_po.get(x, 0) - abs(opm_035_rtv.get(x, 0))
+            )
+            if 'KL net theo PL' in df_bbnt.columns:
+              df_bbnt['Chênh lệch kho 035'] = (
+                  df_bbnt['KL net theo PL'] - df_bbnt['KL Nhập kho 035']
+              )
+
+          st.success('✅ Đã đối soát xong!')
+
+          m1, m2, m3 = st.columns(3)
+          m1.metric('Tổng số cuộn', f'{len(df_bbnt)} cuộn')
+          so_vuot_ds = (
+              len(
+                  df_bbnt[
+                      df_bbnt['Đánh giá dung sai (>+-0.3%)'] == 'VUOT DUNG SAI'
+                  ]
+              )
+              if 'Đánh giá dung sai (>+-0.3%)' in df_bbnt.columns
+              else 0
+          )
+          m2.metric('Vượt dung sai ±0.3%', f'{so_vuot_ds} cuộn')
+          so_lech_erp = (
+              len(df_bbnt[df_bbnt['Chênh lệch kho 035'] > 0])
+              if 'Chênh lệch kho 035' in df_bbnt.columns
+              else 0
+          )
+          m3.metric('Chưa đủ ERP', f'{so_lech_erp} cuộn')
+
+          st.dataframe(df_bbnt)
+
+          output = io.BytesIO()
+          with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df_bbnt.to_excel(writer, index=False, sheet_name='Ket_Qua')
+
+          st.download_button(
+              '📥 Tải Kết Quả Đối Chiếu (Excel)',
+              data=output.getvalue(),
+              file_name='Ket_Qua_Doi_Chieu_HRC.xlsx',
+          )
+
+        except Exception as e:
+          st.error(f'Lỗi xử lý: {e}')
+  else:
+    st.info('Vui lòng nạp tối thiểu File BBNT để bắt đầu.')
+
+
+# TẠO NÚT BẬT/TẮT RIÊNG BIỆT TRÊN MÀN HÌNH
+if 'hien_thi_tool_hrc' not in st.session_state:
+  st.session_state.hien_thi_tool_hrc = False
+
+st.sidebar.markdown('---')
+if st.sidebar.button(
+    '📑 MỞ ĐỐI CHIẾU NGHIỆM THU HRC', use_container_width=True
+):
+  st.session_state.hien_thi_tool_hrc = not st.session_state.hien_thi_tool_hrc
+
+if st.session_state.hien_thi_tool_hrc:
+  doi_chieu_hrc_tung_file()
