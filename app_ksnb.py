@@ -4,13 +4,13 @@ import pandas as pd
 import streamlit as st
 
 # -------------------------------------------------------------
-# CẤU HÌNH GIAO DIỆN CHUẨN APPLE & THANH TIỆN ÍCH
+# CẤU HÌNH GIAO DIỆN CHUẨN APPLE & THANH TIỆN ÍCH CỐ ĐỊNH
 # -------------------------------------------------------------
 st.set_page_config(
     page_title='Đối Chiếu Nghiệm Thu HRC - KSNB', page_icon='🛡️', layout='wide'
 )
 
-# CSS ẩn menu sidebar và tạo phong cách Apple
+# CSS ẩn menu sidebar và tùy chỉnh giao diện Apple
 st.markdown(
     """
 <style>
@@ -24,18 +24,18 @@ st.markdown(
         display: flex;
         justify-content: space-between;
         align-items: flex-end;
-        padding: 30px 0 15px 0;
-        margin-bottom: 10px;
+        padding: 20px 0 10px 0;
+        margin-bottom: 5px;
     }
     .apple-main-title {
-        font-size: 46px;
+        font-size: 40px;
         font-weight: 700;
         color: #1d1d1f;
         letter-spacing: -0.025em;
         margin: 0;
     }
     .apple-sub-text {
-        font-size: 19px;
+        font-size: 17px;
         font-weight: 600;
         color: #1d1d1f;
         text-align: right;
@@ -44,19 +44,20 @@ st.markdown(
     }
     .apple-sub-text span {
         color: #0071e3;
-        font-size: 15px;
+        font-size: 14px;
         display: block;
-        margin-top: 4px;
+        margin-top: 2px;
         font-weight: 500;
     }
+    /* Style cho các nút điều hướng */
     div.stButton > button:first-child {
         background: #0071e3 !important;
         color: #ffffff !important;
         border-radius: 980px !important;
         border: none !important;
-        padding: 12px 24px !important;
+        padding: 10px 20px !important;
         font-weight: 600 !important;
-        font-size: 15px !important;
+        font-size: 14px !important;
         box-shadow: 0 4px 12px rgba(0, 113, 227, 0.2) !important;
     }
 </style>
@@ -64,7 +65,25 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Header Tiện Ích
+# ==============================================================================
+# THANH ĐIỀU HƯỚNG CỐ ĐỊNH (LUÔN HIỆN Ở MỌI TRANG)
+# ==============================================================================
+col_nav1, col_nav2, _ = st.columns([1.5, 1.8, 6.7])
+with col_nav1:
+  # Nút này đang ở trang HRC, nên ta có thể để dạng đang chọn hoặc nút bấm chuyển
+  if st.button('📑 Đối Chiếu HRC', use_container_width=True):
+    pass
+with col_nav2:
+  if st.button('✍️ Sforum', use_container_width=True):
+    st.switch_page('pages/Sforum.py')
+
+st.markdown(
+    "<hr style='border: none; border-top: 1px solid #e2e8f0; margin: 10px 0"
+    " 20px 0;'>",
+    unsafe_allow_html=True,
+)
+
+# Header Trang
 st.markdown(
     """
 <div class="apple-header-box">
@@ -82,12 +101,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Thanh nút bấm tiện ích trên cùng màn hình (Có lại nút Sforum)
-col_nav1, _ = st.columns([1.5, 8.5])
-with col_nav1:
-  if st.button('✍️ Sforum', use_container_width=True):
-    st.switch_page('pages/Sforum.py')
-
 st.markdown(
     "<hr style='border: none; border-top: 1px solid #e2e8f0; margin: 15px 0"
     " 25px 0;'>",
@@ -96,7 +109,7 @@ st.markdown(
 
 
 # ==============================================================================
-# CHỨC NĂNG: ĐỐI CHIẾU NGHIỆM THU HRC (5 FILE RỜI - CHUẨN 20 CỘT VÀNG & TÔ ĐỎ)
+# CHỨC NĂNG: ĐỐI CHIẾU NGHIỆM THU HRC
 # ==============================================================================
 def doi_chieu_hrc_tung_file():
   st.caption(
@@ -122,11 +135,9 @@ def doi_chieu_hrc_tung_file():
     if st.button('🚀 Bắt đầu đối chiếu tự động', use_container_width=True):
       with st.spinner('Đang đối soát dữ liệu và định dạng màu...'):
         try:
-          # 1. ĐỌC BBNT
           df_bbnt = pd.read_excel(f_bbnt, skiprows=7)
           df_bbnt = df_bbnt.dropna(subset=[df_bbnt.columns[3]]).copy()
 
-          # Giữ lại các cột thông tin gốc (STT -> Khối lượng cân treo)
           base_cols = df_bbnt.columns[:13].tolist()
           res_df = df_bbnt[base_cols].copy()
 
@@ -152,7 +163,6 @@ def doi_chieu_hrc_tung_file():
           )
           ma_hoa = ma_cuon_clean + 'A'
 
-          # 2. XỬ LÝ PACKING LIST
           dict_pl = {}
           if f_pl is not None:
             df_pl = pd.read_excel(f_pl, skiprows=6)
@@ -177,7 +187,6 @@ def doi_chieu_hrc_tung_file():
                 .to_dict()
             )
 
-          # 3. XỬ LÝ DỮ LIỆU NHẬP BẢO VỆ
           dict_bv_phieu = {}
           dict_bv_kl = {}
           if f_bv is not None:
@@ -191,7 +200,6 @@ def doi_chieu_hrc_tung_file():
                   dict_bv_phieu[m] = p_can
                   dict_bv_kl[m] = kl_can
 
-          # 4. XỬ LÝ TRẠM CÂN
           dict_tc_kl = {}
           dict_tc_phanloai = {}
           if f_tc is not None:
@@ -216,7 +224,6 @@ def doi_chieu_hrc_tung_file():
             else:
               dict_tc_phanloai = dict(zip(tc_p, tc_pl))
 
-          # 5. XỬ LÝ OPM 105
           opm_035_po, opm_035_rtv, opm_031, opm_03g = {}, {}, {}, {}
           if f_opm is not None:
             df_opm = pd.read_excel(f_opm, skiprows=8)
@@ -275,9 +282,6 @@ def doi_chieu_hrc_tung_file():
                 .to_dict()
             )
 
-          # ==============================================================================
-          # GẮN ĐÚNG 20 CỘT VÀNG THEO YÊU CẦU
-          # ==============================================================================
           res_df['NHẬP/XUẤT'] = phieu_can_clean.map(
               lambda x: dict_tc_phanloai.get(x, 'Nhập hàng')
           )
@@ -358,9 +362,6 @@ def doi_chieu_hrc_tung_file():
               res_df['Khối lượng net theo PL'] - res_df['KL Nhập kho 03G-3H']
           )
 
-          # ==============================================================================
-          # XUẤT EXCEL: TÔ VÀNG HEADER & TÔ ĐỎ Ô SAI PHẠM
-          # ==============================================================================
           output = io.BytesIO()
           with pd.ExcelWriter(output, engine='openpyxl') as writer:
             res_df.to_excel(writer, index=False, sheet_name='BBNT_Doi_Chieu')
@@ -380,13 +381,11 @@ def doi_chieu_hrc_tung_file():
                 bottom=Side(style='thin', color='D9D9D9'),
             )
 
-            # Tô màu vàng đúng 20 cột đối chiếu ở Header Row 1
             for c in range(14, 34):
               cell = ws.cell(row=1, column=c)
               cell.fill = yellow_fill
               cell.font = Font(bold=True)
 
-            # Quét kiểm tra dữ liệu và TÔ ĐỎ ô bị SAI
             col_names = list(res_df.columns)
             for r_idx in range(2, len(res_df) + 2):
               for c_idx in range(1, len(col_names) + 1):
@@ -440,5 +439,4 @@ def doi_chieu_hrc_tung_file():
     st.info('👉 Hãy nạp tối thiểu File BBNT để bắt đầu đối chiếu.')
 
 
-# Gọi thực thi chức năng
 doi_chieu_hrc_tung_file()
