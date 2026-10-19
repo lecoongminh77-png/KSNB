@@ -382,4 +382,3 @@ else:
 
             with t2:
                 a2_all = df[df['Phan_loai'] == 'A2']
- 
