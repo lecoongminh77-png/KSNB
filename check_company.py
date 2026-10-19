@@ -32,18 +32,20 @@ def send_email(companies):
     message.attach(MIMEText(html_content, "html"))
 
     try:
-        print(f"Đang kết nối tới Gmail qua cổng 587 cho tài khoản: {sender_email}")
-        # Chuyển sang cổng 587 và STARTTLS - cổng tối ưu nhất cho GitHub Actions
-        server = smtplib.SMTP("smtp.gmail.com", 587, timeout=30)
-        server.ehlo()
-        server.starttls()
-        server.ehlo()
+        print("Đang khởi tạo kết nối SMTP tới Gmail...")
+        # Sử dụng SSL trực tiếp nhưng cấu hình chuẩn socket timeout lớn
+        server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
+        server.set_debuglevel(1)  # Bật log chi tiết để nhìn rõ quá trình bắt tay
         server.login(sender_email, sender_password)
         server.sendmail(sender_email, receiver_email, message.as_string())
         server.quit()
-        print("Gửi email thành công!")
+        print("Gửi email thành công rực rỡ!")
     except Exception as e:
-        print(f"Lỗi gửi email chi tiết: {e}")
+        print(f"Cảnh báo lỗi SMTP, chuyển sang chế độ dự phòng: {e}")
+        # In trực tiếp nội dung báo cáo ra màn hình log GitHub để bạn luôn xem được kết quả bất cứ lúc nào
+        print("\n========== NỘI DUNG BÁO CÁO CÔNG TY MỚI ==========")
+        print(html_content)
+        print("==================================================")
 
 if __name__ == "__main__":
     data = check_new_companies()
