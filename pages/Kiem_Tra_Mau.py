@@ -1,6 +1,18 @@
 import io
 import pandas as pd
 import streamlit as st
+import requests
+from streamlit_lottie import st_lottie
+
+# Hàm tải hình động
+def load_lottieurl(url: str):
+    r = requests.get(url)
+    if r.status_code != 200:
+        return None
+    return r.json()
+
+# Gắn link bạn vừa copy
+lottie_hoat_anh = load_lottieurl("https://lottie.host/654b9803-9ee2-4c1b-91e3-3f074d4f79d3/b4IPc6jdqR.json")
 
 st.set_page_config(
     page_title="Kiểm Tra Tồn Kho Cuộn",
@@ -219,4 +231,7 @@ if f_tonkho is not None:
             except Exception as e:
                 st.error(f"Lỗi xử lý file: {e}")
 else:
+    # Đoạn này sẽ hiện hình động nếu người dùng chưa nạp file
+    st_lottie(lottie_hoat_anh, height=300, key="cho_file")
     st.info("👉 Hãy nạp File Báo cáo Tồn Kho (Mẫu 2356) và File Dữ liệu Đối Chiếu để bắt đầu.")
+
