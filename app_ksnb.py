@@ -1,7 +1,7 @@
 import streamlit as st
 
 st.set_page_config(
-    page_title="Lê Công Minh Workspace",
+    page_title="Lê Công Minh",
     page_icon="💼",
     layout="wide"
 )
@@ -93,7 +93,6 @@ st.markdown("""
 
 <div class="header-box">
     <div class="main-title">💼 Lê Công Minh Workspace</div>
-    <div class="sub-title">Cổng điều phối các công cụ tự động hóa & kiểm soát dữ liệu</div>
 </div>
 """, unsafe_allow_html=True)
 
