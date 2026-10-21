@@ -35,7 +35,7 @@ if not st.session_state.da_xem_intro:
         st_lottie(lottie_welcome, height=350, key="welcome_animation")
         
     # Cho hệ thống dừng 3 giây để người dùng kịp nhìn animation
-    time.sleep(3)
+    time.sleep(5)
     
     # Đánh dấu là đã xem intro
     st.session_state.da_xem_intro = True
