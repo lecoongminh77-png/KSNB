@@ -1,4 +1,17 @@
+import sys
+import os
+
+# Chỉ đường cho Python tìm file ai_chat.py ở thư mục gốc
+thumuc_goc = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.append(thumuc_goc)
+
 from ai_chat import hien_thi_tro_ly_ai
+
+import streamlit as st
+# ==========================================
+# (TOÀN BỘ CODE CŨ CỦA TRANG NÀY GIỮ NGUYÊN BÊN DƯỚI)
+# ==========================================
+
 import io
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 import pandas as pd
