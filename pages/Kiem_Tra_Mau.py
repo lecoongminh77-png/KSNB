@@ -3,7 +3,7 @@ import pandas as pd
 import streamlit as st
 
 st.set_page_config(
-    page_title="Kiểm Tra Mẫu 2356 - Tồn Kho Cuộn",
+    page_title="Kiểm Tra Tồn Kho Cuộn",
     page_icon="📦",
     layout="wide"
 )
@@ -69,7 +69,7 @@ st.markdown("<hr style='border: none; border-top: 1px solid #e2e8f0; margin: 10p
 st.markdown("""
 <div class="apple-header-box">
     <div>
-        <h1 class="apple-main-title">📦 Kiểm Tra Mẫu 2356 (Tồn Kho Cuộn)</h1>
+        <h1 class="apple-main-title">📦 Kiểm Tra Mẫu Tồn Kho Cuộn </h1>
     </div>
     <div>
         <div class="apple-sub-text">
