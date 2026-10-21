@@ -1,16 +1,18 @@
-import io
 import sys
 import os
+
+# 1. Ép Python nhận diện thư mục gốc (nơi chứa ai_chat.py) ngay lập tức
+root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if root_path not in sys.path:
+    sys.path.insert(0, root_path)
+
+# 2. Khai báo các thư viện khác
+import io
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 import pandas as pd
 import streamlit as st
 
-# Thêm thư mục gốc vào sys.path để Python tìm thấy module ai_chat
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-if parent_dir not in sys.path:
-    sys.path.append(parent_dir)
-
+# 3. Import module nội bộ
 from ai_chat import hien_thi_tro_ly_ai
 
 
