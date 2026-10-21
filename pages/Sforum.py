@@ -96,7 +96,6 @@ st.markdown("""
 st.markdown("""
 <div class="apple-header-box">
     <div>
-        <h1 class="apple-main-title">🛠️ Tiện Ích</h1>
     </div>
     <div>
         <div class="apple-sub-text">
