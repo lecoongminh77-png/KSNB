@@ -97,7 +97,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Lưới hiển thị 2 thẻ công cụ
-_, col1, col2, _ = st.columns([1, 2.5, 2.5, 1], gap="medium")
+_, col1, col2, col3 _ = st.columns([1, 2.5, 2.5, 1], gap="medium")
 
 with col1:
     st.markdown("""
@@ -124,3 +124,16 @@ with col2:
     """, unsafe_allow_html=True)
     if st.button("Mở Đối Chiếu Nghiệm Thu ➔", key="btn_ksnb", use_container_width=True):
         st.switch_page("pages/Doi_Chieu_HRC.py")
+
+with col3:
+    st.markdown("""
+    <div class="app-card">
+        <div>
+            <span class="badge badge-blue">Quản Lý Tồn Kho</span>
+            <div class="card-title">📦 Kiểm Tra 2356</div>
+            <div class="card-desc">Tự động điền công thức kiểm tra tồn kho cuộn: Hạng, Số ký chuẩn, Chênh lệch và Trùng mã.</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("Mở Kiểm Tra 2356 ➔", key="btn_2356", use_container_width=True):
+        st.switch_page("pages/Kiem_Tra_Mau_2356.py")
