@@ -12,7 +12,8 @@ import io
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 import pandas as pd
 import streamlit as st
-
+from streamlit_lottie import st_lottie  # <--- Thêm dòng này vào đây
+import requests
 # 3. Import module nội bộ
 from ai_chat import hien_thi_tro_ly_ai
 
