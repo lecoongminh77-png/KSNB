@@ -1,6 +1,4 @@
 import streamlit as st
-
-import streamlit as st
 import requests
 from streamlit_lottie import st_lottie
 
@@ -40,6 +38,7 @@ if not st.session_state.da_xem_intro:
             
     # Lệnh này chặn không cho load giao diện 4 thẻ card bên dưới nếu chưa bấm nút
     st.stop()
+
 
 # ==========================================
 # (TỪ ĐÂY TRỞ XUỐNG GIỮ NGUYÊN TOÀN BỘ CODE CŨ CỦA BẠN)
