@@ -135,5 +135,5 @@ with col3:
         </div>
     </div>
     """, unsafe_allow_html=True)
-    if st.button("Mở Kiểm Tra 2356 ➔", key="btn_2356", use_container_width=True):
+    if st.button("Mở Kiểm Tra Mẫu ➔", key="btn_2356", use_container_width=True):
         st.switch_page("pages/Kiem_Tra_Mau.py")
