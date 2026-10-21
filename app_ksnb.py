@@ -137,3 +137,4 @@ with col3:
     """, unsafe_allow_html=True)
     if st.button("Mở Kiểm Tra Mẫu ➔", key="btn_2356", use_container_width=True):
         st.switch_page("pages/Kiem_Tra_Mau.py")
+
