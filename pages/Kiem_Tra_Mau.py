@@ -1,5 +1,6 @@
 import sys
 import os
+import requests # Bắt buộc phải có để dùng r = requests.get(url)
 
 # 1. Ép Python nhận diện thư mục gốc (nơi chứa ai_chat.py) ngay lập tức
 root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -21,6 +22,7 @@ def load_lottieurl(url: str):
     if r.status_code != 200:
         return None
     return r.json()
+
 
 # Gắn link bạn vừa copy
 lottie_hoat_anh = load_lottieurl("https://lottie.host/654b9803-9ee2-4c1b-91e3-3f074d4f79d3/b4IPc6jdqR.json")
