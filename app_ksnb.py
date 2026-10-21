@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 from streamlit_lottie import st_lottie
+import time  # <-- THÊM THƯ VIỆN NÀY ĐỂ ĐẾM THỜI GIAN
 
 st.set_page_config(
     page_title="Lê Công Minh Workspace",
@@ -19,31 +20,35 @@ def load_lottieurl(url: str):
 if 'da_xem_intro' not in st.session_state:
     st.session_state.da_xem_intro = False
 
-# 2. HIỆN MÀN HÌNH WELCOME
+# 2. HIỆN MÀN HÌNH WELCOME TỰ ĐỘNG CHUYỂN TRANG
 if not st.session_state.da_xem_intro:
-    st.markdown("<br><br>", unsafe_allow_html=True)
+    # Tạo một khung chứa tạm thời để hiển thị animation
+    splash_placeholder = st.empty()
     
-    # Link Lottie của bạn
-    lottie_welcome = load_lottieurl("https://lottie.host/4a9438d1-b8fb-4a3b-aed8-58a48b9413e2/BnRtyhhxBR.json") 
+    with splash_placeholder.container():
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        
+        # Link Lottie của bạn
+        lottie_welcome = load_lottieurl("https://lottie.host/4a9438d1-b8fb-4a3b-aed8-58a48b9413e2/BnRtyhhxBR.json") 
+        
+        # Hiển thị hình động
+        st_lottie(lottie_welcome, height=350, key="welcome_animation")
+        
+    # Cho hệ thống dừng 3 giây để người dùng kịp nhìn animation
+    time.sleep(3)
     
-    # Hiển thị hình động
-    st_lottie(lottie_welcome, height=350, key="welcome_animation")
+    # Đánh dấu là đã xem intro
+    st.session_state.da_xem_intro = True
     
-    # Nút xác nhận để vào trang chính
-    col1, col2, col3 = st.columns([1, 1.5, 1])
-    with col2:
-        if st.button("🚀 Truy cập Workspace ➔", use_container_width=True):
-            st.session_state.da_xem_intro = True
-            st.rerun() # Tải lại trang
-            
-    # Lệnh này chặn không cho load giao diện 4 thẻ card bên dưới nếu chưa bấm nút
-    st.stop()
-
+    # Xóa cái khung tạm thời chứa animation đi
+    splash_placeholder.empty()
+    
+    # Tải lại trang (lúc này da_xem_intro = True nên sẽ bỏ qua màn hình Welcome và load trang chính)
+    st.rerun()
 
 # ==========================================
-# (TỪ ĐÂY TRỞ XUỐNG GIỮ NGUYÊN TOÀN BỘ CODE CŨ CỦA BẠN)
+# GIAO DIỆN TRANG CHÍNH BẮT ĐẦU TỪ ĐÂY
 # ==========================================
-
 
 # Giao diện phong cách Apple Dashboard
 st.markdown("""
@@ -135,7 +140,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Lưới hiển thị 2 thẻ công cụ
+# Lưới hiển thị 4 thẻ công cụ
 _, col1, col2, col3, col4, _ = st.columns([0.2, 2.5, 2.5, 2.5, 2.5, 0.2], gap="medium")
 
 with col1:
