@@ -1,7 +1,7 @@
 import streamlit as st
 
 st.set_page_config(
-    page_title="Lê Công Minh",
+    page_title="Lê Công Minh Workspace",
     page_icon="💼",
     layout="wide"
 )
@@ -92,7 +92,8 @@ st.markdown("""
 </style>
 
 <div class="header-box">
-    <div class="main-title">💼 Lê Công Minh</div>
+    <div class="main-title">💼 Lê Công Minh Workspace</div>
+    <div class="sub-title">Cổng điều phối các công cụ tự động hóa & kiểm soát dữ liệu</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -123,4 +124,4 @@ with col2:
     </div>
     """, unsafe_allow_html=True)
     if st.button("Mở Đối Chiếu Nghiệm Thu ➔", key="btn_ksnb", use_container_width=True):
-        st.info("💡 Nếu bạn chuyển code Nghiệm thu sang file pages/Doi_Chieu.py thì cấu hình st.switch_page tại đây.")
+        st.switch_page("pages/Doi_Chieu_HRC.py")
