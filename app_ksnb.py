@@ -130,10 +130,10 @@ with col3:
     <div class="app-card">
         <div>
             <span class="badge badge-blue">Quản Lý Tồn Kho</span>
-            <div class="card-title">📦 Kiểm Tra 2356</div>
+            <div class="card-title">📦 Kiểm Tra Mẫu</div>
             <div class="card-desc">Tự động điền công thức kiểm tra tồn kho cuộn: Hạng, Số ký chuẩn, Chênh lệch và Trùng mã.</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
     if st.button("Mở Kiểm Tra 2356 ➔", key="btn_2356", use_container_width=True):
-        st.switch_page("pages/Kiem_Tra_Mau_2356.py")
+        st.switch_page("pages/Kiem_Tra_Mau.py")
