@@ -1,3 +1,4 @@
+from ai_chat import hien_thi_tro_ly_ai
 import io
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 import pandas as pd
@@ -338,3 +339,4 @@ def doi_chieu_hrc_tung_file():
         st.info('👉 Hãy nạp tối thiểu File BBNT để bắt đầu đối chiếu.')
 
 doi_chieu_hrc_tung_file()
+hien_thi_tro_ly_ai()
