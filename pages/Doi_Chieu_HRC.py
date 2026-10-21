@@ -65,12 +65,12 @@ st.markdown(
 )
 
 # Thanh điều hướng
-col_home, col_current, _ = st.columns([1.5, 2.5, 6.0])
+# Thanh điều hướng (Chỉ giữ nút Trang chủ)
+col_home, _ = st.columns([1.5, 8.5])
 with col_home:
     if st.button('🏠 Trang chủ', use_container_width=True):
         st.switch_page('app_ksnb.py')
-with col_current:
-    st.button('📑 Đối Chiếu Nghiệm Thu', disabled=True, use_container_width=True)
+
 
 
 st.markdown(
