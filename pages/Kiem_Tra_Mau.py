@@ -245,4 +245,4 @@ else:
     # Đoạn này sẽ hiện hình động nếu người dùng chưa nạp file
     st_lottie(lottie_hoat_anh, height=300, key="cho_file")
     st.info("👉 Hãy nạp File Báo cáo Tồn Kho (Mẫu 2356) và File Dữ liệu Đối Chiếu để bắt đầu.")
-
+hien_thi_tro_ly_ai()
