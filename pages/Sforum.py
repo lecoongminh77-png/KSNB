@@ -107,15 +107,12 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Dãy nút chuyển đổi tiện ích (KSNB bên trái, Sforum dạt sang góc phải)
-col_ksnb, col_spacer, col_sforum = st.columns([1.5, 7, 1.5])
-
-with col_ksnb:
-    if st.button("🛡️ KSNB", use_container_width=True):
+# Thanh điều hướng (Chỉ giữ duy nhất nút Trang chủ)
+col_home, _ = st.columns([1.5, 8.5])
+with col_home:
+    if st.button("🏠 Trang chủ", use_container_width=True):
         st.switch_page("app_ksnb.py")
 
-with col_sforum:
-    st.button("✍️ Sforum", use_container_width=True)
 
 st.markdown("<hr style='border: none; border-top: 1px solid #e2e8f0; margin: 15px 0 20px 0;'>", unsafe_allow_html=True)
 
