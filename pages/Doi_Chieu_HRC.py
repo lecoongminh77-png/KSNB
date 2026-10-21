@@ -64,16 +64,14 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Thanh điều hướng: có nút quay về Trang chủ và nút Sforum bên phải
-col_home, col_current, col_spacer, col_sforum = st.columns([1.5, 2.5, 4.5, 1.5])
+# Thanh điều hướng
+col_home, col_current, _ = st.columns([1.5, 2.5, 6.0])
 with col_home:
     if st.button('🏠 Trang chủ', use_container_width=True):
         st.switch_page('app_ksnb.py')
 with col_current:
     st.button('📑 Đối Chiếu Nghiệm Thu', disabled=True, use_container_width=True)
-with col_sforum:
-    if st.button('✍️ Sforum', use_container_width=True):
-        st.switch_page('pages/Sforum.py')
+
 
 st.markdown(
     "<hr style='border: none; border-top: 1px solid #e2e8f0; margin: 10px 0 20px 0;'>",
