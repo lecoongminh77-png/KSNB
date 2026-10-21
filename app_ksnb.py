@@ -92,8 +92,7 @@ st.markdown("""
 </style>
 
 <div class="header-box">
-    <div class="main-title">💼 Lê Công Minh Workspace</div>
-    <div class="sub-title">Cổng điều phối các công cụ tự động hóa & kiểm soát dữ liệu</div>
+    <div class="main-title">💼 Lê Công Minh</div>
 </div>
 """, unsafe_allow_html=True)
 
