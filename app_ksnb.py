@@ -1,9 +1,50 @@
 import streamlit as st
 
+import streamlit as st
+import requests
+from streamlit_lottie import st_lottie
+
 st.set_page_config(
-    page_title="Lê Công Minh",
+    page_title="Lê Công Minh Workspace",
+    page_icon="💼",
     layout="wide"
 )
+
+# Hàm tải Lottie
+def load_lottieurl(url: str):
+    r = requests.get(url)
+    if r.status_code != 200:
+        return None
+    return r.json()
+
+# 1. KHỞI TẠO BỘ NHỚ KIỂM TRA ĐÃ QUA MÀN HÌNH INTRO CHƯA
+if 'da_xem_intro' not in st.session_state:
+    st.session_state.da_xem_intro = False
+
+# 2. HIỆN MÀN HÌNH WELCOME
+if not st.session_state.da_xem_intro:
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    
+    # Link Lottie của bạn
+    lottie_welcome = load_lottieurl("https://lottie.host/4a9438d1-b8fb-4a3b-aed8-58a48b9413e2/BnRtyhhxBR.json") 
+    
+    # Hiển thị hình động
+    st_lottie(lottie_welcome, height=350, key="welcome_animation")
+    
+    # Nút xác nhận để vào trang chính
+    col1, col2, col3 = st.columns([1, 1.5, 1])
+    with col2:
+        if st.button("🚀 Truy cập Workspace ➔", use_container_width=True):
+            st.session_state.da_xem_intro = True
+            st.rerun() # Tải lại trang
+            
+    # Lệnh này chặn không cho load giao diện 4 thẻ card bên dưới nếu chưa bấm nút
+    st.stop()
+
+# ==========================================
+# (TỪ ĐÂY TRỞ XUỐNG GIỮ NGUYÊN TOÀN BỘ CODE CŨ CỦA BẠN)
+# ==========================================
+
 
 # Giao diện phong cách Apple Dashboard
 st.markdown("""
