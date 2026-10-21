@@ -97,7 +97,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Lưới hiển thị 2 thẻ công cụ
-_, col1, col2, col3 _ = st.columns([1, 2.5, 2.5, 1], gap="medium")
+_, col1, col2, col3, _ = st.columns([0.8, 2.8, 2.8, 2.8, 0.8], gap="medium")
 
 with col1:
     st.markdown("""
