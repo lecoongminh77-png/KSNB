@@ -1,16 +1,14 @@
 import streamlit as st
 
-# 1. Cấu hình trang
 st.set_page_config(
     page_title="Lê Công Minh Workspace",
     page_icon="💼",
     layout="wide"
 )
 
-# 2. Giao diện phong cách Apple tối giản
+# CSS giao diện Apple Dashboard cao cấp
 st.markdown("""
 <style>
-    /* Ẩn sidebar mặc định */
     [data-testid="stSidebarNav"] { display: none !important; }
     
     .stApp {
@@ -19,63 +17,69 @@ st.markdown("""
         color: #1d1d1f;
     }
     
+    /* Header */
     .header-box {
         text-align: center;
-        padding: 50px 0 30px 0;
+        padding: 40px 0 25px 0;
     }
-    
     .main-title {
-        font-size: 40px;
+        font-size: 42px;
         font-weight: 700;
-        letter-spacing: -0.02em;
-        margin-bottom: 8px;
+        letter-spacing: -0.025em;
+        margin-bottom: 6px;
     }
-    
     .sub-title {
         font-size: 17px;
         color: #86868b;
         font-weight: 400;
     }
+
+    /* Thẻ ứng dụng (Card) */
+    .app-card {
+        background: #ffffff;
+        border-radius: 20px;
+        padding: 28px 24px 20px 24px;
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+        transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        min-height: 220px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+    .app-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.08);
+        border-color: rgba(0, 113, 227, 0.2);
+    }
+    .badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        margin-bottom: 12px;
+    }
+    .badge-green { background: #e3f8e5; color: #1e7e34; }
+    .badge-blue { background: #e1f0ff; color: #0071e3; }
     
-    /* Tùy chỉnh nút bấm dạng viên thuốc */
+    .card-title {
+        font-size: 22px;
+        font-weight: 700;
+        color: #1d1d1f;
+        margin-bottom: 8px;
+    }
+    .card-desc {
+        font-size: 14px;
+        color: #6e6e73;
+        line-height: 1.5;
+        margin-bottom: 16px;
+    }
+    
+    /* Nút bấm Apple Pill */
     div.stButton > button {
         background: #0071e3 !important;
         color: #ffffff !important;
         border-radius: 980px !important;
         border: none !important;
-        padding: 14px 28px !important;
-        font-weight: 600 !important;
-        font-size: 16px !important;
-        box-shadow: 0 4px 14px rgba(0, 113, 227, 0.25) !important;
-        transition: all 0.2s ease !important;
-        height: auto !important;
-    }
-    
-    div.stButton > button:hover {
-        background: #0077ed !important;
-        transform: translateY(-2px);
-        box-shadow: 0 6px 18px rgba(0, 113, 227, 0.35) !important;
-    }
-</style>
-
-<div class="header-box">
-    <div class="main-title">💼 Lê Công Minh Workspace</div>
-    <div class="sub-title">Chọn công cụ làm việc bạn muốn truy cập</div>
-</div>
-""", unsafe_allow_html=True)
-
-st.markdown("<br>", unsafe_allow_html=True)
-
-# 3. Khu vực chứa các nút chức năng (Căn giữa màn hình)
-_, center_col, _ = st.columns([1, 2, 1])
-
-with center_col:
-    # Nút bấm chuyển hướng sang trang Sforum
-    if st.button("✍️ Truy cập Sforum Content Studio", use_container_width=True):
-        st.switch_page("pages/Sforum.py")
-
-    st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
-
-    # Nút bấm dự phòng hoặc tiện ích khác (nếu có trang nghiệm thu trong pages/)
-    # if st.button("📄 Đối Chiếu Nghiệm Thu HRC", use_container_width=True):
-    #     st.switch_page("pages/Doi_Chieu_HRC.py")
+        padding:
