@@ -6,7 +6,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# CSS giao diện Apple Dashboard cao cấp
+# Giao diện phong cách Apple Dashboard
 st.markdown("""
 <style>
     [data-testid="stSidebarNav"] { display: none !important; }
@@ -17,7 +17,6 @@ st.markdown("""
         color: #1d1d1f;
     }
     
-    /* Header */
     .header-box {
         text-align: center;
         padding: 40px 0 25px 0;
@@ -34,7 +33,6 @@ st.markdown("""
         font-weight: 400;
     }
 
-    /* Thẻ ứng dụng (Card) */
     .app-card {
         background: #ffffff;
         border-radius: 20px;
@@ -76,10 +74,54 @@ st.markdown("""
         margin-bottom: 16px;
     }
     
-    /* Nút bấm Apple Pill */
     div.stButton > button {
         background: #0071e3 !important;
         color: #ffffff !important;
         border-radius: 980px !important;
         border: none !important;
-        padding:
+        padding: 10px 20px !important;
+        font-weight: 600 !important;
+        font-size: 14px !important;
+        box-shadow: 0 4px 12px rgba(0, 113, 227, 0.2) !important;
+        transition: all 0.2s ease !important;
+    }
+    div.stButton > button:hover {
+        background: #0077ed !important;
+        transform: scale(1.02) !important;
+    }
+</style>
+
+<div class="header-box">
+    <div class="main-title">💼 Lê Công Minh Workspace</div>
+    <div class="sub-title">Cổng điều phối các công cụ tự động hóa & kiểm soát dữ liệu</div>
+</div>
+""", unsafe_allow_html=True)
+
+# Lưới hiển thị 2 thẻ công cụ
+_, col1, col2, _ = st.columns([1, 2.5, 2.5, 1], gap="medium")
+
+with col1:
+    st.markdown("""
+    <div class="app-card">
+        <div>
+            <span class="badge badge-blue">AI Automation</span>
+            <div class="card-title">✍️ Sforum Studio</div>
+            <div class="card-desc">Hệ thống AI tự động phân tích bài viết gốc, áp dụng quy chuẩn Google Docs và biên tập bài viết công nghệ chuyên sâu chuẩn SEO.</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("Truy cập Sforum Studio ➔", key="btn_sforum", use_container_width=True):
+        st.switch_page("pages/Sforum.py")
+
+with col2:
+    st.markdown("""
+    <div class="app-card">
+        <div>
+            <span class="badge badge-green">Kiểm Soát Nội Bộ</span>
+            <div class="card-title">📄 Đối Chiếu HRC</div>
+            <div class="card-desc">Bộ công cụ tự động đối soát dữ liệu 4 bên (BBNT, Packing List, Trạm cân, ERP, Bảo vệ) và tự động tô đỏ cảnh báo sai phạm.</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("Mở Đối Chiếu Nghiệm Thu ➔", key="btn_ksnb", use_container_width=True):
+        st.info("💡 Nếu bạn chuyển code Nghiệm thu sang file pages/Doi_Chieu.py thì cấu hình st.switch_page tại đây.")
