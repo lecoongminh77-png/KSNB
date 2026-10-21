@@ -1,7 +1,16 @@
 import io
+import sys
+import os
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 import pandas as pd
 import streamlit as st
+
+# Thêm thư mục gốc vào sys.path để Python tìm thấy module ai_chat
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+if parent_dir not in sys.path:
+    sys.path.append(parent_dir)
+
 from ai_chat import hien_thi_tro_ly_ai
 
 
