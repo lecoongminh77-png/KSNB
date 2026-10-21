@@ -1,8 +1,19 @@
+import sys
+import os
+
+# 1. Ép Python nhận diện thư mục gốc (nơi chứa ai_chat.py) ngay lập tức
+root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if root_path not in sys.path:
+    sys.path.insert(0, root_path)
+
+# 2. Khai báo các thư viện khác
 import io
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 import pandas as pd
 import streamlit as st
-import requests
-from streamlit_lottie import st_lottie
+
+# 3. Import module nội bộ
+from ai_chat import hien_thi_tro_ly_ai
 
 # Hàm tải hình động
 def load_lottieurl(url: str):
