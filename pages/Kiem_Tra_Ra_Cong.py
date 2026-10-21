@@ -239,3 +239,4 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
 
             except Exception as e:
                 st.error(f"Lỗi khi xử lý dữ liệu: {e}")
+hien_thi_tro_ly_ai()
