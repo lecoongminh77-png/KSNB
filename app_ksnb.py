@@ -97,7 +97,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Lưới hiển thị 2 thẻ công cụ
-_, col1, col2, col3, _ = st.columns([0.8, 2.8, 2.8, 2.8, 0.8], gap="medium")
+_, col1, col2, col3, col4, _ = st.columns([0.2, 2.5, 2.5, 2.5, 2.5, 0.2], gap="medium")
 
 with col1:
     st.markdown("""
@@ -138,3 +138,15 @@ with col3:
     if st.button("Mở Kiểm Tra Mẫu ➔", key="btn_2356", use_container_width=True):
         st.switch_page("pages/Kiem_Tra_Mau.py")
 
+with col4:
+    st.markdown("""
+    <div class="app-card">
+        <div>
+            <span class="badge badge-green">Trạm Cân & ERP</span>
+            <div class="card-title">🚛 Hàng Ra Cổng</div>
+            <div class="card-desc">Đối soát 4 bên (ERP 021, 105 và Trạm Cân NM, SMC), tính dung sai tự động.</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("Mở Đối Soát Cổng ➔", key="btn_cong", use_container_width=True):
+        st.switch_page("pages/Kiem_Tra_Ra_Cong.py")
