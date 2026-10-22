@@ -343,4 +343,6 @@ def doi_chieu_hrc_tung_file():
                     st.error(f'Lỗi xử lý: {e}')
     else:
         st.info('👉 Hãy nạp tối thiểu File BBNT để bắt đầu đối chiếu.')
+doi_chieu_hrc_tung_file()
+
 
