@@ -148,12 +148,12 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Hiển thị quả bóng qua bộ nhúng HTML chuyên biệt của Streamlit
+# Hoạt ảnh quả bóng xoay mượt mà (Bản nhẹ 398 KB)
 st.components.v1.html(
     """
     <div style="display: flex; justify-content: center; align-items: center; width: 100%; height: 100%;">
-        <iframe src="https://lottie.host/embed/aa244008-30a5-46ac-a553-63b9d65b315a/kWzva6TSwg.lottie" 
-                style="width: 280px; height: 180px; border: none; background: transparent;" 
+        <iframe src="https://lottie.host/embed/e0de51c8-efda-4e88-9533-0cc945c996c6/uHcdBzdiUG.lottie" 
+                style="width: 260px; height: 180px; border: none; background: transparent;" 
                 frameborder="0">
         </iframe>
     </div>
