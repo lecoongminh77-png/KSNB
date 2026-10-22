@@ -43,6 +43,35 @@ with col_home:
         st.switch_page('app_ksnb.py')
 
 st.markdown("<hr style='border: none; border-top: 1px solid #e2e8f0; margin: 10px 0 20px 0;'>", unsafe_allow_html=True)
+# CSS ẩn menu bên trái và tạo kiểu nút màu xanh
+st.markdown("""
+<style>
+/* 1. Ẩn hoàn toàn menu bên trái và nút mũi tên mở rộng */
+[data-testid="stSidebar"] {
+    display: none !important;
+}
+[data-testid="collapsedControl"] {
+    display: none !important;
+}
+
+/* 2. Nút bấm màu xanh bo tròn */
+div.stButton > button:first-child {
+    background: #0071e3 !important;
+    color: #ffffff !important;
+    border-radius: 980px !important;
+    border: none !important;
+    padding: 10px 20px !important;
+    font-weight: 600 !important;
+    font-size: 14px !important;
+    box-shadow: 0 4px 12px rgba(0, 113, 227, 0.2) !important;
+}
+div.stButton > button:first-child:hover {
+    background: #0077ed !important;
+    color: #ffffff !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 
 import base64
 
