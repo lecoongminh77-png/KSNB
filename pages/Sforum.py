@@ -1,6 +1,5 @@
 import streamlit as st
 import re
-import os
 import requests
 from bs4 import BeautifulSoup
 from google import genai
@@ -149,39 +148,9 @@ if loaded_rules:
 else:
     st.warning("⚠️ Chưa đọc được file Google Doc, vui lòng đảm bảo file bật quyền 'Bất kỳ ai có liên kết đều xem được'.")
 
-# -------------------------------------------------------------
-# XỬ LÝ API KEY THÔNG MINH (TRỰC TIẾP TRÊN MÀN HÌNH CHÍNH)
-# -------------------------------------------------------------
-saved_secret_key = ""
-try:
-    if "GEMINI_API_KEY" in st.secrets:
-        saved_secret_key = st.secrets["GEMINI_API_KEY"]
-except Exception:
-    pass
-
-if not saved_secret_key:
-    saved_secret_key = os.environ.get("GEMINI_API_KEY", "")
-
-# Hiển thị ô nhập API Key ngay trên giao diện chính nếu chưa có trong secrets
-with st.expander("⚙️ Cài đặt Gemini API Key & Cấu hình AI", expanded=(not bool(saved_secret_key))):
-    col_k1, col_k2 = st.columns([2, 1])
-    with col_k1:
-        user_api_key = st.text_input(
-            "🔑 Nhập Gemini API Key của bạn:",
-            value=saved_secret_key,
-            type="password",
-            placeholder="AIzaSy...",
-            help="Lấy API Key miễn phí tại: https://aistudio.google.com/"
-        )
-    with col_k2:
-        selected_model = st.selectbox(
-            "⚡ Chọn Model Gemini:",
-            ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash"],
-            index=0
-        )
-
-# Quyết định API key cuối cùng
-api_key = user_api_key.strip() if user_api_key else saved_secret_key
+# CẤU HÌNH TRỰC TIẾP API KEY VÀ MODEL (Không hiển thị ô nhập)
+api_key = st.secrets.get("GEMINI_API_KEY")
+selected_model = "gemini-2.5-flash"
 
 # Hàm cào dữ liệu từ URL bài gốc
 def extract_content_from_url(url: str):
@@ -260,33 +229,30 @@ with st.container(border=True):
 # 5. XỬ LÝ VIẾT BÀI VỚI QUY CHUẨN TỰ ĐỘNG TỪ GOOGLE DOCS
 # -------------------------------------------------------------
 if btn_generate:
-    if not api_key:
-        st.error("⚠️ Vui lòng nhập Gemini API Key vào ô Cài đặt phía trên để tiếp tục!")
-    else:
-        with st.spinner("Đang phân tích bài gốc, đối chiếu quy chuẩn Google Docs và biên tập..."):
-            extracted_title = ""
-            extracted_text = manual_content.strip()
-            images_found = []
-            
-            if url_input:
-                extracted_title, web_content, images_found = extract_content_from_url(url_input)
-                if not extracted_text:
-                    extracted_text = web_content
-                    if extracted_text:
-                        st.info(f"📊 Đã lấy được khoảng **{len(extracted_text.split())} từ** từ bài gốc.")
-                    else:
-                        st.warning("⚠️ Không thể tự động cào bài viết do trang web chặn. Vui lòng copy text bài gốc dán vào ô bên trên nhé!")
-                        st.stop()
-            
+    with st.spinner("Đang phân tích bài gốc, đối chiếu quy chuẩn Google Docs và biên tập..."):
+        extracted_title = ""
+        extracted_text = manual_content.strip()
+        images_found = []
+        
+        if url_input:
+            extracted_title, web_content, images_found = extract_content_from_url(url_input)
             if not extracted_text:
-                st.error("Chưa có nội dung bài gốc! Vui lòng nhập URL hoặc dán nội dung chữ.")
-                st.stop()
-                
-            detected_source = source_name if source_name else ("bài gốc" if not url_input else url_input.split("//")[-1].split("/")[0])
+                extracted_text = web_content
+                if extracted_text:
+                    st.info(f"📊 Đã lấy được khoảng **{len(extracted_text.split())} từ** từ bài gốc.")
+                else:
+                    st.warning("⚠️ Không thể tự động cào bài viết do trang web chặn. Vui lòng copy text bài gốc dán vào ô bên trên nhé!")
+                    st.stop()
+        
+        if not extracted_text:
+            st.error("Chưa có nội dung bài gốc! Vui lòng nhập URL hoặc dán nội dung chữ.")
+            st.stop()
             
-            rules_prompt = loaded_rules if loaded_rules else "Áp dụng cấu trúc bài viết chuẩn Sforum."
+        detected_source = source_name if source_name else ("bài gốc" if not url_input else url_input.split("//")[-1].split("/")[0])
+        
+        rules_prompt = loaded_rules if loaded_rules else "Áp dụng cấu trúc bài viết chuẩn Sforum."
 
-            SYSTEM_PROMPT = f"""
+        SYSTEM_PROMPT = f"""
 Bạn là Tổng biên tập kiêm Biên tập viên công nghệ cao cấp của Sforum (CellphoneS).
 Nhiệm vụ của bạn là đọc kỹ BỘ QUY CHUẨN ĐƯỢC ĐỌC TỪ GOOGLE DOCS DƯỚI ĐÂY, tự động đối chiếu với nội dung bài viết gốc để biên tập thành một bài viết tiếng Việt CHUYÊN SÂU (1000 - 1500 từ), ĐẦY ĐỦ TẤT CẢ CÁC Ý, TUYỆT ĐỐI KHÔNG TÓM TẮT SƠ SÀI.
 
@@ -311,7 +277,7 @@ HƯỚNG DẪN THỰC THI TỰ ĐỘNG:
    - Giữ nguyên các thông số kỹ thuật, trải nghiệm khen chê, chi tiết phụ kiện, phần mềm từ bài gốc.
 """
 
-            user_prompt = f"""
+        user_prompt = f"""
 TIÊU ĐỀ BÀI GỐC: {extracted_title}
 NGUỒN BÀI VIẾT: {detected_source}
 LINK BÀI GỐC: {url_input}
@@ -323,51 +289,51 @@ NỘI DUNG BÀI GỐC:
 ---
 Hãy đọc kỹ toàn bộ quy chuẩn Google Docs và viết bài viết hoàn chỉnh, sâu sắc nhất.
 """
-            try:
-                client = genai.Client(api_key=api_key)
-                response = client.models.generate_content(
-                    model=selected_model,
-                    contents=user_prompt,
-                    config=types.GenerateContentConfig(
-                        system_instruction=SYSTEM_PROMPT,
-                        temperature=0.3,
-                    )
+        try:
+            client = genai.Client(api_key=api_key)
+            response = client.models.generate_content(
+                model=selected_model,
+                contents=user_prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=SYSTEM_PROMPT,
+                    temperature=0.3,
                 )
-                
-                result_text = response.text
-                st.balloons()
-                st.success("🎉 Bài viết đã được tạo hoàn chỉnh theo đúng quy chuẩn Google Docs!")
+            )
+            
+            result_text = response.text
+            st.balloons()
+            st.success("🎉 Bài viết đã được tạo hoàn chỉnh theo đúng quy chuẩn Google Docs!")
 
-                with st.container(border=True):
-                    tab_article, tab_seo, tab_raw = st.tabs(["📄 Bài viết hoàn chỉnh", "🎯 Trường SEO CMS", "📋 Mã Markdown"])
+            with st.container(border=True):
+                tab_article, tab_seo, tab_raw = st.tabs(["📄 Bài viết hoàn chỉnh", "🎯 Trường SEO CMS", "📋 Mã Markdown"])
+                
+                with tab_article:
+                    st.markdown(result_text)
+                    st.download_button(
+                        "📥 Tải bài viết (.txt)", 
+                        data=result_text, 
+                        file_name="bai-viet-sforum.txt", 
+                        mime="text/plain"
+                    )
                     
-                    with tab_article:
-                        st.markdown(result_text)
-                        st.download_button(
-                            "📥 Tải bài viết (.txt)", 
-                            data=result_text, 
-                            file_name="bai-viet-sforum.txt", 
-                            mime="text/plain"
-                        )
-                        
-                    with tab_seo:
-                        st.subheader("📋 Sao chép nhanh vào CMS:")
-                        title_match = re.search(r"Title:(.*)", result_text, re.IGNORECASE)
-                        slug_match = re.search(r"Slug:(.*)", result_text, re.IGNORECASE)
-                        page_title_match = re.search(r"Page title:(.*)", result_text, re.IGNORECASE)
-                        page_desc_match = re.search(r"Page description:(.*)", result_text, re.IGNORECASE)
-                        keywords_match = re.search(r"Meta Keywords:(.*)", result_text, re.IGNORECASE)
-                        tags_match = re.search(r"Tags:(.*)", result_text, re.IGNORECASE)
-                        
-                        st.text_input("Tiêu đề (Title):", value=title_match.group(1).strip() if title_match else "")
-                        st.text_input("Đường dẫn (Slug):", value=slug_match.group(1).strip() if slug_match else "")
-                        st.text_input("Page Title (< 60 ký tự):", value=page_title_match.group(1).strip() if page_title_match else "")
-                        st.text_area("Page Description (< 160 ký tự):", value=page_desc_match.group(1).strip() if page_desc_match else "", height=80)
-                        st.text_input("Meta Keywords (3 từ cách nhau dấu phẩy):", value=keywords_match.group(1).strip() if keywords_match else "")
-                        st.text_input("Tags:", value=tags_match.group(1).strip() if tags_match else "")
-                        
-                    with tab_raw:
-                        st.code(result_text, language="markdown")
-                        
-            except Exception as e:
-                st.error(f"Lỗi: {e}")
+                with tab_seo:
+                    st.subheader("📋 Sao chép nhanh vào CMS:")
+                    title_match = re.search(r"Title:(.*)", result_text, re.IGNORECASE)
+                    slug_match = re.search(r"Slug:(.*)", result_text, re.IGNORECASE)
+                    page_title_match = re.search(r"Page title:(.*)", result_text, re.IGNORECASE)
+                    page_desc_match = re.search(r"Page description:(.*)", result_text, re.IGNORECASE)
+                    keywords_match = re.search(r"Meta Keywords:(.*)", result_text, re.IGNORECASE)
+                    tags_match = re.search(r"Tags:(.*)", result_text, re.IGNORECASE)
+                    
+                    st.text_input("Tiêu đề (Title):", value=title_match.group(1).strip() if title_match else "")
+                    st.text_input("Đường dẫn (Slug):", value=slug_match.group(1).strip() if slug_match else "")
+                    st.text_input("Page Title (< 60 ký tự):", value=page_title_match.group(1).strip() if page_title_match else "")
+                    st.text_area("Page Description (< 160 ký tự):", value=page_desc_match.group(1).strip() if page_desc_match else "", height=80)
+                    st.text_input("Meta Keywords (3 từ cách nhau dấu phẩy):", value=keywords_match.group(1).strip() if keywords_match else "")
+                    st.text_input("Tags:", value=tags_match.group(1).strip() if tags_match else "")
+                    
+                with tab_raw:
+                    st.code(result_text, language="markdown")
+                    
+        except Exception as e:
+            st.error(f"Lỗi: {e}")
