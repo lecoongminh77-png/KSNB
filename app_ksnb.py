@@ -146,6 +146,7 @@ st.markdown("""
         transform: scale(1.02) !important;
     }
 </style>
+""", unsafe_allow_html=True)
 
 # Hoạt ảnh quả bóng xoay chính giữa Dashboard
 _, col_center, _ = st.columns([3.8, 2.4, 3.8])
@@ -153,8 +154,6 @@ with col_center:
     logo_header = load_lottieurl("https://lottie.host/aa244008-30a5-46ac-a553-63b9d65b315a/kWzva6TSwg.json")
     if logo_header:
         st_lottie(logo_header, height=170, key="header_logo")
-
-""", unsafe_allow_html=True)
 
 # Lưới hiển thị các thẻ công cụ (Chia làm 3 cột chính)
 _, col1, col2, col3, _ = st.columns([0.2, 3, 3, 3, 0.2], gap="medium")
