@@ -249,10 +249,11 @@ def export_to_excel(df_tb1, df_tb2, df_tb3, df_tb4, ngay_str):
     apply_box(1, 9, 1, 24)
     apply_box(11, 19, 1, 24)
 
-    # Chèn Logo Hoa Sen vào Excel
+        # Chèn Logo Hoa Sen vào Excel
     try:
-        logo_url = "https://hoasengroup.vn/wp-content/uploads/2021/04/logo-hoa-sen-group.png"
-        res = requests.get(logo_url, timeout=4)
+        logo_url = "https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/Logo_Hoa_Sen_Group.png/120px-Logo_Hoa_Sen_Group.png"
+        headers = {"User-Agent": "Mozilla/5.0"}
+        res = requests.get(logo_url, headers=headers, timeout=5)
         if res.status_code == 200:
             img1 = Image(io.BytesIO(res.content))
             img1.width, img1.height = 42, 42
