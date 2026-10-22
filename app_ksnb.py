@@ -140,34 +140,59 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Lưới hiển thị 4 thẻ công cụ
-_, col1, col2, col3, col4, _ = st.columns([0.2, 2.5, 2.5, 2.5, 2.5, 0.2], gap="medium")
+# Lưới hiển thị các thẻ công cụ (Chia làm 3 cột chính)
+_, col1, col2, col3, _ = st.columns([0.2, 3, 3, 3, 0.2], gap="medium")
 
 with col1:
     st.markdown("""
-    <div class="app-card">
+    <div class="app-card" style="margin-bottom: 20px;">
         <div>
             <span class="badge badge-blue">AI Automation</span>
             <div class="card-title">✍️ Sforum Studio</div>
-            <div class="card-desc">Hệ thống AI tự động phân tích bài viết gốc, áp dụng quy chuẩn Google Docs và biên tập bài viết công nghệ chuyên sâu chuẩn SEO.</div>
+            <div class="card-desc">Hệ thống AI tự động phân tích bài viết gốc, áp dụng quy chuẩn Google Docs và biên tập bài viết.</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
     if st.button("Truy cập Sforum Studio ➔", key="btn_sforum", use_container_width=True):
         st.switch_page("pages/Sforum.py")
 
-with col2:
     st.markdown("""
     <div class="app-card">
         <div>
+            <span class="badge badge-green">Trạm Cân & ERP</span>
+            <div class="card-title">🚛 Hàng Ra Cổng</div>
+            <div class="card-desc">Đối soát 4 bên (ERP 021, 105 và Trạm Cân NM, SMC), tính dung sai tự động.</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("Mở Đối Soát Cổng ➔", key="btn_cong", use_container_width=True):
+        st.switch_page("pages/Kiem_Tra_Ra_Cong.py")
+
+with col2:
+    st.markdown("""
+    <div class="app-card" style="margin-bottom: 20px;">
+        <div>
             <span class="badge badge-green">Kiểm Soát Nội Bộ</span>
             <div class="card-title">📄 Đối Chiếu HRC</div>
-            <div class="card-desc">Bộ công cụ tự động đối soát dữ liệu 4 bên (BBNT, Packing List, Trạm cân, ERP, Bảo vệ) và tự động tô đỏ cảnh báo sai phạm.</div>
+            <div class="card-desc">Bộ công cụ tự động đối soát dữ liệu 4 bên và tự động tô đỏ cảnh báo sai phạm.</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
     if st.button("Mở Đối Chiếu Nghiệm Thu ➔", key="btn_ksnb", use_container_width=True):
         st.switch_page("pages/Doi_Chieu_HRC.py")
+
+    # ĐÂY LÀ THẺ MỚI BỔ SUNG CHO TỔNG HỢP NXT
+    st.markdown("""
+    <div class="app-card">
+        <div>
+            <span class="badge badge-blue">Quản Lý Tồn Kho</span>
+            <div class="card-title">📊 Tổng Hợp NXT</div>
+            <div class="card-desc">Gộp tự động file INV 110 và 105 để xuất báo cáo Nhập Xuất Tồn và tình hình sử dụng NVL.</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("Mở Dashboard NXT ➔", key="btn_nxt", use_container_width=True):
+        st.switch_page("pages/NXT_Tong_Hop.py")
 
 with col3:
     st.markdown("""
@@ -182,15 +207,3 @@ with col3:
     if st.button("Mở Kiểm Tra Mẫu ➔", key="btn_2356", use_container_width=True):
         st.switch_page("pages/Kiem_Tra_Mau.py")
 
-with col4:
-    st.markdown("""
-    <div class="app-card">
-        <div>
-            <span class="badge badge-green">Trạm Cân & ERP</span>
-            <div class="card-title">🚛 Hàng Ra Cổng</div>
-            <div class="card-desc">Đối soát 4 bên (ERP 021, 105 và Trạm Cân NM, SMC), tính dung sai tự động.</div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-    if st.button("Mở Đối Soát Cổng ➔", key="btn_cong", use_container_width=True):
-        st.switch_page("pages/Kiem_Tra_Ra_Cong.py")
