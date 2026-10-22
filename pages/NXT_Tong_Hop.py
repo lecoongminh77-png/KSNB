@@ -82,7 +82,7 @@ def process_105(files):
 st.markdown("### 📥 Nạp Dữ Liệu Nguồn")
 
 # Khung ghi chú hướng dẫn lấy file chuẩn theo SOP
-with st.expander("📖 Bấm vào đây để xem Hướng dẫn lấy file từ hệ thống"):
+with st.expander("📖 Hướng dẫn lấy file từ hệ thống"):
     st.markdown("""
     **INV 110**
     INV_110_GD2
@@ -98,8 +98,28 @@ with st.expander("📖 Bấm vào đây để xem Hướng dẫn lấy file từ
     **NMBD_KS_PO_ADMIN**
     - 047
     - Chọn mốc thời gian ngày thứ 5 tuần báo cáo
-    - Xóa dữ liệu (Hợp kim kẽm nhôm magie (dạng xỉ) )
+    - Xóa dữ liệu (Hợp kim kẽm nhôm magie (dạng xỉ))
+
+    ---
+    **OMP 105**
+    HSG_OPM_105_BCKiemSoatThongTinGDTheoLo_GD2
+    
+    **HSG_KS_INV_Cung Ứng**
+    - 031,03G,03H,046
+    - Loại nghiệp vụ: Inventory ,Job or Schedule,Move order
+    - Chọn mốc thời gian từ thứ 6 tuần trước đến thứ 5 tuần này.
+
+    **HSG_KS_INV_Vật tư**
+    - 03B
+    - Loại nghiệp vụ: Inventory ,Job or Schedule,Move order
+    - Chọn mốc thời gian từ thứ 6 tuần trước đến thứ 5 tuần này.
+
+    **NMBD_KS_PO_ADMIN**
+    - 047
+    - Loại nghiệp vụ: Inventory ,Job or Schedule,Move order
+    - Chọn mốc thời gian từ thứ 6 tuần trước đến thứ 5 tuần này.
     """)
+
 
 col_upload1, col_upload2 = st.columns(2)
 
