@@ -6,8 +6,18 @@ import time  # <-- THÊM THƯ VIỆN NÀY ĐỂ ĐẾM THỜI GIAN
 st.set_page_config(
     page_title="Lê Công Minh Workspace",
     page_icon="💼",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="collapsed"
 )
+st.markdown("""
+<style>
+    section[data-testid="stSidebar"], 
+    [data-testid="stSidebar"], 
+    [data-testid="collapsedControl"] {
+        display: none !important;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # Hàm tải Lottie
 def load_lottieurl(url: str):
