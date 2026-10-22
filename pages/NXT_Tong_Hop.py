@@ -80,15 +80,46 @@ def process_105(files):
 
 # --- GIAO DIỆN UPLOAD FILE ---
 st.markdown("### 📥 Nạp Dữ Liệu Nguồn")
+
+# Khung ghi chú hướng dẫn lấy file chuẩn theo SOP
+with st.expander("📖 Bấm vào đây để xem Hướng dẫn lấy file từ hệ thống"):
+    st.markdown("""
+    **INV 110**
+    INV_110_GD2
+    
+    **HSG_KS_INV_Cung Ứng**
+    - 031,035,03G,03H,041,046
+    - Chọn mốc thời gian ngày thứ 5 tuần báo cáo
+
+    **HSG_KS_INV_Vật tư**
+    - 03B
+    - Chọn mốc thời gian ngày thứ 5 tuần báo cáo
+
+    **NMBD_KS_PO_ADMIN**
+    - 047
+    - Chọn mốc thời gian ngày thứ 5 tuần báo cáo
+    - Xóa dữ liệu (Hợp kim kẽm nhôm magie (dạng xỉ) )
+    """)
+
 col_upload1, col_upload2 = st.columns(2)
 
 with col_upload1:
-    inv110_files = st.file_uploader("1️⃣ Tải lên các file INV 110 (Tối đa 3 file)", type=["xlsx"], accept_multiple_files=True)
+    inv110_files = st.file_uploader(
+        "1️⃣ Tải lên các file INV 110", 
+        type=["xlsx"], 
+        accept_multiple_files=True,
+        help="Nạp cùng lúc các file INV 110 lấy từ Cung ứng, Vật tư, Admin."
+    )
     if len(inv110_files) > 3:
         st.warning("Bạn đã chọn nhiều hơn 3 file. Hệ thống sẽ gộp tất cả nhưng khuyến cáo nên kiểm tra lại!")
 
 with col_upload2:
-    file105_files = st.file_uploader("2️⃣ Tải lên các file 105 (Tối đa 3 file)", type=["xlsx"], accept_multiple_files=True)
+    file105_files = st.file_uploader(
+        "2️⃣ Tải lên các file 105 (Giao dịch sản xuất)", 
+        type=["xlsx"], 
+        accept_multiple_files=True,
+        help="Nạp các file 105 tương ứng với kỳ báo cáo."
+    )
     if len(file105_files) > 3:
         st.warning("Bạn đã chọn nhiều hơn 3 file. Hệ thống sẽ gộp tất cả nhưng khuyến cáo nên kiểm tra lại!")
 
