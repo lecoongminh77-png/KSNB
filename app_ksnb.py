@@ -4,7 +4,7 @@ from streamlit_lottie import st_lottie
 import time  # <-- THÊM THƯ VIỆN NÀY ĐỂ ĐẾM THỜI GIAN
 
 st.set_page_config(
-    page_title="Lê Công Minh Workspace",
+    page_title="Lê Công Minh",
     page_icon="💼",
     layout="wide",
     initial_sidebar_state="collapsed"
