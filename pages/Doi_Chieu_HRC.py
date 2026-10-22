@@ -92,12 +92,7 @@ st.markdown(
     <div>
         <h1 class="apple-main-title">📑 Đối Chiếu Nghiệm Thu HRC</h1>
     </div>
-    <div>
-        <div class="apple-sub-text">
-            Nền tảng công cụ kiểm soát<br>nghiệm thu thông minh.
-            <span>Lê Công Minh Workspace ›</span>
-        </div>
-    </div>
+    
 </div>
 """,
     unsafe_allow_html=True,
