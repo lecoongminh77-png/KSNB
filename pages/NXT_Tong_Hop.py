@@ -516,7 +516,7 @@ if inv110_files and file105_files:
     if df_tb1 is not None and df_tb3 is not None:
         col_left, col_right = st.columns(2)
 
-        logo_html = '<img src="https://hoasengroup.vn/wp-content/uploads/2021/04/logo-hoa-sen-group.png" width="45" style="vertical-align: middle; margin-bottom: 6px;">'
+        logo_html = '<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/Logo_Hoa_Sen_Group.png/120px-Logo_Hoa_Sen_Group.png" width="45" style="vertical-align: middle; margin-bottom: 6px;">'
 
         with col_left:
             st.markdown(f"""
