@@ -1,178 +1,193 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import io
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
-st.set_page_config(page_title="Báo Cáo NXT NVL Chính", layout="wide")
+st.set_page_config(page_title="Báo Cáo NXT NVL Chính", page_icon="📊", layout="wide")
+
+# ==========================================
+# CSS ĐỊNH DẠNG GIAO DIỆN CHUẨN FORM EXCEL
+# ==========================================
+st.markdown("""
+<style>
+    .report-card {
+        background-color: #ffffff;
+        border: 2px solid #000000;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        margin-bottom: 25px;
+        font-family: 'Times New Roman', Times, serif;
+    }
+    .header-logo-title {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 15px;
+        margin-bottom: 10px;
+    }
+    .company-title {
+        font-size: 20px;
+        font-weight: bold;
+        color: #000000;
+        text-align: center;
+        margin: 0;
+    }
+    .report-title {
+        font-size: 22px;
+        font-weight: 800;
+        text-align: center;
+        color: #000000;
+        margin-top: 5px;
+        margin-bottom: 4px;
+    }
+    .report-date {
+        font-size: 14px;
+        font-style: italic;
+        color: #d90429;
+        text-align: center;
+        margin-bottom: 15px;
+        font-weight: bold;
+    }
+    .section-title {
+        font-size: 15px;
+        font-weight: bold;
+        color: #d90429;
+        margin-top: 15px;
+        margin-bottom: 8px;
+    }
+    .excel-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+        color: #000000;
+    }
+    .excel-table th {
+        background-color: #cce5ff;
+        border: 1px solid #000000;
+        padding: 6px 8px;
+        text-align: center;
+        font-weight: bold;
+    }
+    .excel-table td {
+        border: 1px solid #000000;
+        padding: 5px 8px;
+    }
+    .text-center { text-align: center; }
+    .text-right { text-align: right; }
+    .text-left { text-align: left; }
+    .row-total {
+        background-color: #ffff00;
+        font-weight: bold;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 st.title("📊 BÁO CÁO TỔNG HỢP NXT NVL CHÍNH")
 
-# --- HÀM XỬ LÝ DỮ LIỆU TỒN KHO (INV 110) ---
-@st.cache_data
+# ==========================================
+# 1. HÀM TÍNH TOÁN DỮ LIỆU TỒN KHO (INV 110)
+# ==========================================
+def extract_date_inv(file):
+    try:
+        df_head = pd.read_excel(file, header=None, nrows=10)
+        for val in df_head.values.flatten():
+            if pd.notna(val) and "Ngày tồn kho:" in str(val):
+                return str(val).split("Ngày tồn kho:")[-1].strip()
+    except:
+        pass
+    return "09/10/2026"
+
 def process_inv110(files):
     df_list = []
+    report_date = "09/10/2026"
     for file in files:
-        df = pd.read_excel(file, skiprows=10)
-        if len(df.columns) >= 28:
-            df = df.rename(columns={
-                df.columns[0]: 'Phân loại',
-                df.columns[22]: 'Khối lượng (KG)'
-            })
-            df_list.append(df[['Phân loại', 'Khối lượng (KG)']])
-            
-    if not df_list:
-        return None, None
+        cur_date = extract_date_inv(file)
+        if cur_date:
+            report_date = cur_date
+        df = pd.read_excel(file, skiprows=10, header=None)
+        df_list.append(df)
         
-    df = pd.concat(df_list, ignore_index=True)
-    df = df.dropna(subset=['Phân loại', 'Khối lượng (KG)'], how='all')
-    df['Khối lượng (KG)'] = pd.to_numeric(df['Khối lượng (KG)'], errors='coerce').fillna(0)
-    df['Khối lượng (Tấn)'] = df['Khối lượng (KG)'] / 1000
-
-    # 1. Bảng Tồn kho HRC-PO-CR-CM
-    hrc = df[df['Phân loại'] == 'HRC']
-    po = df[df['Phân loại'] == 'PO']
-    cm_cr = df[df['Phân loại'].isin(['CM', 'CR'])]
+    if not df_list:
+        return None, None, report_date
+        
+    df_raw = pd.concat(df_list, ignore_index=True)
     
-    tb1_data = {
-        'Tên hàng': ['Tồn kho HRC', 'Tồn kho HRC (hàng ngoài cảng)', 'Tồn kho PO', 'Tồn kho CM + CR'],
-        'Số lượng (Cuộn)': [len(hrc), 0, len(po), len(cm_cr)], # Đếm số dòng = Số cuộn
-        'Khối lượng (Tấn)': [hrc['Khối lượng (Tấn)'].sum(), 0, po['Khối lượng (Tấn)'].sum(), cm_cr['Khối lượng (Tấn)'].sum()],
-        'Ghi chú': ['', '', '', '']
-    }
-    df_tb1 = pd.DataFrame(tb1_data)
-    # Tính dòng TỔNG
-    df_tb1.loc[len(df_tb1)] = ['Tổng', df_tb1['Số lượng (Cuộn)'].sum(), df_tb1['Khối lượng (Tấn)'].sum(), '']
+    # Xác định các cột chính
+    # Col 1: Vị trí kho, Col 2: Mã hàng, Col 3: Tên hàng, Col 23: Net weight (KG)
+    col_kho = df_raw[1].astype(str).str.strip()
+    col_ma = df_raw[2].astype(str).str.strip()
+    col_ten = df_raw[3].astype(str).str.strip()
+    col_kg = pd.to_numeric(df_raw[23], errors='coerce').fillna(0)
 
-    # 2. Bảng Kim loại màu
-    cgg = df[df['Phân loại'].str.contains('CGG', na=False, case=False)]
-    nhom_kem = df[df['Phân loại'].str.contains('nhôm kẽm', na=False, case=False)]
-    kem_magie = df[df['Phân loại'].str.contains('kẽm Magie', na=False, case=False)]
-    pha_che = df[df['Phân loại'].str.contains('pha chế', na=False, case=False)]
+    # Phân loại tự động theo công thức chuẩn Excel
+    phan_loai = pd.Series("", index=df_raw.index)
     
-    tb2_data = {
-        'Tên hàng': ['Tồn kho CGG', 'Tồn kho Hợp kim nhôm kẽm', 'Tồn kho Hợp kim kẽm Magie', 'Tồn kho nguyên liệu pha chế'],
-        'Khối lượng (Tấn)': [cgg['Khối lượng (Tấn)'].sum(), nhom_kem['Khối lượng (Tấn)'].sum(), kem_magie['Khối lượng (Tấn)'].sum(), pha_che['Khối lượng (Tấn)'].sum()],
-        'Ghi chú': ['', '', '', '']
-    }
-    df_tb2 = pd.DataFrame(tb2_data)
+    is_not_A = ~col_ma.str.startswith("A")
+    is_cm = is_not_A & col_ten.str.contains("Thép cán nguội", case=False, na=False)
+    is_po = is_not_A & col_ten.str.contains("Thép cán nóng tẩy rỉ", case=False, na=False)
+    is_hrc = is_not_A & (~is_po) & col_ten.str.contains("Thép cán nóng", case=False, na=False)
+    is_nhom_kem = col_ten.str.contains("Hợp kim Nhôm - Kẽm|nhôm kẽm", case=False, na=False)
+    is_kem = col_ten.str.contains("Kẽm không hợp kim", case=False, na=False)
+    is_magie = col_ten.str.contains("Hợp kim Kẽm Nhôm Magie|kẽm nhôm magie", case=False, na=False)
+    is_pha_che = col_ten.str.contains("Antimon|pha chế", case=False, na=False)
     
-    return df_tb1, df_tb2
+    phan_loai[is_cm] = "CM"
+    phan_loai[is_po] = "PO"
+    phan_loai[is_hrc] = "HRC"
+    phan_loai[is_nhom_kem] = "Hợp kim nhôm kẽm"
+    phan_loai[is_kem] = "Kẽm không hợp kim"
+    phan_loai[is_magie] = "Hợp kim Kẽm Nhôm Magie"
+    phan_loai[is_pha_che] = "Nguyên liệu pha chế"
+    
+    # Bảng 1: Tồn kho Thép
+    mask_hrc_cang = (phan_loai == "HRC") & (col_kho.str.contains("035"))
+    mask_hrc_kho = (phan_loai == "HRC") & (~col_kho.str.contains("035"))
+    mask_po = (phan_loai == "PO")
+    mask_cm = (phan_loai == "CM")
+    
+    tb1 = [
+        {"item": "Tồn kho HRC", "qty": int(mask_hrc_kho.sum()), "weight": col_kg[mask_hrc_kho].sum() / 1000.0, "note": ""},
+        {"item": "Tồn kho HRC ̣̣̣( hàng ngoài cảng)", "qty": int(mask_hrc_cang.sum()), "weight": col_kg[mask_hrc_cang].sum() / 1000.0, "note": ""},
+        {"item": "Tồn kho PO", "qty": int(mask_po.sum()), "weight": col_kg[mask_po].sum() / 1000.0, "note": ""},
+        {"item": "Tồn kho CM + CR", "qty": int(mask_cm.sum()), "weight": col_kg[mask_cm].sum() / 1000.0, "note": ""}
+    ]
+    
+    # Bảng 2: Tồn kho Kim loại màu
+    tb2 = [
+        {"item": "Tồn kho CGG", "weight": col_kg[phan_loai == "Kẽm không hợp kim"].sum() / 1000.0, "note": ""},
+        {"item": "Tồn kho Hợp kim nhôm kẽm", "weight": col_kg[phan_loai == "Hợp kim nhôm kẽm"].sum() / 1000.0, "note": ""},
+        {"item": "Tồn kho Hợp kim kẽm Magie", "weight": col_kg[phan_loai == "Hợp kim Kẽm Nhôm Magie"].sum() / 1000.0, "note": ""},
+        {"item": "Tồn kho nguyên liệu pha chế", "weight": col_kg[phan_loai == "Nguyên liệu pha chế"].sum() / 1000.0, "note": ""}
+    ]
+    
+    return tb1, tb2, report_date
 
-# --- HÀM XỬ LÝ DỮ LIỆU SỬ DỤNG (105) ---
-@st.cache_data
+# ==========================================
+# 2. HÀM TÍNH TOÁN DỮ LIỆU SỬ DỤNG (105)
+# ==========================================
 def process_105(files):
     df_list = []
     for file in files:
-        df = pd.read_excel(file, skiprows=8)
-        if len(df.columns) >= 14:
-            df = df.rename(columns={
-                df.columns[2]: 'Loại Giao Dịch',
-                df.columns[5]: 'Mã Mặt Hàng',
-                df.columns[6]: 'Tên Mặt Hàng',
-                df.columns[11]: 'Khối lượng (KG)'
-            })
-            df_list.append(df[['Loại Giao Dịch', 'Mã Mặt Hàng', 'Tên Mặt Hàng', 'Khối lượng (KG)']])
-            
+        df = pd.read_excel(file, skiprows=8, header=None)
+        df_list.append(df)
+        
     if not df_list:
         return None, None
         
-    df = pd.concat(df_list, ignore_index=True)
-    df = df.dropna(subset=['Loại Giao Dịch', 'Khối lượng (KG)'], how='all')
-    df['Khối lượng (KG)'] = pd.to_numeric(df['Khối lượng (KG)'], errors='coerce').fillna(0)
+    df_raw = pd.concat(df_list, ignore_index=True)
     
-    # Lọc riêng các giao dịch làm giảm tồn kho (Sử dụng)
-    # Khối lượng giao dịch xuất kho thường mang số âm, nên ta dùng abs() để tính số lượng đã dùng
-    giao_dich_su_dung = ['WIP Issue', 'Move Order Issue']
-    df_used = df[df['Loại Giao Dịch'].isin(giao_dich_su_dung)].copy()
-    df_used['Khối lượng (Tấn)'] = df_used['Khối lượng (KG)'].abs() / 1000
+    # Cột trong 105: 2: Loại GD, 4: Dây Chuyền, 5: Mã Hàng, 6: Tên Hàng, 11: Khối lượng (KG)
+    col_gd = df_raw[2].astype(str).str.strip()
+    col_line = df_raw[4].astype(str).str.lower()
+    col_ma = df_raw[5].astype(str).str.strip()
+    col_ten = df_raw[6].astype(str).str.strip()
+    col_kg = pd.to_numeric(df_raw[11], errors='coerce').fillna(0)
 
-    # Phân loại nhóm hàng dựa vào Tên mặt hàng
-    hrc_used = df_used[df_used['Tên Mặt Hàng'].str.contains('HRC|Cán nóng', na=False, case=False)]
-    po_used = df_used[df_used['Tên Mặt Hàng'].str.contains('PO|Tẩy rỉ', na=False, case=False)]
-    cm_used = df_used[df_used['Tên Mặt Hàng'].str.contains('CM|Cán nguội', na=False, case=False)]
+    # Đánh số nhóm giao dịch (Cột B trong Excel)
+    cond_ignore = col_line.str.contains("xử lý|gia công|tái sinh", regex=True, na=False)
+    col_b = pd.Series("", index=df_raw.index)
     
-    # 3. Bảng Tình hình sử dụng NVL chính
-    tb3_data = {
-        'Tên hàng': ['HRC', 'PO', 'CM', 'Hao hụt+ phế liệu'],
-        'Số lượng (Cuộn)': [len(hrc_used), len(po_used), len(cm_used), 0],
-        'Khối lượng (Tấn)': [hrc_used['Khối lượng (Tấn)'].sum(), po_used['Khối lượng (Tấn)'].sum(), cm_used['Khối lượng (Tấn)'].sum(), 0],
-        'Ghi chú': ['', '', '', '']
-    }
-    df_tb3 = pd.DataFrame(tb3_data)
-    df_tb3.loc[len(df_tb3)] = ['Tổng', df_tb3['Số lượng (Cuộn)'].sum(), df_tb3['Khối lượng (Tấn)'].sum(), '']
-
-    # 4. Bảng Tình hình sử dụng NPL
-    nhom_kem_used = df_used[df_used['Tên Mặt Hàng'].str.contains('nhôm kẽm', na=False, case=False)]
-    kem_used = df_used[df_used['Tên Mặt Hàng'].str.contains('Kẽm', na=False, case=False) & ~df_used['Tên Mặt Hàng'].str.contains('nhôm|magie', na=False, case=False)]
-    magie_used = df_used[df_used['Tên Mặt Hàng'].str.contains('Magie', na=False, case=False)]
-    pha_che_used = df_used[df_used['Tên Mặt Hàng'].str.contains('pha chế', na=False, case=False)]
-
-    tb4_data = {
-        'Tên hàng': ['Hợp kim nhôm kẽm', 'Kẽm không hợp kim', 'Hợp kim kẽm Magie', 'Nguyên liệu pha chế'],
-        'Khối lượng (Tấn)': [nhom_kem_used['Khối lượng (Tấn)'].sum(), kem_used['Khối lượng (Tấn)'].sum(), magie_used['Khối lượng (Tấn)'].sum(), pha_che_used['Khối lượng (Tấn)'].sum()],
-        'Ghi chú': ['', '', '', '']
-    }
-    df_tb4 = pd.DataFrame(tb4_data)
-
-    return df_tb3, df_tb4
-
-# --- GIAO DIỆN UPLOAD FILE ---
-st.markdown("### 📥 Nạp Dữ Liệu Nguồn")
-with st.expander("📖 Bấm vào đây để xem Hướng dẫn lấy file từ hệ thống"):
-    col_huongdan1, col_huongdan2 = st.columns(2)
-    with col_huongdan1:
-        st.markdown("""
-        **INV 110** (Tồn kho)
-        - **HSG_KS_INV_Cung Ứng:** 031,035,03G,03H,041,046
-        - **HSG_KS_INV_Vật tư:** 03B
-        - **NMBD_KS_PO_ADMIN:** 047
-        *(Chọn mốc ngày thứ 5 tuần báo cáo)*
-        """)
-    with col_huongdan2:
-        st.markdown("""
-        **OMP 105** (Giao dịch)
-        - Chọn Loại nghiệp vụ: Inventory, Job or Schedule, Move order
-        - Lấy từ: Cung ứng, Vật tư, Admin.
-        *(Chọn từ thứ 6 tuần trước đến thứ 5 tuần này)*
-        """)
-
-col_upload1, col_upload2 = st.columns(2)
-with col_upload1:
-    inv110_files = st.file_uploader("1️⃣ Tải lên các file INV 110", type=["xlsx"], accept_multiple_files=True)
-with col_upload2:
-    file105_files = st.file_uploader("2️⃣ Tải lên các file 105", type=["xlsx"], accept_multiple_files=True)
-
-
-# --- XỬ LÝ VÀ HIỂN THỊ DASHBOARD ---
-if inv110_files and file105_files:
-    st.divider()
-    
-    # Định dạng bảng chuẩn như Excel
-    def style_dataframe(df, is_khil_only=False):
-        if is_khil_only:
-            return df.style.format({"Khối lượng (Tấn)": "{:,.2f}"}).apply(
-                lambda x: ['background-color: yellow; font-weight: bold' if x['Tên hàng'] == 'Tổng' else '' for i in x], axis=1)
-        else:
-            return df.style.format({"Số lượng (Cuộn)": "{:,.0f}", "Khối lượng (Tấn)": "{:,.2f}"}).apply(
-                lambda x: ['background-color: yellow; font-weight: bold' if x['Tên hàng'] == 'Tổng' else '' for i in x], axis=1)
-
-    df_tb1, df_tb2 = process_inv110(inv110_files)
-    df_tb3, df_tb4 = process_105(file105_files)
-    
-    if df_tb1 is not None and df_tb3 is not None:
-        col_dash1, col_dash2 = st.columns(2)
-        
-        with col_dash1:
-            st.markdown("<h4 style='text-align: center; color: #1e7e34;'>BÁO CÁO KHỐI LƯỢNG NLC, NPL TẠI CTC/NM</h4>", unsafe_allow_html=True)
-            st.markdown("**1. Tồn kho HRC-PO-CR-CM**")
-            st.dataframe(style_dataframe(df_tb1), use_container_width=True, hide_index=True)
-            
-            st.markdown("**2. Kim loại màu tại nhà máy NH**")
-            st.dataframe(style_dataframe(df_tb2, is_khil_only=True), use_container_width=True, hide_index=True)
-
-        with col_dash2:
-            st.markdown("<h4 style='text-align: center; color: #1e7e34;'>BÁO CÁO KHỐI LƯỢNG SỬ DỤNG NLC, NPL TẠI CTC/NM</h4>", unsafe_allow_html=True)
-            st.markdown("**3. Tình hình sử dụng NVL chính :**")
-            st.dataframe(style_dataframe(df_tb3), use_container_width=True, hide_index=True)
-            
-            st.markdown("**4. Tình hình sử dụng NPL :**")
-            st.dataframe(style_dataframe(df_tb4, is_khil_only=True), use_container_width=True, hide_index=True)
+    col_b[(~cond_ignore) & (col_gd.isin
