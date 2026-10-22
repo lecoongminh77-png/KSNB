@@ -1,5 +1,6 @@
 import streamlit as st
 import re
+import os
 import requests
 from bs4 import BeautifulSoup
 from google import genai
@@ -110,8 +111,10 @@ st.markdown("""
 col_home, _ = st.columns([1.5, 8.5])
 with col_home:
     if st.button("🏠 Trang chủ", use_container_width=True):
-        st.switch_page("app_ksnb.py")
-
+        try:
+            st.switch_page("app_ksnb.py")
+        except Exception:
+            st.info("Chưa tìm thấy app_ksnb.py để chuyển trang.")
 
 st.markdown("<hr style='border: none; border-top: 1px solid #e2e8f0; margin: 15px 0 20px 0;'>", unsafe_allow_html=True)
 
@@ -146,12 +149,39 @@ if loaded_rules:
 else:
     st.warning("⚠️ Chưa đọc được file Google Doc, vui lòng đảm bảo file bật quyền 'Bất kỳ ai có liên kết đều xem được'.")
 
-# Lấy API Key
-api_key = None
-if "GEMINI_API_KEY" in st.secrets:
-    api_key = st.secrets["GEMINI_API_KEY"]
-else:
-    api_key = st.sidebar.text_input("🔑 Gemini API Key:", type="password")
+# -------------------------------------------------------------
+# XỬ LÝ API KEY THÔNG MINH (TRỰC TIẾP TRÊN MÀN HÌNH CHÍNH)
+# -------------------------------------------------------------
+saved_secret_key = ""
+try:
+    if "GEMINI_API_KEY" in st.secrets:
+        saved_secret_key = st.secrets["GEMINI_API_KEY"]
+except Exception:
+    pass
+
+if not saved_secret_key:
+    saved_secret_key = os.environ.get("GEMINI_API_KEY", "")
+
+# Hiển thị ô nhập API Key ngay trên giao diện chính nếu chưa có trong secrets
+with st.expander("⚙️ Cài đặt Gemini API Key & Cấu hình AI", expanded=(not bool(saved_secret_key))):
+    col_k1, col_k2 = st.columns([2, 1])
+    with col_k1:
+        user_api_key = st.text_input(
+            "🔑 Nhập Gemini API Key của bạn:",
+            value=saved_secret_key,
+            type="password",
+            placeholder="AIzaSy...",
+            help="Lấy API Key miễn phí tại: https://aistudio.google.com/"
+        )
+    with col_k2:
+        selected_model = st.selectbox(
+            "⚡ Chọn Model Gemini:",
+            ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash"],
+            index=0
+        )
+
+# Quyết định API key cuối cùng
+api_key = user_api_key.strip() if user_api_key else saved_secret_key
 
 # Hàm cào dữ liệu từ URL bài gốc
 def extract_content_from_url(url: str):
@@ -231,7 +261,7 @@ with st.container(border=True):
 # -------------------------------------------------------------
 if btn_generate:
     if not api_key:
-        st.error("⚠️ Vui lòng cung cấp Gemini API Key!")
+        st.error("⚠️ Vui lòng nhập Gemini API Key vào ô Cài đặt phía trên để tiếp tục!")
     else:
         with st.spinner("Đang phân tích bài gốc, đối chiếu quy chuẩn Google Docs và biên tập..."):
             extracted_title = ""
@@ -296,7 +326,7 @@ Hãy đọc kỹ toàn bộ quy chuẩn Google Docs và viết bài viết hoàn
             try:
                 client = genai.Client(api_key=api_key)
                 response = client.models.generate_content(
-                    model='gemini-2.5-flash',
+                    model=selected_model,
                     contents=user_prompt,
                     config=types.GenerateContentConfig(
                         system_instruction=SYSTEM_PROMPT,
