@@ -192,7 +192,22 @@ def export_to_excel(df_tb1, df_tb2, df_tb3, df_tb4, ngay_str):
 
     wb.save(output)
     return output.getvalue()
-
+    # Chèn Logo Hoa Sen vào góc trái hai bên file Excel
+    try:
+        import requests
+        from openpyxl.drawing.image import Image
+        logo_url = "https://hoasengroup.vn/wp-content/uploads/2021/04/logo-hoa-sen-group.png"
+        res = requests.get(logo_url, timeout=4)
+        if res.status_code == 200:
+            img1 = Image(io.BytesIO(res.content))
+            img1.width, img1.height = 42, 42
+            ws.add_image(img1, "B1")
+            
+            img2 = Image(io.BytesIO(res.content))
+            img2.width, img2.height = 42, 42
+            ws.add_image(img2, "M1")
+    except Exception:
+        pass
 
 # --- 2. HÀM XỬ LÝ INV 110 (TỒN KHO) ---
 @st.cache_data
