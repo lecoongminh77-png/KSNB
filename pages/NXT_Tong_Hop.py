@@ -16,7 +16,13 @@ st.set_page_config(
 )
 
 st.title("📊 BÁO CÁO TỔNG HỢP NXT NVL CHÍNH")
+# Thanh điều hướng (Nút quay về Trang chủ)
+col_home, _ = st.columns([1.5, 8.5])
+with col_home:
+    if st.button('🏠 Trang chủ', use_container_width=True):
+        st.switch_page('app_ksnb.py')
 
+st.markdown("<hr style='border: none; border-top: 1px solid #e2e8f0; margin: 10px 0 20px 0;'>", unsafe_allow_html=True)
 
 import base64
 
