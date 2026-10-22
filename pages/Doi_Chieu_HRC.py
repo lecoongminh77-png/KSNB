@@ -114,6 +114,34 @@ st.markdown(
 # ==============================================================================
 def doi_chieu_hrc_tung_file():
     st.caption('Kiểm soát nội bộ • Tự động đối soát 4 bên và tô đỏ ô sai phạm dữ liệu')
+        with st.expander("📖 Bấm vào đây để xem Hướng dẫn lấy file từ hệ thống"):
+        col_hd1, col_hd2 = st.columns(2)
+        with col_hd1:
+            st.markdown("""
+            **1. Biên bản nghiệm thu (BBNT):**
+            - Đường dẫn: `Nguyen Thi Thu Thuong > Biên bản nghiệm thu (BBNT)`
+
+            **2. Packing List nhà cung cấp:**
+            - Đường dẫn: `Nguyen Thi Thu Thuong > Packing List nhà cung cấp`
+
+            **3. Dữ liệu Trạm cân:**
+            - Vào sheet: Tài khoản
+            - Truy cập: `http://172.17.24.9/#/login` | **ID:** PM4444 | **Mk:** 123456
+            - Quản lý truy cập > Tra cứu trạm cân
+            - Chọn mốc thời gian: **1 tháng rưỡi**
+            """)
+        with col_hd2:
+            st.markdown("""
+            **4. Dữ liệu Nhập Bảo vệ:**
+            - Quản lý truy cập > Tra cứu xuất nhập hàng > chọn mục **nhập hàng**
+            - Chọn mốc thời gian giống tra cứu trạm cân
+
+            **5. OPM 105:**
+            - Chọn: `HSG_OPM_105_BCKiemSoatThongTinGDTheoLo_GD2`
+            - Tích chọn: `035`, `03G`, `03H`
+            - Loại nghiệp vụ: `Inventory`, `Job or Schedule`, `Purchase order`
+            - Thời gian: Chọn mốc **1 tháng** cần kiểm tra
+            """)
 
     col1, col2 = st.columns(2)
     with col1:
