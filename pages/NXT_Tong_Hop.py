@@ -24,16 +24,14 @@ def export_to_excel(df_tb1, df_tb2, df_tb3, df_tb4):
     ws.title = "NXT Tong Hop"
     ws.views.sheetView[0].showGridLines = True
 
-    # 1. Đặt độ rộng cột chính xác từng milimet theo file gốc
+    # 1. Kích thước cột & chiều cao dòng chuẩn theo file nhà máy
     col_widths = {
         'A': 6.5, 'B': 3.5, 'C': 41.3, 'D': 15.2, 'E': 17.8, 'F': 25.8, 'G': 5.8, 'H': 5.3, 'I': 3.2,
-        'J': 1.5,
-        'K': 1.3, 'L': 8.8, 'M': 17.7, 'N': 17.0, 'O': 19.8, 'P': 20.5, 'Q': 29.5, 'R': 14.3, 'S': 5.5
+        'J': 1.5, 'K': 1.3, 'L': 8.8, 'M': 17.7, 'N': 17.0, 'O': 19.8, 'P': 20.5, 'Q': 29.5, 'R': 14.3, 'S': 5.5
     }
     for col, w in col_widths.items():
         ws.column_dimensions[col].width = w
 
-    # 2. Chiều cao dòng chuẩn giúp bố cục thoáng đãng
     row_heights = {
         1: 27.75, 2: 16.5, 3: 46.5, 4: 21.75, 5: 16.0, 6: 27.75, 7: 17.0, 8: 23.25, 9: 21.75,
         10: 25.5, 11: 25.5, 12: 25.5, 13: 25.5, 14: 21.75, 15: 17.0, 16: 23.25, 17: 18.0,
@@ -42,28 +40,20 @@ def export_to_excel(df_tb1, df_tb2, df_tb3, df_tb4):
     for r, h in row_heights.items():
         ws.row_dimensions[r].height = h
 
-    # 3. Gộp ô (Merge cells)
+    # 2. Gộp ô
     merges = [
-        "C1:I2", "M1:S2",
-        "A3:I3", "K3:S3",
-        "A4:I4", "K4:S4",
+        "C1:I2", "M1:S2", "A3:I3", "K3:S3", "A4:I4", "K4:S4",
         "B8:C9", "M8:N9", "Q8:Q9",
-        "B10:C10", "M10:N10",
-        "B11:C11", "M11:N11",
-        "B12:C12", "M12:N12",
-        "B13:C13", "M13:N13",
-        "B14:C14", "M14:N14",
-        "B18:C19", "D18:E18", "M18:N19", "P18:P19",
-        "D19:E19",
-        "D20:E20", "M20:N20",
-        "D21:E21", "M21:N21",
-        "B22:C22", "D22:E22", "M22:N22",
-        "D23:E23", "M23:N23"
+        "B10:C10", "M10:N10", "B11:C11", "M11:N11",
+        "B12:C12", "M12:N12", "B13:C13", "M13:N13", "B14:C14", "M14:N14",
+        "B18:C19", "D18:E18", "M18:N19", "P18:P19", "D19:E19",
+        "D20:E20", "M20:N20", "D21:E21", "M21:N21",
+        "B22:C22", "D22:E22", "M22:N22", "D23:E23", "M23:N23"
     ]
     for m in merges:
         ws.merge_cells(m)
 
-    # 4. Định dạng chữ và màu nền
+    # 3. Định dạng Font & Màu
     f_factory = Font(name="Times New Roman", size=16, bold=True)
     f_title = Font(name="Times New Roman", size=21, bold=True)
     f_date = Font(name="Times New Roman", size=12, bold=True, color="FF0000")
@@ -84,40 +74,35 @@ def export_to_excel(df_tb1, df_tb2, df_tb3, df_tb4):
     border_cell = Border(left=thin_border, right=thin_border, top=thin_border, bottom=thin_border)
     medium_border = Side(border_style="medium", color="000000")
 
-    # 5. Tiêu đề sổ sách
+    # 4. Tiêu đề sổ sách
     ws["C1"] = "NHÀ MÁY TÔN HOA SEN PHÚ MỸ"; ws["C1"].font = f_factory; ws["C1"].alignment = al_center
     ws["M1"] = "NHÀ MÁY TÔN HOA SEN PHÚ MỸ"; ws["M1"].font = f_factory; ws["M1"].alignment = al_center
-
     ws["A3"] = "BÁO CÁO KHỐI LƯỢNG NLC, NPL TẠI CTC/NM"; ws["A3"].font = f_title; ws["A3"].alignment = al_center
     ws["K3"] = "BÁO CÁO KHỐI LƯỢNG SỬ DỤNG NLC, NPL TẠI CTC/NM"; ws["K3"].font = f_title; ws["K3"].alignment = al_center
-
     ws["A4"] = "Đến 23 giờ 59 phút ngày báo cáo"; ws["A4"].font = f_date; ws["A4"].alignment = al_center
     ws["K4"] = "Đến 23 giờ 59 phút ngày báo cáo"; ws["K4"].font = f_date; ws["K4"].alignment = al_center
 
     ws["A6"] = "1. Tồn kho HRC-PO-CR-CM"; ws["A6"].font = f_section; ws["A6"].alignment = al_left
     ws["K6"] = "3. Tình hình sử dụng NVL chính :"; ws["K6"].font = f_section; ws["K6"].alignment = al_left
 
-    # 6. Header Bảng 1 & 3
-    ws["B8"] = "Tên hàng"; ws["B8"].font = f_header; ws["B8"].alignment = al_center
-    ws["D8"] = "Số lượng"; ws["D8"].font = f_header; ws["D8"].alignment = al_center
-    ws["D9"] = "Cuộn"; ws["D9"].font = f_subhead; ws["D9"].alignment = al_center
-    ws["E8"] = "Khối lượng"; ws["E8"].font = f_header; ws["E8"].alignment = al_center
-    ws["E9"] = "Tấn"; ws["E9"].font = f_subhead; ws["E9"].alignment = al_center
-    ws["F8"] = "Ghi chú"; ws["F8"].font = f_header; ws["F8"].alignment = al_center
-
-    ws["M8"] = "Tên hàng"; ws["M8"].font = f_header; ws["M8"].alignment = al_center
-    ws["O8"] = "Số lượng"; ws["O8"].font = f_header; ws["O8"].alignment = al_center
-    ws["O9"] = "Cuộn"; ws["O9"].font = f_subhead; ws["O9"].alignment = al_center
-    ws["P8"] = "Khối lượng"; ws["P8"].font = f_header; ws["P8"].alignment = al_center
-    ws["P9"] = "Tấn"; ws["P9"].font = f_subhead; ws["P9"].alignment = al_center
-    ws["Q8"] = "Ghi chú"; ws["Q8"].font = f_header; ws["Q8"].alignment = al_center
+    # 5. Header Bảng 1 & 3
+    for prefix, start_c in [("", "B"), ("", "M")]:
+        p_q = "D" if start_c == "B" else "O"
+        p_w = "E" if start_c == "B" else "P"
+        p_n = "F" if start_c == "B" else "Q"
+        ws[f"{start_c}8"] = "Tên hàng"; ws[f"{start_c}8"].font = f_header; ws[f"{start_c}8"].alignment = al_center
+        ws[f"{p_q}8"] = "Số lượng"; ws[f"{p_q}8"].font = f_header; ws[f"{p_q}8"].alignment = al_center
+        ws[f"{p_q}9"] = "Cuộn"; ws[f"{p_q}9"].font = f_subhead; ws[f"{p_q}9"].alignment = al_center
+        ws[f"{p_w}8"] = "Khối lượng"; ws[f"{p_w}8"].font = f_header; ws[f"{p_w}8"].alignment = al_center
+        ws[f"{p_w}9"] = "Tấn"; ws[f"{p_w}9"].font = f_subhead; ws[f"{p_w}9"].alignment = al_center
+        ws[f"{p_n}8"] = "Ghi chú"; ws[f"{p_n}8"].font = f_header; ws[f"{p_n}8"].alignment = al_center
 
     for r in [8, 9]:
         for c in ["B", "C", "D", "E", "F", "M", "N", "O", "P", "Q"]:
             ws[f"{c}{r}"].fill = fill_header
             ws[f"{c}{r}"].border = border_cell
 
-    # 7. Đổ dữ liệu Bảng 1 (Tồn kho)
+    # 6. Đổ dữ liệu Bảng 1
     for i, r in df_tb1.iterrows():
         idx = 10 + i
         is_tot = (r['Tên hàng'] == 'Tổng')
@@ -128,7 +113,7 @@ def export_to_excel(df_tb1, df_tb2, df_tb3, df_tb4):
             ws[f"{c}{idx}"].border = border_cell
             if is_tot: ws[f"{c}{idx}"].fill = fill_total
 
-    # 8. Đổ dữ liệu Bảng 3 (Sử dụng NVL)
+    # 7. Đổ dữ liệu Bảng 3
     for i, r in df_tb3.iterrows():
         idx = 10 + i
         is_tot = (r['Tên hàng'] == 'Tổng')
@@ -141,7 +126,7 @@ def export_to_excel(df_tb1, df_tb2, df_tb3, df_tb4):
             ws[f"{c}{idx}"].border = border_cell
             if is_tot: ws[f"{c}{idx}"].fill = fill_total
 
-    # 9. Header Bảng 2 & 4
+    # 8. Header Bảng 2 & 4
     ws["A16"] = "2. Kim loại màu tại nhà máy NH"; ws["A16"].font = f_section; ws["A16"].alignment = al_left
     ws["K16"] = "4. Tình hình sử dụng NPL :"; ws["K16"].font = f_section; ws["K16"].alignment = al_left
 
@@ -160,7 +145,7 @@ def export_to_excel(df_tb1, df_tb2, df_tb3, df_tb4):
             ws[f"{c}{r}"].fill = fill_header
             ws[f"{c}{r}"].border = border_cell
 
-    # 10. Đổ dữ liệu Bảng 2 & 4
+    # 9. Đổ dữ liệu Bảng 2 & 4
     for i, r in df_tb2.iterrows():
         idx = 20 + i
         ws[f"B{idx}"] = r['Tên hàng']; ws[f"B{idx}"].font = f_data; ws[f"B{idx}"].alignment = al_left
@@ -175,7 +160,7 @@ def export_to_excel(df_tb1, df_tb2, df_tb3, df_tb4):
         for c in ["M", "N", "O", "P"]:
             ws[f"{c}{idx}"].border = border_cell
 
-    # 11. Vẽ khung viền đôi bên ngoài cực sang trọng
+    # 10. Đóng khung viền đậm hai bên
     def apply_box(min_c, max_c, min_r, max_r):
         for r in range(min_r, max_r + 1):
             for c in range(min_c, max_c + 1):
@@ -192,7 +177,6 @@ def export_to_excel(df_tb1, df_tb2, df_tb3, df_tb4):
 
     wb.save(output)
     return output.getvalue()
-
 
 # --- 2. HÀM XỬ LÝ INV 110 (TỒN KHO) ---
 @st.cache_data
