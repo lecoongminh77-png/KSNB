@@ -150,7 +150,7 @@ else:
 
 # CẤU HÌNH TRỰC TIẾP API KEY VÀ MODEL (Không hiển thị ô nhập)
 api_key = st.secrets.get("GEMINI_API_KEY")
-selected_model = "gemini-2.5-flash"
+selected_model = "gemini-3.8-flash"
 
 # Hàm cào dữ liệu từ URL bài gốc
 def extract_content_from_url(url: str):
