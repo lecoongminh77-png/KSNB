@@ -53,7 +53,9 @@ if not st.session_state.da_xem_intro:
 # Giao diện phong cách Apple Dashboard
 st.markdown("""
 <style>
-    [data-testid="stSidebarNav"] { display: none !important; }
+[data-testid="stSidebar"] { display: none !important; }
+    [data-testid="collapsedControl"] { display: none !important; }
+
     
     .stApp {
         background-color: #f5f5f7;
