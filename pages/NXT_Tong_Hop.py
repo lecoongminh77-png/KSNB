@@ -18,6 +18,10 @@ st.set_page_config(
 st.title("📊 BÁO CÁO TỔNG HỢP NXT NVL CHÍNH")
 
 
+import base64
+
+HOASEN_LOGO_B64 = "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"
+
 # --- 1. HÀM XUẤT EXCEL CHUẨN FORM NHÀ MÁY ---
 def export_to_excel(df_tb1, df_tb2, df_tb3, df_tb4, ngay_str):
     output = io.BytesIO()
@@ -249,19 +253,18 @@ def export_to_excel(df_tb1, df_tb2, df_tb3, df_tb4, ngay_str):
     apply_box(1, 9, 1, 24)
     apply_box(11, 19, 1, 24)
 
-        # Chèn Logo Hoa Sen vào Excel
+            # Chèn Logo vào Excel từ Base64
     try:
-        logo_url = "https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/Logo_Hoa_Sen_Group.png/120px-Logo_Hoa_Sen_Group.png"
-        headers = {"User-Agent": "Mozilla/5.0"}
-        res = requests.get(logo_url, headers=headers, timeout=5)
-        if res.status_code == 200:
-            img1 = Image(io.BytesIO(res.content))
-            img1.width, img1.height = 42, 42
-            ws.add_image(img1, "B1")
+        from openpyxl.drawing.image import Image
+        img_bytes = base64.b64decode(HOASEN_LOGO_B64)
+        
+        img1 = Image(io.BytesIO(img_bytes))
+        img1.width, img1.height = 42, 42
+        ws.add_image(img1, "B1")
 
-            img2 = Image(io.BytesIO(res.content))
-            img2.width, img2.height = 42, 42
-            ws.add_image(img2, "M1")
+        img2 = Image(io.BytesIO(img_bytes))
+        img2.width, img2.height = 42, 42
+        ws.add_image(img2, "M1")
     except Exception:
         pass
 
