@@ -1,19 +1,11 @@
 import sys
 import os
 
-# 1. Ép Python nhận diện thư mục gốc (nơi chứa ai_chat.py) ngay lập tức
-root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-if root_path not in sys.path:
-    sys.path.insert(0, root_path)
-
 # 2. Khai báo các thư viện khác
 import io
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 import pandas as pd
 import streamlit as st
-
-# 3. Import module nội bộ
-from ai_chat import hien_thi_tro_ly_ai
 
 
 # -------------------------------------------------------------
@@ -27,7 +19,9 @@ st.set_page_config(
 st.markdown(
     """
 <style>
-    [data-testid="stSidebarNav"] { display: none !important; }
+    [data-testid="stSidebar"] { display: none !important; }
+    [data-testid="collapsedControl"] { display: none !important; }
+
     .stApp {
         background-color: #f5f5f7;
         font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
@@ -350,5 +344,3 @@ def doi_chieu_hrc_tung_file():
     else:
         st.info('👉 Hãy nạp tối thiểu File BBNT để bắt đầu đối chiếu.')
 
-doi_chieu_hrc_tung_file()
-hien_thi_tro_ly_ai()
