@@ -16,6 +16,26 @@ st.set_page_config(
 )
 
 st.title("📊 BÁO CÁO TỔNG HỢP NXT NVL CHÍNH")
+# CSS nút bấm màu xanh bo tròn
+st.markdown("""
+<style>
+div.stButton > button:first-child {
+    background: #0071e3 !important;
+    color: #ffffff !important;
+    border-radius: 980px !important;
+    border: none !important;
+    padding: 10px 20px !important;
+    font-weight: 600 !important;
+    font-size: 14px !important;
+    box-shadow: 0 4px 12px rgba(0, 113, 227, 0.2) !important;
+}
+div.stButton > button:first-child:hover {
+    background: #0077ed !important;
+    color: #ffffff !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 # Thanh điều hướng (Nút quay về Trang chủ)
 col_home, _ = st.columns([1.5, 8.5])
 with col_home:
