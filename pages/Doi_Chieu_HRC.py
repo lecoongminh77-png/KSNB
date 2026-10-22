@@ -114,9 +114,9 @@ st.markdown(
 # ==============================================================================
 def doi_chieu_hrc_tung_file():
     st.caption('Kiểm soát nội bộ • Tự động đối soát 4 bên và tô đỏ ô sai phạm dữ liệu')
-        with st.expander("📖 Bấm vào đây để xem Hướng dẫn lấy file từ hệ thống"):
+    with st.expander("📖 Bấm vào đây để xem Hướng dẫn lấy file từ hệ thống"):
         col_hd1, col_hd2 = st.columns(2)
-        with col_hd1:
+    with col_hd1:
             st.markdown("""
             **1. Biên bản nghiệm thu (BBNT):**
             - Đường dẫn: `Nguyen Thi Thu Thuong > Biên bản nghiệm thu (BBNT)`
@@ -130,7 +130,7 @@ def doi_chieu_hrc_tung_file():
             - Quản lý truy cập > Tra cứu trạm cân
             - Chọn mốc thời gian: **1 tháng rưỡi**
             """)
-        with col_hd2:
+    with col_hd2:
             st.markdown("""
             **4. Dữ liệu Nhập Bảo vệ:**
             - Quản lý truy cập > Tra cứu xuất nhập hàng > chọn mục **nhập hàng**
