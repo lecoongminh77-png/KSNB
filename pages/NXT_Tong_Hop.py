@@ -3,10 +3,9 @@ import pandas as pd
 import math
 
 # Cấu hình trang
-st.set_page_config(page_title="Báo Cáo NXT NVL Chính", layout="wide")
+st.set_page_config(page_title="Báo Cáo NXT NVL Thứ 5 và Thứ 6", layout="wide")
 
 st.title("📊 BÁO CÁO TỔNG HỢP NXT NVL CHÍNH")
-st.markdown("Hệ thống tự động gộp các file dữ liệu kho và xuất ra dashboard tổng hợp.")
 
 # --- HÀM XỬ LÝ DỮ LIỆU ---
 @st.cache_data
@@ -79,10 +78,10 @@ def process_105(files):
 
 
 # --- GIAO DIỆN UPLOAD FILE ---
-st.markdown("### 📥 Nạp Dữ Liệu Nguồn")
+st.markdown("### 📥 Nạp Dữ Liệu ERP")
 
 # Khung ghi chú hướng dẫn lấy file chuẩn theo SOP
-with st.expander("📖 Bấm vào đây để xem Hướng dẫn lấy file từ hệ thống"):
+with st.expander("📖 Hướng dẫn lấy file từ hệ thống"):
     # Chia làm 2 cột trái phải
     col_huongdan1, col_huongdan2 = st.columns(2)
     
