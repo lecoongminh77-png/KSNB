@@ -148,15 +148,18 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Hiển thị quả bóng xoay mượt mà không bị lỗi Component
-st.markdown("""
-<div style="display: flex; justify-content: center; align-items: center; margin: 10px 0 25px 0;">
-    <iframe src="https://lottie.host/embed/aa244008-30a5-46ac-a553-63b9d65b315a/kWzva6TSwg.lottie" 
-            style="width: 260px; height: 180px; border: none; background: transparent; overflow: hidden;" 
-            scrolling="no">
-    </iframe>
-</div>
-""", unsafe_allow_html=True)
+# Hiển thị quả bóng qua bộ nhúng HTML chuyên biệt của Streamlit
+st.components.v1.html(
+    """
+    <div style="display: flex; justify-content: center; align-items: center; width: 100%; height: 100%;">
+        <iframe src="https://lottie.host/embed/aa244008-30a5-46ac-a553-63b9d65b315a/kWzva6TSwg.json" 
+                style="width: 280px; height: 180px; border: none; background: transparent;" 
+                frameborder="0">
+        </iframe>
+    </div>
+    """,
+    height=190,
+)
 
 # Lưới hiển thị các thẻ công cụ (Chia làm 3 cột chính)
 _, col1, col2, col3, _ = st.columns([0.2, 3, 3, 3, 0.2], gap="medium")
