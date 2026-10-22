@@ -17,7 +17,7 @@ st.title("📊 BÁO CÁO TỔNG HỢP NXT NVL CHÍNH")
 
 
 # --- 1. HÀM XUẤT EXCEL CHUẨN ĐẸP 100% THEO FORM GỐC NHÀ MÁY ---
-def export_to_excel(df_tb1, df_tb2, df_tb3, df_tb4):
+def export_to_excel(df_tb1, df_tb2, df_tb3, df_tb4, ngay_str):
     output = io.BytesIO()
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -91,8 +91,8 @@ def export_to_excel(df_tb1, df_tb2, df_tb3, df_tb4):
     ws["A3"] = "BÁO CÁO KHỐI LƯỢNG NLC, NPL TẠI CTC/NM"; ws["A3"].font = f_title; ws["A3"].alignment = al_center
     ws["K3"] = "BÁO CÁO KHỐI LƯỢNG SỬ DỤNG NLC, NPL TẠI CTC/NM"; ws["K3"].font = f_title; ws["K3"].alignment = al_center
 
-    ws["A4"] = "Đến 23 giờ 59 phút ngày báo cáo"; ws["A4"].font = f_date; ws["A4"].alignment = al_center
-    ws["K4"] = "Đến 23 giờ 59 phút ngày báo cáo"; ws["K4"].font = f_date; ws["K4"].alignment = al_center
+    ws["A4"] = f"Đến 23 giờ 59 phút ngày {ngay_str}"; ws["A4"].font = f_date; ws["A4"].alignment = al_center
+    ws["K4"] = f"Đến 23 giờ 59 phút ngày {ngay_str}"; ws["K4"].font = f_date; ws["K4"].alignment = al_center
 
     ws["A6"] = "1. Tồn kho HRC-PO-CR-CM"; ws["A6"].font = f_section; ws["A6"].alignment = al_left
     ws["K6"] = "3. Tình hình sử dụng NVL chính :"; ws["K6"].font = f_section; ws["K6"].alignment = al_left
@@ -196,65 +196,46 @@ def export_to_excel(df_tb1, df_tb2, df_tb3, df_tb4):
 
 # --- 2. HÀM XỬ LÝ INV 110 (TỒN KHO) ---
 @st.cache_data
-def process_inv110(files):
-    df_list = []
-    for f in files:
-        try:
-            df = pd.read_excel(f, skiprows=10)
-            if len(df.columns) >= 24:
-                sub_df = pd.DataFrame({
-                    'PhanLoai': df.iloc[:, 0].astype(str).str.strip(),
-                    'Kho': df.iloc[:, 1].astype(str).str.strip(),
-                    'KhoiLuong': pd.to_numeric(df.iloc[:, 23], errors='coerce').fillna(0)
-                })
-                df_list.append(sub_df)
-        except Exception as e:
-            st.error(f"Lỗi đọc file INV 110: {e}")
+    # 1. Nhận ngày tự động từ hàm xử lý
+    df_tb1, df_tb2, report_date_str = process_inv110(inv110_files)
+    df_tb3, df_tb4 = process_105(file105_files)
 
-    if not df_list:
-        return None, None
+    if df_tb1 is not None and df_tb3 is not None:
+        col_left, col_right = st.columns(2)
 
-    data = pd.concat(df_list, ignore_index=True)
-    data = data[~data['PhanLoai'].isin(['nan', 'Phân loại', 'None'])]
+        # 2. Hiển thị Logo và Ngày tự động lên web
+        logo_html = '<img src="https://hoasengroup.vn/wp-content/uploads/2021/04/logo-hoa-sen-group.png" width="45" style="vertical-align: middle; margin-bottom: 6px;">'
 
-    # Bảng 1: Thép cuộn
-    hrc_thuong = data[(data['PhanLoai'] == 'HRC') & (~data['Kho'].str.contains('035', na=False))]
-    hrc_cang = data[(data['PhanLoai'] == 'HRC') & (data['Kho'].str.contains('035', na=False))]
-    po = data[data['PhanLoai'] == 'PO']
-    cm_cr = data[data['PhanLoai'].isin(['CM', 'CR'])]
+        with col_left:
+            st.markdown(f"""
+            <div style="text-align: center;">
+                {logo_html}
+                <h4 style="color: #b30000; margin: 0;">BÁO CÁO KHỐI LƯỢNG NLC, NPL TẠI CTC/NM</h4>
+                <p style="font-style: italic; font-size: 13px; color: #cc0000; margin-top: 3px;">Đến 23 giờ 59 phút ngày {report_date_str}</p>
+            </div>
+            """, unsafe_allow_html=True)
+            # (Phần st.dataframe df_tb1, df_tb2 bên dưới giữ nguyên)
 
-    tb1 = pd.DataFrame({
-        'Tên hàng': ['Tồn kho HRC', 'Tồn kho HRC ̣̣̣( hàng ngoài cảng)', 'Tồn kho PO', 'Tồn kho CM + CR'],
-        'Số lượng (Cuộn)': [len(hrc_thuong), len(hrc_cang), len(po), len(cm_cr)],
-        'Khối lượng (Tấn)': [
-            hrc_thuong['KhoiLuong'].sum() / 1000,
-            hrc_cang['KhoiLuong'].sum() / 1000,
-            po['KhoiLuong'].sum() / 1000,
-            cm_cr['KhoiLuong'].sum() / 1000
-        ],
-        'Ghi chú': ['', '', '', '']
-    })
-    tb1.loc[len(tb1)] = ['Tổng', tb1['Số lượng (Cuộn)'].sum(), tb1['Khối lượng (Tấn)'].sum(), '']
+        with col_right:
+            st.markdown(f"""
+            <div style="text-align: center;">
+                {logo_html}
+                <h4 style="color: #b30000; margin: 0;">BÁO CÁO KHỐI LƯỢNG SỬ DỤNG NLC, NPL TẠI CTC/NM</h4>
+                <p style="font-style: italic; font-size: 13px; color: #cc0000; margin-top: 3px;">Đến 23 giờ 59 phút ngày {report_date_str}</p>
+            </div>
+            """, unsafe_allow_html=True)
+            # (Phần st.dataframe df_tb3, df_tb4 bên dưới giữ nguyên)
 
-    # Bảng 2: Kim loại màu
-    cgg = data[data['PhanLoai'].str.contains('Kẽm không hợp kim|CGG', na=False, case=False)]
-    nhom_kem = data[data['PhanLoai'].str.contains('nhôm kẽm', na=False, case=False)]
-    magie = data[data['PhanLoai'].str.contains('Magie', na=False, case=False)]
-    pha_che = data[data['PhanLoai'].str.contains('pha chế', na=False, case=False)]
-
-    tb2 = pd.DataFrame({
-        'Tên hàng': ['Tồn kho CGG', 'Tồn kho Hợp kim nhôm kẽm', 'Tồn kho Hợp kim kẽm Magie', 'Tồn kho nguyên liệu pha chế'],
-        'Khối lượng (Tấn)': [
-            cgg['KhoiLuong'].sum() / 1000,
-            nhom_kem['KhoiLuong'].sum() / 1000,
-            magie['KhoiLuong'].sum() / 1000,
-            pha_che['KhoiLuong'].sum() / 1000
-        ],
-        'Ghi chú': ['', '', '', '']
-    })
-
-    return tb1, tb2
-
+        # 3. Nút tải file Excel (truyền ngày tự động vào)
+        st.write("")
+        excel_data = export_to_excel(df_tb1, df_tb2, df_tb3, df_tb4, report_date_str)
+        st.download_button(
+            label="📥 Tải Báo Cáo Ra File Excel (.xlsx)",
+            data=excel_data,
+            file_name=f"BAO_CAO_NXT_{report_date_str.replace('/', '-')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
+        )
 
 # --- 3. HÀM XỬ LÝ 105 (GIAO DỊCH SỬ DỤNG) ---
 @st.cache_data
