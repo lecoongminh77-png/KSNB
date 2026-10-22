@@ -148,12 +148,15 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Hoạt ảnh quả bóng xoay chính giữa Dashboard
-_, col_center, _ = st.columns([3.8, 2.4, 3.8])
-with col_center:
-    logo_header = load_lottieurl("https://lottie.host/aa244008-30a5-46ac-a553-63b9d65b315a/kWzva6TSwg.json")
-    if logo_header:
-        st_lottie(logo_header, height=170, key="header_logo")
+# Hiển thị quả bóng xoay mượt mà không bị lỗi Component
+st.markdown("""
+<div style="display: flex; justify-content: center; align-items: center; margin: 10px 0 25px 0;">
+    <iframe src="https://lottie.host/embed/aa244008-30a5-46ac-a553-63b9d65b315a/kWzva6TSwg.lottie" 
+            style="width: 260px; height: 180px; border: none; background: transparent; overflow: hidden;" 
+            scrolling="no">
+    </iframe>
+</div>
+""", unsafe_allow_html=True)
 
 # Lưới hiển thị các thẻ công cụ (Chia làm 3 cột chính)
 _, col1, col2, col3, _ = st.columns([0.2, 3, 3, 3, 0.2], gap="medium")
