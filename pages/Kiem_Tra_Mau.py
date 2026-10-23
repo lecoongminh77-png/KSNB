@@ -27,7 +27,6 @@ def load_lottieurl(url: str):
     except:
         return None
 
-# Gắn link hình động
 lottie_hoat_anh = load_lottieurl("https://lottie.host/654b9803-9ee2-4c1b-91e3-3f074d4f79d3/b4IPc6jdqR.json")
 
 st.set_page_config(
@@ -109,7 +108,6 @@ st.markdown("""
 <hr style='border: none; border-top: 1px solid #e2e8f0; margin: 15px 0 25px 0;'>
 """, unsafe_allow_html=True)
 
-# Ma trận chuẩn
 MA_TRAN_CHUAN = {
     "Dưới 2 tấn":    {"khong_loi": 20, "loi_giay": 40,  "loi_sat": 70},
     "Từ 2 - 5 tấn":  {"khong_loi": 40, "loi_giay": 60,  "loi_sat": 90},
@@ -126,34 +124,22 @@ def xac_dinh_hang(kl):
         kl = float(kl)
     except:
         return ""
-    if kl < 2000:
-        return "Dưới 2 tấn"
-    elif kl <= 5000:
-        return "Từ 2 - 5 tấn"
-    elif kl <= 7000:
-        return "Từ 5 - 7 tấn"
-    elif kl <= 10000:
-        return "Từ 7 - 10 tấn"
-    elif kl <= 12000:
-        return "Từ 10 - 12 tấn"
-    elif kl <= 17000:
-        return "Từ 12 - 17 tấn"
-    elif kl <= 23000:
-        return "Từ 17 - 23 tấn"
-    else:
-        return "Trên 23 tấn"
+    if kl < 2000: return "Dưới 2 tấn"
+    elif kl <= 5000: return "Từ 2 - 5 tấn"
+    elif kl <= 7000: return "Từ 5 - 7 tấn"
+    elif kl <= 10000: return "Từ 7 - 10 tấn"
+    elif kl <= 12000: return "Từ 10 - 12 tấn"
+    elif kl <= 17000: return "Từ 12 - 17 tấn"
+    elif kl <= 23000: return "Từ 17 - 23 tấn"
+    else: return "Trên 23 tấn"
 
 def xac_dinh_ky_chuan(hang, loai_loi):
     loai_str = str(loai_loi).lower().strip() if pd.notna(loai_loi) else ""
     nhom = MA_TRAN_CHUAN.get(hang, {"khong_loi": 0, "loi_giay": 0, "loi_sat": 0})
-    if "sắt" in loai_str or "sat" in loai_str:
-        return nhom["loi_sat"]
-    elif "giấy" in loai_str or "giay" in loai_str:
-        return nhom["loi_giay"]
-    else:
-        return nhom["khong_loi"]
+    if "sắt" in loai_str or "sat" in loai_str: return nhom["loi_sat"]
+    elif "giấy" in loai_str or "giay" in loai_str: return nhom["loi_giay"]
+    else: return nhom["khong_loi"]
 
-# KHU VỰC TẢI FILE
 col_f1, col_f2 = st.columns(2)
 with col_f1:
     f_tonkho = st.file_uploader("1. File Báo cáo Tồn Kho (Mẫu 2356)", type=["xlsx", "xls", "xlsb"])
@@ -164,67 +150,80 @@ if f_tonkho is not None:
     if st.button("🚀 Bắt đầu tính toán tự động", use_container_width=True):
         with st.spinner("Đang xử lý dữ liệu và đối soát trùng lặp..."):
             try:
-                # Đọc file và bỏ qua dòng Header trống
-                try:
-                    df = pd.read_excel(f_tonkho, skiprows=11)
-                    if df.empty or len(df.columns) < 5:
-                        df = pd.read_excel(f_tonkho)
-                except Exception:
-                    df = pd.read_excel(f_tonkho)
+                # Đọc từ dòng 12 trở đi
+                df = pd.read_excel(f_tonkho, skiprows=11)
+                
+                # Quét thông minh: Xử lý vụ File Excel có Header trộn ở cả dòng 12 và dòng 13
+                col_gross = col_net = col_loi = col_ma_lo = col_daychuyen = None
+                
+                for c in df.columns:
+                    header_text = str(c).lower()
+                    # Quét xem dòng 13 (index 0 của df) có phải là header rớt xuống không
+                    row0_text = str(df.at[0, c]).lower() if len(df) > 0 else ""
+                    
+                    if "gross" in header_text or "gross" in row0_text: col_gross = c
+                    if "net" in header_text or "net" in row0_text: col_net = c
+                    if "lõi" in header_text or "lõi" in row0_text: col_loi = c
+                    if "mã lô" in header_text or "cuộn" in header_text or "mã lô" in row0_text: col_ma_lo = c
+                    # Trong file chuẩn của bạn, Dây chuyền và Đối chiếu quét dựa trên cột Độ phủ sơn (Mã màu) / Mã hàng
+                    if "mã hàng" in header_text or "độ phủ" in header_text or "mã màu" in header_text or "mã hàng" in row0_text: 
+                        col_daychuyen = c
+                
+                # Nếu không tìm thấy cột thay thế, dùng Mã Lô làm mặc định
+                if col_daychuyen is None: col_daychuyen = col_ma_lo
+                
+                # Xóa dòng 13 đi (do nó chứa text "Gross", "Net", "Lõi" bị đẩy xuống) để máy tính trừ được
+                if len(df) > 0 and col_gross and "gross" in str(df.at[0, col_gross]).lower():
+                    df = df.drop(0).reset_index(drop=True)
 
-                # Tìm tự động các cột
-                col_ma_lo = next((c for c in df.columns if "mã lô" in str(c).lower() or "cuộn" in str(c).lower()), None)
-                col_gross = next((c for c in df.columns if "gross" in str(c).lower()), None)
-                col_net = next((c for c in df.columns if "net" in str(c).lower()), None)
-                col_loai_loi = next((c for c in df.columns if "loại lõi" in str(c).lower()), None)
-
-                # Xử lý số tính toán
+                # Ép kiểu dữ liệu sang dạng Số Học
                 df["_gross_num"] = pd.to_numeric(df[col_gross], errors="coerce").fillna(0) if col_gross else 0
                 df["_net_num"] = pd.to_numeric(df[col_net], errors="coerce").fillna(0) if col_net else 0
 
-                # Dây chuyền = Cắt chuỗi Mã Lô
-                if col_ma_lo:
-                    s_ma = df[col_ma_lo].fillna("").astype(str).str.strip()
-                    col_day_chuyen = s_ma.apply(lambda x: str(x)[3:6] if len(str(x)) >= 6 else "")
+                # G - Dây chuyền = MID(Cột Mã Màu/Mã Hàng, 4, 3) y như file gốc
+                if col_daychuyen:
+                    s_ma = df[col_daychuyen].fillna("").astype(str).str.replace(r"\.0$", "", regex=True).str.strip()
+                    col_ketqua_daychuyen = s_ma.apply(lambda x: str(x)[3:6] if len(str(x)) >= 6 else "")
                 else:
-                    col_day_chuyen = ""
+                    col_ketqua_daychuyen = ""
 
-                # Hạng & Ký chuẩn & Tính số lệch
-                col_hang = df["_net_num"].apply(xac_dinh_hang)
-                if col_loai_loi:
-                    col_ky_chuan = [xac_dinh_ky_chuan(h, l) for h, l in zip(col_hang, df[col_loai_loi])]
+                # F - Cột Loại = Lấy Ký tự đầu của cột Lõi [ LEFT(Lõi, 1) ]
+                if col_loi:
+                    col_loai_str = df[col_loi].fillna("").astype(str).apply(lambda x: str(x)[0] if len(str(x)) > 0 else "")
                 else:
-                    col_ky_chuan = [xac_dinh_ky_chuan(h, "") for h in col_hang]
+                    col_loai_str = ""
+
+                # B & E - Xác định Hạng và Số Ký Chuẩn
+                col_hang = df["_net_num"].apply(xac_dinh_hang)
+                col_ky_chuan = [xac_dinh_ky_chuan(h, l) for h, l in zip(col_hang, df[col_loi] if col_loi else [""] * len(df))]
                 col_ky_chuan = pd.Series(col_ky_chuan, index=df.index)
 
+                # C & D - Tính số kg và ký chênh lệch
                 col_so_kg = df["_gross_num"] - df["_net_num"]
                 col_lech = col_so_kg - col_ky_chuan
 
-                # Xử lý Đối chiếu Trùng Lặp (Ghi chữ "Không" nếu ko có)
+                # A - Đối chiếu OPM 105 (Ghi "Có" / "Không" thay vì Trùng)
                 set_ma_doi_chieu = set()
                 if f_doichieu is not None:
                     try:
                         df_ref = pd.read_excel(f_doichieu)
-                        col_ref_ma = next((c for c in df_ref.columns if any(k in str(c).lower() for k in ["mã lô", "mã hàng", "cuộn", "item", "lot"])), df_ref.columns[0])
-                        set_ma_doi_chieu = set(
-                            df_ref[col_ref_ma].astype(str).str.replace(r"\.0$", "", regex=True).str.strip().str.upper()
-                        )
+                        # Tìm cột chứa mã trong opm 105 (thường là cột F hoặc cột đầu)
+                        col_ref_ma = df_ref.columns[5] if len(df_ref.columns) >= 6 else df_ref.columns[0]
+                        set_ma_doi_chieu = set(df_ref[col_ref_ma].astype(str).str.replace(r"\.0$", "", regex=True).str.strip().str.upper())
                     except Exception:
                         pass
 
-                if set_ma_doi_chieu and col_ma_lo:
-                    clean_ma_lo = df[col_ma_lo].fillna("").astype(str).str.replace(r"\.0$", "", regex=True).str.strip().str.upper()
-                    # Trả về chữ Không hoặc Trùng 
-                    col_trung = clean_ma_lo.apply(lambda x: "Trùng" if x in set_ma_doi_chieu else "Không")
+                if set_ma_doi_chieu and col_daychuyen:
+                    clean_ma_lo = df[col_daychuyen].fillna("").astype(str).str.replace(r"\.0$", "", regex=True).str.strip().str.upper()
+                    col_trung = clean_ma_lo.apply(lambda x: "Có" if x in set_ma_doi_chieu else "Không")
                 else:
-                    col_trung = "Không" # Mặc định nếu không đưa file đối chiếu
+                    col_trung = "Không" 
 
-                # Xóa cột nháp, giữ đầy đủ các cột gốc ban đầu
                 df.drop(columns=["_gross_num", "_net_num"], inplace=True, errors="ignore")
 
-                # Chèn 7 cột công thức vào đúng trình tự từ trái qua phải (A đến G)
-                df.insert(0, "Dây chuyền", col_day_chuyen)
-                df.insert(0, "loại", "")
+                # CHÈN CHÍNH XÁC 7 CỘT THEO ĐÚNG TRÌNH TỰ (A Đến G) NHƯ BẢNG MẪU BẠN GỬI
+                df.insert(0, "Dây chuyền", col_ketqua_daychuyen)
+                df.insert(0, "loại", col_loai_str)
                 df.insert(0, "số ký chuẩn", col_ky_chuan)
                 df.insert(0, "ký chênh lệch", col_lech)
                 df.insert(0, "số kg", col_so_kg)
@@ -232,7 +231,7 @@ if f_tonkho is not None:
                 df.insert(0, "Trùng", col_trung) 
 
                 # ==========================================
-                # XUẤT EXCEL & LOGIC TÔ VÀNG (HIGHLIGHT)
+                # TÔ VÀNG DÒNG VƯỢT CHUẨN MÀ CÓ CHỮ "KHÔNG"
                 # ==========================================
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine="openpyxl") as writer:
@@ -241,7 +240,6 @@ if f_tonkho is not None:
                     ws = writer.sheets["Data_Da_Tinh_Toan"]
                     yellow_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
                     
-                    # Lấy chỉ mục 2 cột cần so điều kiện
                     col_idx_trung = df.columns.get_loc("Trùng")
                     col_idx_lech = df.columns.get_loc("ký chênh lệch")
                     
@@ -250,15 +248,14 @@ if f_tonkho is not None:
                         lech_val = df.iloc[r_idx, col_idx_lech]
                         
                         try:
-                            # 1. Nếu cột Trùng mang chữ "Không"
+                            # 1. Cột Trùng mang chữ "Không"
                             is_khong = str(trung_val).strip().lower() == "không"
-                            
-                            # 2. Vượt chuẩn (số chênh lệch > 0)
+                            # 2. Vượt chuẩn 
                             is_vuot = float(lech_val) > 0
                             
-                            # CHỈ TÔ VÀNG KHI HỘI TỤ ĐỦ 2 ĐIỀU KIỆN TRÊN
+                            # Nếu thỏa mãn 2 điều kiện thì bôi vàng
                             if is_khong and is_vuot:
-                                row_excel = r_idx + 2  # Dòng 1 là header nên +2
+                                row_excel = r_idx + 2  
                                 for cell in ws[row_excel]:
                                     cell.fill = yellow_fill
                         except Exception:
