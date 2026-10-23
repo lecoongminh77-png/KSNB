@@ -2,11 +2,10 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import io
-import requests
+import base64
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
-from openpyxl.drawing.image import Image
 
 # --- CẤU HÌNH TRANG ---
 st.set_page_config(
@@ -15,10 +14,12 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("📊 BÁO CÁO TỔNG HỢP NXT NVL CHÍNH")
-# CSS nút bấm màu xanh bo tròn
+# CSS gom gọn 1 chỗ: Ẩn sidebar và làm đẹp nút bấm
 st.markdown("""
 <style>
+[data-testid="stSidebar"], [data-testid="collapsedControl"] {
+    display: none !important;
+}
 div.stButton > button:first-child {
     background: #0071e3 !important;
     color: #ffffff !important;
@@ -36,48 +37,19 @@ div.stButton > button:first-child:hover {
 </style>
 """, unsafe_allow_html=True)
 
-# Thanh điều hướng (Nút quay về Trang chủ)
+# Nút quay về Trang chủ
 col_home, _ = st.columns([1.5, 8.5])
 with col_home:
     if st.button('🏠 Trang chủ', use_container_width=True):
         st.switch_page('app_ksnb.py')
 
 st.markdown("<hr style='border: none; border-top: 1px solid #e2e8f0; margin: 10px 0 20px 0;'>", unsafe_allow_html=True)
-# CSS ẩn menu bên trái và tạo kiểu nút màu xanh
-st.markdown("""
-<style>
-/* 1. Ẩn hoàn toàn menu bên trái và nút mũi tên mở rộng */
-[data-testid="stSidebar"] {
-    display: none !important;
-}
-[data-testid="collapsedControl"] {
-    display: none !important;
-}
-
-/* 2. Nút bấm màu xanh bo tròn */
-div.stButton > button:first-child {
-    background: #0071e3 !important;
-    color: #ffffff !important;
-    border-radius: 980px !important;
-    border: none !important;
-    padding: 10px 20px !important;
-    font-weight: 600 !important;
-    font-size: 14px !important;
-    box-shadow: 0 4px 12px rgba(0, 113, 227, 0.2) !important;
-}
-div.stButton > button:first-child:hover {
-    background: #0077ed !important;
-    color: #ffffff !important;
-}
-</style>
-""", unsafe_allow_html=True)
-
-
-import base64
+st.title("📊 BÁO CÁO TỔNG HỢP NXT NVL CHÍNH")
 
 HOASEN_LOGO_B64 = "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"
 
-# --- 1. HÀM XUẤT EXCEL CHUẨN FORM NHÀ MÁY ---
+# --- 1. TỐI ƯU: GẮN CACHE ĐỂ KHÔNG PHẢI TẠO LẠI EXCEL KHI RERUN ---
+@st.cache_data(show_spinner=False)
 def export_to_excel(df_tb1, df_tb2, df_tb3, df_tb4, ngay_str):
     output = io.BytesIO()
     wb = openpyxl.Workbook()
@@ -308,16 +280,16 @@ def export_to_excel(df_tb1, df_tb2, df_tb3, df_tb4, ngay_str):
     apply_box(1, 9, 1, 24)
     apply_box(11, 19, 1, 24)
 
-            # Chèn Logo vào Excel từ Base64
+    # Chèn Logo vào Excel từ Base64
     try:
-        from openpyxl.drawing.image import Image
+        from openpyxl.drawing.image import Image as OpenpyxlImage
         img_bytes = base64.b64decode(HOASEN_LOGO_B64)
         
-        img1 = Image(io.BytesIO(img_bytes))
+        img1 = OpenpyxlImage(io.BytesIO(img_bytes))
         img1.width, img1.height = 42, 42
         ws.add_image(img1, "B1")
 
-        img2 = Image(io.BytesIO(img_bytes))
+        img2 = OpenpyxlImage(io.BytesIO(img_bytes))
         img2.width, img2.height = 42, 42
         ws.add_image(img2, "M1")
     except Exception:
@@ -327,7 +299,7 @@ def export_to_excel(df_tb1, df_tb2, df_tb3, df_tb4, ngay_str):
     return output.getvalue()
 
 
-# --- 2. HÀM XỬ LÝ INV 110 (TỰ LẤY NGÀY BÁO CÁO TỪ Ô D7) ---
+# --- 2. TỐI ƯU: DÙNG usecols ĐỂ CHỈ ĐỌC 3 CỘT CẦN THIẾT ---
 @st.cache_data
 def process_inv110(files):
     df_list = []
@@ -337,18 +309,21 @@ def process_inv110(files):
         try:
             if idx == 0:
                 try:
-                    df_header = pd.read_excel(f, header=None, nrows=8)
-                    val_d7 = str(df_header.iloc[6, 3])
+                    # Đọc nhẹ 8 dòng đầu của 4 cột để lấy ngày
+                    df_header = pd.read_excel(f, header=None, nrows=8, usecols=[3])
+                    val_d7 = str(df_header.iloc[6, 0])
                     report_date_str = val_d7[-10:].replace('-', '/')
                 except Exception:
                     report_date_str = pd.to_datetime("today").strftime("%d/%m/%Y")
+                f.seek(0) # Đưa con trỏ file về lại đầu
 
-            df = pd.read_excel(f, skiprows=10)
-            if len(df.columns) >= 24:
+            # CHỈ ĐỌC ĐÚNG 3 CỘT: Cột 0 (Phân loại), Cột 1 (Kho), Cột 23 (Khối lượng) -> Nhanh hơn gấp 3 lần
+            df = pd.read_excel(f, skiprows=10, usecols=[0, 1, 23])
+            if df.shape[1] >= 3:
                 sub_df = pd.DataFrame({
                     'PhanLoai': df.iloc[:, 0].astype(str).str.strip(),
                     'Kho': df.iloc[:, 1].astype(str).str.strip(),
-                    'KhoiLuong': pd.to_numeric(df.iloc[:, 23], errors='coerce').fillna(0)
+                    'KhoiLuong': pd.to_numeric(df.iloc[:, 2], errors='coerce').fillna(0)
                 })
                 df_list.append(sub_df)
         except Exception as e:
@@ -397,20 +372,21 @@ def process_inv110(files):
     return tb1, tb2, report_date_str
 
 
-# --- 3. HÀM XỬ LÝ 105 (GIAO DỊCH SỬ DỤNG) ---
+# --- 3. TỐI ƯU: DÙNG usecols ĐỂ CHỈ ĐỌC ĐÚNG 5 CỘT TRONG FILE 105 ---
 @st.cache_data
 def process_105(files):
     df_list = []
     for f in files:
         try:
-            df = pd.read_excel(f, skiprows=8)
-            if len(df.columns) >= 12:
+            # CHỈ ĐỌC 5 CỘT CẦN DÙNG: 0 (ColA), 1 (ColB), 2 (LoaiGD), 6 (TenHang), 11 (KhoiLuong)
+            df = pd.read_excel(f, skiprows=8, usecols=[0, 1, 2, 6, 11])
+            if df.shape[1] >= 5:
                 sub_df = pd.DataFrame({
                     'ColA': df.iloc[:, 0].astype(str).str.strip(),
                     'ColB': df.iloc[:, 1].astype(str).str.strip(),
                     'LoaiGD': df.iloc[:, 2].astype(str).str.strip(),
-                    'TenHang': df.iloc[:, 6].astype(str).str.strip(),
-                    'KhoiLuong': pd.to_numeric(df.iloc[:, 11], errors='coerce').fillna(0)
+                    'TenHang': df.iloc[:, 3].astype(str).str.strip(),
+                    'KhoiLuong': pd.to_numeric(df.iloc[:, 4], errors='coerce').fillna(0)
                 })
                 df_list.append(sub_df)
         except Exception as e:
@@ -574,7 +550,8 @@ if inv110_files and file105_files:
     if df_tb1 is not None and df_tb3 is not None:
         col_left, col_right = st.columns(2)
 
-        logo_html = '<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/Logo_Hoa_Sen_Group.png/120px-Logo_Hoa_Sen_Group.png" width="45" style="vertical-align: middle; margin-bottom: 6px;">'
+        # TỐI ƯU: Dùng trực tiếp Base64 nội bộ, không phụ thuộc đường truyền mạng
+        logo_html = f'<img src="data:image/png;base64,{HOASEN_LOGO_B64}" width="45" style="vertical-align: middle; margin-bottom: 6px;">'
 
         with col_left:
             st.markdown(f"""
@@ -607,6 +584,7 @@ if inv110_files and file105_files:
             st.dataframe(style_table(df_tb4, is_weight_only=True), use_container_width=True, hide_index=True)
 
         st.write("")
+        # Gọi hàm xuất Excel (đã được cache, không bị sinh lại khi rerun)
         excel_data = export_to_excel(df_tb1, df_tb2, df_tb3, df_tb4, report_date_str)
         st.download_button(
             label="📥 Tải Báo Cáo Ra File Excel (.xlsx)",
