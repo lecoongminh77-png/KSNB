@@ -299,7 +299,7 @@ def export_to_excel(df_tb1, df_tb2, df_tb3, df_tb4, ngay_str):
     return output.getvalue()
 
 
-# --- 2. TỐI ƯU: DÙNG usecols ĐỂ CHỈ ĐỌC 3 CỘT CẦN THIẾT ---
+# --- 2. HÀM XỬ LÝ INV 110 THEO FORM MỚI ---
 @st.cache_data
 def process_inv110(files):
     df_list = []
@@ -307,25 +307,34 @@ def process_inv110(files):
 
     for idx, f in enumerate(files):
         try:
+            # 1. Tự động bắt ngày tồn kho ở dòng 7
             if idx == 0:
                 try:
-                    # Đọc nhẹ 8 dòng đầu của 4 cột để lấy ngày
-                    df_header = pd.read_excel(f, header=None, nrows=8, usecols=[3])
-                    val_d7 = str(df_header.iloc[6, 0])
-                    report_date_str = val_d7[-10:].replace('-', '/')
+                    df_header = pd.read_excel(f, header=None, nrows=8)
+                    # Kiểm tra ô C7 (cột index 2) hoặc D7 (cột index 3)
+                    val_c7 = str(df_header.iloc[6, 2])
+                    val_d7 = str(df_header.iloc[6, 3])
+                    cell_text = val_c7 if "Ngày tồn kho" in val_c7 else val_d7
+                    report_date_str = cell_text[-10:].replace('-', '/')
                 except Exception:
                     report_date_str = pd.to_datetime("today").strftime("%d/%m/%Y")
-                f.seek(0) # Đưa con trỏ file về lại đầu
+                f.seek(0)
 
-            # CHỈ ĐỌC ĐÚNG 3 CỘT: Cột 0 (Phân loại), Cột 1 (Kho), Cột 23 (Khối lượng) -> Nhanh hơn gấp 3 lần
-            df = pd.read_excel(f, skiprows=10, usecols=[0, 1, 23])
-            if df.shape[1] >= 3:
-                sub_df = pd.DataFrame({
-                    'PhanLoai': df.iloc[:, 0].astype(str).str.strip(),
-                    'Kho': df.iloc[:, 1].astype(str).str.strip(),
-                    'KhoiLuong': pd.to_numeric(df.iloc[:, 2], errors='coerce').fillna(0)
-                })
-                df_list.append(sub_df)
+            # 2. Đọc dữ liệu từ dòng 14 (skiprows=13)
+            # Lấy đúng các cột: 0 (Vị trí kho), 2 (Tên hàng), 3 (Mã loại hàng), 22 (Khối lượng Net)
+            df = pd.read_excel(f, skiprows=13, header=None, usecols=[0, 2, 3, 22])
+            
+            sub_df = pd.DataFrame({
+                'Kho': df.iloc[:, 0].astype(str).str.strip(),
+                'TenHang': df.iloc[:, 1].astype(str).str.strip(),
+                'MaLoai': df.iloc[:, 2].astype(str).str.strip(),
+                'KhoiLuong': pd.to_numeric(df.iloc[:, 3], errors='coerce').fillna(0)
+            })
+            
+            # Lọc bỏ dòng trống
+            sub_df = sub_df[~sub_df['TenHang'].isin(['nan', '', 'None'])]
+            df_list.append(sub_df)
+            
         except Exception as e:
             st.error(f"Lỗi đọc file INV 110: {e}")
 
@@ -333,13 +342,25 @@ def process_inv110(files):
         return None, None, ""
 
     data = pd.concat(df_list, ignore_index=True)
-    data = data[~data['PhanLoai'].isin(['nan', 'Phân loại', 'None'])]
 
-    hrc_thuong = data[(data['PhanLoai'] == 'HRC') & (~data['Kho'].str.contains('035', na=False))]
-    hrc_cang = data[(data['PhanLoai'] == 'HRC') & (data['Kho'].str.contains('035', na=False))]
-    po = data[data['PhanLoai'] == 'PO']
-    cm_cr = data[data['PhanLoai'].isin(['CM', 'CR'])]
+    # 3. Phân loại theo Tên hàng và Mã loại hàng
+    # HRC: Thép cán nóng (Mã 1.01.01 hoặc tên chứa "Thép cán nóng" không có tẩy rỉ)
+    is_hrc = (data['MaLoai'].isin(['1.01.01', '2.01.03'])) | (
+        data['TenHang'].str.contains('Thép cán nóng', na=False, case=False) & 
+        ~data['TenHang'].str.contains('tẩy rỉ', na=False, case=False)
+    )
+    
+    # HRC cảng lọc theo kho chứa '035'
+    hrc_thuong = data[is_hrc & (~data['Kho'].str.contains('035', na=False))]
+    hrc_cang   = data[is_hrc & (data['Kho'].str.contains('035', na=False))]
 
+    # PO: Thép cán nóng tẩy rỉ (Mã 2.03.01)
+    po = data[(data['MaLoai'] == '2.03.01') | data['TenHang'].str.contains('tẩy rỉ', na=False, case=False)]
+
+    # CM + CR: Thép cán nguội (Mã 2.04.01)
+    cm_cr = data[(data['MaLoai'] == '2.04.01') | data['TenHang'].str.contains('cán nguội', na=False, case=False)]
+
+    # Bảng 1: Tồn kho HRC-PO-CR-CM
     tb1 = pd.DataFrame({
         'Tên hàng': ['Tồn kho HRC', 'Tồn kho HRC ̣̣̣( hàng ngoài cảng)', 'Tồn kho PO', 'Tồn kho CM + CR'],
         'Số lượng (Cuộn)': [len(hrc_thuong), len(hrc_cang), len(po), len(cm_cr)],
@@ -353,10 +374,11 @@ def process_inv110(files):
     })
     tb1.loc[len(tb1)] = ['Tổng', tb1['Số lượng (Cuộn)'].sum(), tb1['Khối lượng (Tấn)'].sum(), '']
 
-    cgg = data[data['PhanLoai'].str.contains('Kẽm không hợp kim|CGG', na=False, case=False)]
-    nhom_kem = data[data['PhanLoai'].str.contains('nhôm kẽm', na=False, case=False)]
-    magie = data[data['PhanLoai'].str.contains('Magie', na=False, case=False)]
-    pha_che = data[data['PhanLoai'].str.contains('pha chế', na=False, case=False)]
+    # Bảng 2: Kim loại màu
+    cgg = data[data['TenHang'].str.contains('Kẽm không hợp kim|CGG', na=False, case=False)]
+    nhom_kem = data[data['TenHang'].str.contains('nhôm kẽm', na=False, case=False)]
+    magie = data[data['TenHang'].str.contains('Magie', na=False, case=False)]
+    pha_che = data[data['TenHang'].str.contains('pha chế', na=False, case=False)]
 
     tb2 = pd.DataFrame({
         'Tên hàng': ['Tồn kho CGG', 'Tồn kho Hợp kim nhôm kẽm', 'Tồn kho Hợp kim kẽm Magie', 'Tồn kho nguyên liệu pha chế'],
@@ -371,24 +393,32 @@ def process_inv110(files):
 
     return tb1, tb2, report_date_str
 
-
-# --- 3. TỐI ƯU: DÙNG usecols ĐỂ CHỈ ĐỌC ĐÚNG 5 CỘT TRONG FILE 105 ---
+# --- 3. HÀM XỬ LÝ 105 THEO FORM MỚI ---
 @st.cache_data
 def process_105(files):
     df_list = []
+    
     for f in files:
         try:
-            # CHỈ ĐỌC 5 CỘT CẦN DÙNG: 0 (ColA), 1 (ColB), 2 (LoaiGD), 6 (TenHang), 11 (KhoiLuong)
-            df = pd.read_excel(f, skiprows=8, usecols=[0, 1, 2, 6, 11])
-            if df.shape[1] >= 5:
-                sub_df = pd.DataFrame({
-                    'ColA': df.iloc[:, 0].astype(str).str.strip(),
-                    'ColB': df.iloc[:, 1].astype(str).str.strip(),
-                    'LoaiGD': df.iloc[:, 2].astype(str).str.strip(),
-                    'TenHang': df.iloc[:, 3].astype(str).str.strip(),
-                    'KhoiLuong': pd.to_numeric(df.iloc[:, 4], errors='coerce').fillna(0)
-                })
-                df_list.append(sub_df)
+            # Đọc tiêu đề ở dòng 10 (skiprows=9), chỉ lấy đúng 3 cột cần thiết:
+            # Cột 0: Loại Giao Dịch, Cột 4: Tên Mặt Hàng, Cột 9: Khối Lượng
+            df = pd.read_excel(f, skiprows=9, usecols=[0, 4, 9])
+            
+            # Đặt lại tên cột thống nhất
+            df.columns = ['LoaiGD', 'TenHang', 'KhoiLuong']
+            
+            # Loại bỏ dòng ghi chú thứ tự cột [1], [2] nếu có
+            df = df[~df['LoaiGD'].astype(str).str.contains(r'\[', na=False)]
+            
+            # Chuẩn hóa dữ liệu
+            df['LoaiGD'] = df['LoaiGD'].astype(str).str.strip()
+            df['TenHang'] = df['TenHang'].astype(str).str.strip()
+            df['KhoiLuong'] = pd.to_numeric(df['KhoiLuong'], errors='coerce').fillna(0)
+            
+            # Bỏ các dòng rỗng
+            df = df[~df['TenHang'].isin(['nan', '', 'None'])]
+            df_list.append(df)
+            
         except Exception as e:
             st.error(f"Lỗi đọc file 105: {e}")
 
@@ -396,55 +426,35 @@ def process_105(files):
         return None, None
 
     data = pd.concat(df_list, ignore_index=True)
-    has_custom_cols = data['ColA'].isin(['HRC', 'PO', 'CM', 'A']).any()
 
-    if has_custom_cols:
-        def get_nvl_stats(item_name):
-            issue_cnt = len(data[(data['ColA'] == item_name) & (data['ColB'] == '1') & (data['LoaiGD'] == 'WIP Issue')])
-            return_cnt = len(data[(data['ColA'] == item_name) & (data['ColB'] == '1') & (data['LoaiGD'] == 'WIP Return')])
-            qty = issue_cnt - return_cnt
-            weight = abs(data[(data['ColA'] == item_name) & (data['ColB'] == '1')]['KhoiLuong'].sum()) / 1000
-            return qty, weight
+    # Hàm tính số lượng cuộn và khối lượng xuất ròng (Issue - Return)
+    def calc_stats(cond):
+        df_sub = data[cond]
+        issue = df_sub[df_sub['LoaiGD'] == 'WIP Issue']
+        ret = df_sub[df_sub['LoaiGD'] == 'WIP Return']
+        
+        qty = len(issue) - len(ret)
+        # Net weight = Tổng Issue + Return (Issue âm, Return dương -> lấy trị tuyệt đối ra khối lượng thực dùng)
+        weight = abs(issue['KhoiLuong'].sum() + ret['KhoiLuong'].sum()) / 1000
+        return qty, weight
 
-        hrc_q, hrc_w = get_nvl_stats('HRC')
-        po_q, po_w = get_nvl_stats('PO')
-        cm_q, cm_w = get_nvl_stats('CM')
-        scrap_w = data[(data['ColB'] == '2') & (data['ColA'] == 'A')]['KhoiLuong'].sum() / 1000
+    # 1. HRC: Cán nóng KHÔNG chứa tẩy rỉ
+    cond_hrc = (data['TenHang'].str.contains('HRC|Cán nóng', na=False, case=False)) & \
+               (~data['TenHang'].str.contains('tẩy rỉ', na=False, case=False))
+    hrc_q, hrc_w = calc_stats(cond_hrc)
 
-        def get_npl_weight(npl_name):
-            w3 = data[(data['ColA'].str.contains(npl_name, na=False, case=False)) & (data['ColB'] == '3')]['KhoiLuong'].sum()
-            w4 = data[(data['ColA'].str.contains(npl_name, na=False, case=False)) & (data['ColB'] == '4')]['KhoiLuong'].sum()
-            return abs(w3 - w4) / 1000
+    # 2. PO: Chứa tẩy rỉ hoặc PO
+    cond_po = data['TenHang'].str.contains('PO|tẩy rỉ', na=False, case=False)
+    po_q, po_w = calc_stats(cond_po)
 
-        nhom_kem_w = get_npl_weight('Hợp kim nhôm kẽm')
-        kem_w = get_npl_weight('Kẽm không hợp kim')
-        magie_w = get_npl_weight('Magie')
-        pha_che_w = get_npl_weight('pha chế')
+    # 3. CM: Cán nguội (không tính pubcoil phế phẩm)
+    cond_cm = (data['TenHang'].str.contains('CM|Cán nguội', na=False, case=False)) & \
+              (~data['TenHang'].str.contains('Pubcoil', na=False, case=False))
+    cm_q, cm_w = calc_stats(cond_cm)
 
-    else:
-        def calc_raw(pattern):
-            df_item = data[data['TenHang'].str.contains(pattern, na=False, case=False)]
-            issue = df_item[df_item['LoaiGD'] == 'WIP Issue']
-            ret = df_item[df_item['LoaiGD'] == 'WIP Return']
-            qty = len(issue) - len(ret)
-            weight = abs(issue['KhoiLuong'].sum() + ret['KhoiLuong'].sum()) / 1000
-            return qty, weight
-
-        hrc_q, hrc_w = calc_raw('HRC|Cán nóng')
-        po_q, po_w = calc_raw('PO|Tẩy rỉ')
-        cm_q, cm_w = calc_raw('CM|Cán nguội')
-
-        scrap = data[data['LoaiGD'].isin(['WIP Byproduct Completion', 'WIP Byproduct Return'])]
-        scrap_w = abs(scrap['KhoiLuong'].sum()) / 1000
-
-        def calc_raw_npl(pattern):
-            df_npl = data[data['TenHang'].str.contains(pattern, na=False, case=False)]
-            return abs(df_npl['KhoiLuong'].sum()) / 1000
-
-        nhom_kem_w = calc_raw_npl('nhôm kẽm')
-        kem_w = calc_raw_npl('Kẽm')
-        magie_w = calc_raw_npl('Magie')
-        pha_che_w = calc_raw_npl('pha chế')
+    # 4. Hao hụt + phế liệu (Byproduct)
+    scrap = data[data['LoaiGD'].isin(['WIP Byproduct Completion', 'WIP Byproduct Return'])]
+    scrap_w = abs(scrap['KhoiLuong'].sum()) / 1000
 
     tb3 = pd.DataFrame({
         'Tên hàng': ['HRC', 'PO', 'CM', 'Hao hụt+ phế liệu'],
@@ -453,6 +463,16 @@ def process_105(files):
         'Ghi chú': ['', '', '', '']
     })
     tb3.loc[len(tb3)] = ['Tổng', tb3['Số lượng (Cuộn)'].sum(), tb3['Khối lượng (Tấn)'].sum(), '']
+
+    # 5. Nguyên Phụ Liệu (NPL) kim loại màu (tính từ các file nạp từ kho vật tư/03B)
+    def calc_npl_weight(pattern):
+        df_npl = data[data['TenHang'].str.contains(pattern, na=False, case=False) & data['LoaiGD'].isin(['WIP Issue', 'WIP Return'])]
+        return abs(df_npl['KhoiLuong'].sum()) / 1000
+
+    nhom_kem_w = calc_npl_weight('nhôm kẽm')
+    kem_w      = calc_npl_weight('Kẽm')
+    magie_w    = calc_npl_weight('Magie')
+    pha_che_w  = calc_npl_weight('pha chế')
 
     tb4 = pd.DataFrame({
         'Tên hàng': ['Hợp kim nhôm kẽm', 'Kẽm không hợp kim', 'Hợp kim kẽm Magie', 'Nguyên liệu pha chế'],
