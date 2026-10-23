@@ -1,31 +1,32 @@
 import sys
 import os
-import requests # Bắt buộc phải có để dùng r = requests.get(url)
+import requests 
 
-# 1. Ép Python nhận diện thư mục gốc (nơi chứa ai_chat.py) ngay lập tức
+# 1. Ép Python nhận diện thư mục gốc
 root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if root_path not in sys.path:
     sys.path.insert(0, root_path)
 
-# 2. Khai báo các thư viện khác
+# 2. Khai báo các thư viện
 import io
-from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 import pandas as pd
 import streamlit as st
 from streamlit_lottie import st_lottie
-import requests
+from openpyxl.styles import PatternFill # Thư viện dùng để tô màu dòng Excel
 
 # 3. Import module nội bộ
 from ai_chat import hien_thi_tro_ly_ai
 
 # Hàm tải hình động
 def load_lottieurl(url: str):
-    r = requests.get(url)
-    if r.status_code != 200:
+    try:
+        r = requests.get(url)
+        if r.status_code != 200:
+            return None
+        return r.json()
+    except:
         return None
-    return r.json()
 
-# Gắn link bạn vừa copy
 lottie_hoat_anh = load_lottieurl("https://lottie.host/654b9803-9ee2-4c1b-91e3-3f074d4f79d3/b4IPc6jdqR.json")
 
 st.set_page_config(
@@ -83,7 +84,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Thanh điều hướng (Chỉ giữ duy nhất nút Trang chủ)
+# Thanh điều hướng
 col_home, _ = st.columns([1.5, 8.5])
 with col_home:
     if st.button("🏠 Trang chủ", use_container_width=True):
@@ -151,7 +152,7 @@ def xac_dinh_ky_chuan(hang, loai_loi):
     else:
         return nhom["khong_loi"]
 
-# 2 Ô NẠP FILE
+# NẠP FILE
 col_f1, col_f2 = st.columns(2)
 with col_f1:
     f_tonkho = st.file_uploader("1. File Báo cáo Tồn Kho (Mẫu 2356)", type=["xlsx", "xls", "xlsb"])
@@ -162,30 +163,30 @@ if f_tonkho is not None:
     if st.button("🚀 Bắt đầu tính toán tự động", use_container_width=True):
         with st.spinner("Đang xử lý dữ liệu và đối soát trùng lặp..."):
             try:
-                # 1. Đọc file tồn kho
+                # 1. Đọc file tồn kho (thử bỏ 11 dòng đầu nếu format chuẩn, nếu lỗi đọc bình thường)
                 try:
                     df = pd.read_excel(f_tonkho, skiprows=11)
                 except Exception:
                     df = pd.read_excel(f_tonkho)
 
-                # Tìm các cột chính trong file tồn kho
+                # Xác định tên cột an toàn
                 col_ma_lo = next((c for c in df.columns if "mã lô" in str(c).lower() or "cuộn" in str(c).lower()), None)
                 col_gross = next((c for c in df.columns if "gross" in str(c).lower()), None)
                 col_net = next((c for c in df.columns if "net" in str(c).lower()), None)
                 col_loai_loi = next((c for c in df.columns if "loại lõi" in str(c).lower()), None)
 
-                # Làm sạch dữ liệu số
+                # Làm sạch dữ liệu số để trừ
                 df["_gross_num"] = pd.to_numeric(df[col_gross], errors="coerce").fillna(0) if col_gross else 0
                 df["_net_num"] = pd.to_numeric(df[col_net], errors="coerce").fillna(0) if col_net else 0
 
-                # Dây chuyền = MID(Mã lô, 4, 3) - ĐÃ FIX LỖI "FLOAT HAS NO LEN"
+                # Dây chuyền = MID(Mã lô, 4, 3) (Bọc kỹ chống lỗi float)
                 if col_ma_lo:
                     s_ma = df[col_ma_lo].fillna("").astype(str).str.strip()
                     col_day_chuyen = s_ma.apply(lambda x: str(x)[3:6] if len(str(x)) >= 6 else "")
                 else:
                     col_day_chuyen = ""
 
-                # Hạng & Số ký chuẩn
+                # Xác định Hạng & Ký chuẩn
                 col_hang = df["_net_num"].apply(xac_dinh_hang)
                 if col_loai_loi:
                     col_ky_chuan = [xac_dinh_ky_chuan(h, l) for h, l in zip(col_hang, df[col_loai_loi])]
@@ -193,16 +194,15 @@ if f_tonkho is not None:
                     col_ky_chuan = [xac_dinh_ky_chuan(h, "") for h in col_hang]
                 col_ky_chuan = pd.Series(col_ky_chuan, index=df.index)
 
-                # Số kg thực tế & Ký chênh lệch
+                # Tính Ký lệch
                 col_so_kg = df["_gross_num"] - df["_net_num"]
                 col_lech = col_so_kg - col_ky_chuan
 
-                # Xử lý Cột A (Trùng): Đối chiếu sang File thứ 2
+                # Xử lý Cột A (Trùng lặp)
                 set_ma_doi_chieu = set()
                 if f_doichieu is not None:
                     try:
                         df_ref = pd.read_excel(f_doichieu)
-                        # Tìm cột chứa mã lô trong file đối chiếu
                         col_ref_ma = next((c for c in df_ref.columns if any(k in str(c).lower() for k in ["mã lô", "mã hàng", "cuộn", "item", "lot"])), df_ref.columns[0])
                         set_ma_doi_chieu = set(
                             df_ref[col_ref_ma].astype(str).str.replace(r"\.0$", "", regex=True).str.strip().str.upper()
@@ -210,35 +210,67 @@ if f_tonkho is not None:
                     except Exception:
                         pass
 
-                # ĐÃ BỔ SUNG .fillna("") ĐỂ CHỐNG LỖI CHO CỘT TRÙNG
                 if set_ma_doi_chieu and col_ma_lo:
                     clean_ma_lo = df[col_ma_lo].fillna("").astype(str).str.replace(r"\.0$", "", regex=True).str.strip().str.upper()
                     col_trung = clean_ma_lo.apply(lambda x: "Trùng" if x in set_ma_doi_chieu else "")
                 else:
                     col_trung = ""
 
-                # Bỏ cột phụ tạm thời
+                # Xóa cột rác
                 df.drop(columns=["_gross_num", "_net_num"], inplace=True, errors="ignore")
 
-                # Chèn 7 cột A-G vào đầu bảng
+                # Chèn lại cấu trúc vào đầu bảng theo đúng định dạng
                 df.insert(0, "Dây chuyền", col_day_chuyen)
                 df.insert(0, "loại", "")
                 df.insert(0, "số ký chuẩn", col_ky_chuan)
                 df.insert(0, "ký chênh lệch", col_lech)
                 df.insert(0, "số kg", col_so_kg)
                 df.insert(0, "hạng", col_hang)
-                df.insert(0, "Trùng ", col_trung)
+                df.insert(0, "Trùng ", col_trung) 
 
-                # Xuất ra file Excel kết quả
+                # ==========================================
+                # TẠO FILE EXCEL & TÔ VÀNG DÒNG VƯỢT CHUẨN
+                # ==========================================
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine="openpyxl") as writer:
+                    # Xuất toàn bộ dữ liệu ra sheet Excel trước
                     df.to_excel(writer, index=False, sheet_name="Data_Da_Tinh_Toan")
+                    
+                    # Lấy đối tượng WorkSheet ra để tô màu
+                    ws = writer.sheets["Data_Da_Tinh_Toan"]
+                    
+                    # Cài đặt mã màu Vàng đậm cho dễ nhìn
+                    yellow_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+                    
+                    # Xác định vị trí (index) của cột "Trùng " và "ký chênh lệch" để duyệt an toàn
+                    col_idx_trung = df.columns.get_loc("Trùng ")
+                    col_idx_lech = df.columns.get_loc("ký chênh lệch")
+                    
+                    # Quét qua từng dòng dữ liệu (range(len(df)))
+                    for r_idx in range(len(df)):
+                        trung_val = df.iloc[r_idx, col_idx_trung]
+                        lech_val = df.iloc[r_idx, col_idx_lech]
+                        
+                        try:
+                            # 1. Kiểm tra Cột Trùng có trống (hoặc là "Không") không?
+                            is_empty_trung = pd.isna(trung_val) or str(trung_val).strip() == "" or str(trung_val).strip().lower() == "không"
+                            # 2. Kiểm tra Vượt chuẩn (Ký chênh lệch > 0)
+                            is_vuot = float(lech_val) > 0
+                            
+                            if is_empty_trung and is_vuot:
+                                # Trong openpyxl, dòng 1 là Tiêu đề. Dữ liệu bắt đầu từ dòng 2 (nên r_idx + 2)
+                                row_excel = r_idx + 2
+                                for cell in ws[row_excel]:
+                                    cell.fill = yellow_fill
+                        except Exception:
+                            # Bỏ qua nếu có lỗi nhỏ do định dạng từng ô cá biệt
+                            pass
 
-                st.success(f"✅ Đã xử lý xong {len(df):,} dòng dữ liệu!")
+                st.success(f"✅ Đã xử lý xong {len(df):,} dòng dữ liệu và tô vàng các mã vượt chuẩn!")
                 st.download_button(
                     label="📥 Tải File Excel Đã Tính Xong",
                     data=output.getvalue(),
-                    file_name="Bao_Cao_Ton_Kho_Da_Kiem_Tra.xlsx",
+                    file_name="Bao_Cao_Ton_Kho_Da_Kiem_Tra_Highlight.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     use_container_width=True
                 )
@@ -246,8 +278,8 @@ if f_tonkho is not None:
             except Exception as e:
                 st.error(f"Lỗi xử lý file: {e}")
 else:
-    # Đoạn này sẽ hiện hình động nếu người dùng chưa nạp file
-    st_lottie(lottie_hoat_anh, height=300, key="cho_file")
+    if lottie_hoat_anh:
+        st_lottie(lottie_hoat_anh, height=300, key="cho_file")
     st.info("👉 Hãy nạp File Báo cáo Tồn Kho (Mẫu 2356) và File Dữ liệu Đối Chiếu để bắt đầu.")
 
 hien_thi_tro_ly_ai()
