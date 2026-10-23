@@ -299,7 +299,7 @@ def export_to_excel(df_tb1, df_tb2, df_tb3, df_tb4, ngay_str):
     return output.getvalue()
 
 
-# --- 2. HÀM XỬ LÝ INV 110 THEO FORM MỚI ---
+# --- 2. HÀM XỬ LÝ INV 110 (TỒN KHO) ---
 @st.cache_data
 def process_inv110(files):
     df_list = []
@@ -307,31 +307,30 @@ def process_inv110(files):
 
     for idx, f in enumerate(files):
         try:
-            # 1. Tự động bắt ngày tồn kho ở dòng 7
+            # 1. Bắt ngày báo cáo ở dòng 7
             if idx == 0:
                 try:
                     df_header = pd.read_excel(f, header=None, nrows=8)
-                    # Kiểm tra ô C7 (cột index 2) hoặc D7 (cột index 3)
-                    val_c7 = str(df_header.iloc[6, 2])
-                    val_d7 = str(df_header.iloc[6, 3])
-                    cell_text = val_c7 if "Ngày tồn kho" in val_c7 else val_d7
-                    report_date_str = cell_text[-10:].replace('-', '/')
+                    for col_idx in [2, 3]: # Quét ô C7 hoặc D7
+                        val = str(df_header.iloc[6, col_idx])
+                        if "ngày" in val.lower() or "/" in val:
+                            report_date_str = val[-10:].replace('-', '/')
+                            break
                 except Exception:
                     report_date_str = pd.to_datetime("today").strftime("%d/%m/%Y")
                 f.seek(0)
 
             # 2. Đọc dữ liệu từ dòng 14 (skiprows=13)
-            # Lấy đúng các cột: 0 (Vị trí kho), 2 (Tên hàng), 3 (Mã loại hàng), 22 (Khối lượng Net)
-            df = pd.read_excel(f, skiprows=13, header=None, usecols=[0, 2, 3, 22])
-            
+            # Cột 0: Kho, Cột 2: Tên hàng, Cột 3: Mã loại, Cột 4: Phân loại, Cột 22: Net (Kg)
+            df = pd.read_excel(f, skiprows=13, header=None, usecols=[0, 2, 3, 4, 22])
             sub_df = pd.DataFrame({
                 'Kho': df.iloc[:, 0].astype(str).str.strip(),
                 'TenHang': df.iloc[:, 1].astype(str).str.strip(),
                 'MaLoai': df.iloc[:, 2].astype(str).str.strip(),
-                'KhoiLuong': pd.to_numeric(df.iloc[:, 3], errors='coerce').fillna(0)
+                'PhanLoai': df.iloc[:, 3].astype(str).str.strip(),
+                'KhoiLuong': pd.to_numeric(df.iloc[:, 4], errors='coerce').fillna(0)
             })
             
-            # Lọc bỏ dòng trống
             sub_df = sub_df[~sub_df['TenHang'].isin(['nan', '', 'None'])]
             df_list.append(sub_df)
             
@@ -343,24 +342,25 @@ def process_inv110(files):
 
     data = pd.concat(df_list, ignore_index=True)
 
-    # 3. Phân loại theo Tên hàng và Mã loại hàng
-    # HRC: Thép cán nóng (Mã 1.01.01 hoặc tên chứa "Thép cán nóng" không có tẩy rỉ)
-    is_hrc = (data['MaLoai'].isin(['1.01.01', '2.01.03'])) | (
-        data['TenHang'].str.contains('Thép cán nóng', na=False, case=False) & 
-        ~data['TenHang'].str.contains('tẩy rỉ', na=False, case=False)
-    )
+    # --- BẢNG 1: TỒN KHO HRC - PO - CR - CM ---
+    # 1. HRC: Thép cán nóng (không có chữ 'tẩy rỉ')
+    is_hrc = (data['MaLoai'].isin(['1.01.01', '2.01.03']) | data['TenHang'].str.contains('Thép cán nóng', na=False, case=False)) & \
+             (~data['TenHang'].str.contains('tẩy rỉ', na=False, case=False))
     
-    # HRC cảng lọc theo kho chứa '035'
-    hrc_thuong = data[is_hrc & (~data['Kho'].str.contains('035', na=False))]
+    # HRC nội bộ (lấy Phân loại 1) & HRC ngoài cảng (kho 035)
+    hrc_thuong = data[is_hrc & (data['PhanLoai'] == '1') & (~data['Kho'].str.contains('035', na=False))]
     hrc_cang   = data[is_hrc & (data['Kho'].str.contains('035', na=False))]
 
-    # PO: Thép cán nóng tẩy rỉ (Mã 2.03.01)
-    po = data[(data['MaLoai'] == '2.03.01') | data['TenHang'].str.contains('tẩy rỉ', na=False, case=False)]
+    # 2. PO: Thép cán nóng tẩy rỉ (chỉ lấy cuộn chính phẩm, bỏ phế phẩm/thứ phẩm)
+    is_po = data['TenHang'].str.contains('tẩy rỉ|PO', na=False, case=False) & \
+            (~data['TenHang'].str.contains('thứ phẩm|phế liệu|biên', na=False, case=False))
+    po = data[is_po]
 
-    # CM + CR: Thép cán nguội (Mã 2.04.01)
-    cm_cr = data[(data['MaLoai'] == '2.04.01') | data['TenHang'].str.contains('cán nguội', na=False, case=False)]
+    # 3. CM + CR: Thép cán nguội chính phẩm (loại bỏ thứ phẩm, pubcoil, phế liệu)
+    is_cm = data['TenHang'].str.contains('cán nguội|SPCC', na=False, case=False) & \
+            (~data['TenHang'].str.contains('thứ phẩm|Pubcoil|biên|phế liệu', na=False, case=False))
+    cm_cr = data[is_cm]
 
-    # Bảng 1: Tồn kho HRC-PO-CR-CM
     tb1 = pd.DataFrame({
         'Tên hàng': ['Tồn kho HRC', 'Tồn kho HRC ̣̣̣( hàng ngoài cảng)', 'Tồn kho PO', 'Tồn kho CM + CR'],
         'Số lượng (Cuộn)': [len(hrc_thuong), len(hrc_cang), len(po), len(cm_cr)],
@@ -374,7 +374,7 @@ def process_inv110(files):
     })
     tb1.loc[len(tb1)] = ['Tổng', tb1['Số lượng (Cuộn)'].sum(), tb1['Khối lượng (Tấn)'].sum(), '']
 
-    # Bảng 2: Kim loại màu
+    # --- BẢNG 2: KIM LOẠI MÀU (KHO 03B / VẬT TƯ) ---
     cgg = data[data['TenHang'].str.contains('Kẽm không hợp kim|CGG', na=False, case=False)]
     nhom_kem = data[data['TenHang'].str.contains('nhôm kẽm', na=False, case=False)]
     magie = data[data['TenHang'].str.contains('Magie', na=False, case=False)]
@@ -393,32 +393,26 @@ def process_inv110(files):
 
     return tb1, tb2, report_date_str
 
-# --- 3. HÀM XỬ LÝ 105 THEO FORM MỚI ---
+
+# --- 3. HÀM XỬ LÝ OPM 105 (GIAO DỊCH SỬ DỤNG NVL) ---
 @st.cache_data
 def process_105(files):
     df_list = []
     
     for f in files:
         try:
-            # Đọc tiêu đề ở dòng 10 (skiprows=9), chỉ lấy đúng 3 cột cần thiết:
-            # Cột 0: Loại Giao Dịch, Cột 4: Tên Mặt Hàng, Cột 9: Khối Lượng
+            # Tiêu đề ở dòng 10 (skiprows=9), lấy Cột 0 (Loại GD), Cột 4 (Tên Mặt Hàng), Cột 9 (Khối Lượng)
             df = pd.read_excel(f, skiprows=9, usecols=[0, 4, 9])
-            
-            # Đặt lại tên cột thống nhất
             df.columns = ['LoaiGD', 'TenHang', 'KhoiLuong']
             
-            # Loại bỏ dòng ghi chú thứ tự cột [1], [2] nếu có
+            # Bỏ dòng chỉ số [1], [2]
             df = df[~df['LoaiGD'].astype(str).str.contains(r'\[', na=False)]
-            
-            # Chuẩn hóa dữ liệu
             df['LoaiGD'] = df['LoaiGD'].astype(str).str.strip()
             df['TenHang'] = df['TenHang'].astype(str).str.strip()
             df['KhoiLuong'] = pd.to_numeric(df['KhoiLuong'], errors='coerce').fillna(0)
             
-            # Bỏ các dòng rỗng
             df = df[~df['TenHang'].isin(['nan', '', 'None'])]
             df_list.append(df)
-            
         except Exception as e:
             st.error(f"Lỗi đọc file 105: {e}")
 
@@ -427,32 +421,29 @@ def process_105(files):
 
     data = pd.concat(df_list, ignore_index=True)
 
-    # Hàm tính số lượng cuộn và khối lượng xuất ròng (Issue - Return)
     def calc_stats(cond):
         df_sub = data[cond]
         issue = df_sub[df_sub['LoaiGD'] == 'WIP Issue']
         ret = df_sub[df_sub['LoaiGD'] == 'WIP Return']
-        
         qty = len(issue) - len(ret)
-        # Net weight = Tổng Issue + Return (Issue âm, Return dương -> lấy trị tuyệt đối ra khối lượng thực dùng)
         weight = abs(issue['KhoiLuong'].sum() + ret['KhoiLuong'].sum()) / 1000
         return qty, weight
 
-    # 1. HRC: Cán nóng KHÔNG chứa tẩy rỉ
-    cond_hrc = (data['TenHang'].str.contains('HRC|Cán nóng', na=False, case=False)) & \
+    # 1. HRC: Cán nóng đưa vào chuyền Tẩy rỉ (không chứa chữ 'tẩy rỉ')
+    cond_hrc = data['TenHang'].str.contains('HRC|Cán nóng', na=False, case=False) & \
                (~data['TenHang'].str.contains('tẩy rỉ', na=False, case=False))
     hrc_q, hrc_w = calc_stats(cond_hrc)
 
-    # 2. PO: Chứa tẩy rỉ hoặc PO
+    # 2. PO: Thép cán nóng tẩy rỉ đưa vào chuyền Cán nguội
     cond_po = data['TenHang'].str.contains('PO|tẩy rỉ', na=False, case=False)
     po_q, po_w = calc_stats(cond_po)
 
-    # 3. CM: Cán nguội (không tính pubcoil phế phẩm)
-    cond_cm = (data['TenHang'].str.contains('CM|Cán nguội', na=False, case=False)) & \
+    # 3. CM: Thép cán nguội xuất vào các chuyền Mạ / Cắt (bỏ pubcoil)
+    cond_cm = data['TenHang'].str.contains('CM|Cán nguội', na=False, case=False) & \
               (~data['TenHang'].str.contains('Pubcoil', na=False, case=False))
     cm_q, cm_w = calc_stats(cond_cm)
 
-    # 4. Hao hụt + phế liệu (Byproduct)
+    # 4. Hao hụt + phế liệu: Tất cả Byproduct hoàn thành
     scrap = data[data['LoaiGD'].isin(['WIP Byproduct Completion', 'WIP Byproduct Return'])]
     scrap_w = abs(scrap['KhoiLuong'].sum()) / 1000
 
@@ -464,7 +455,7 @@ def process_105(files):
     })
     tb3.loc[len(tb3)] = ['Tổng', tb3['Số lượng (Cuộn)'].sum(), tb3['Khối lượng (Tấn)'].sum(), '']
 
-    # 5. Nguyên Phụ Liệu (NPL) kim loại màu (tính từ các file nạp từ kho vật tư/03B)
+    # --- BẢNG 4: NPL KIM LOẠI MÀU ---
     def calc_npl_weight(pattern):
         df_npl = data[data['TenHang'].str.contains(pattern, na=False, case=False) & data['LoaiGD'].isin(['WIP Issue', 'WIP Return'])]
         return abs(df_npl['KhoiLuong'].sum()) / 1000
