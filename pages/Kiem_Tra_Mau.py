@@ -10,9 +10,10 @@ if root_path not in sys.path:
 # 2. Khai báo thư viện
 import io
 import pandas as pd
+import openpyxl
+from openpyxl.styles import PatternFill
 import streamlit as st
 from streamlit_lottie import st_lottie
-from openpyxl.styles import PatternFill
 
 # 3. Import module nội bộ
 from ai_chat import hien_thi_tro_ly_ai
@@ -93,123 +94,115 @@ with col_f2: f_doichieu = st.file_uploader("2. File Dữ liệu Đối Chiếu (
 
 if f_tonkho is not None:
     if st.button("🚀 Bắt đầu tính toán tự động", use_container_width=True):
-        with st.spinner("Đang phân tích cấu trúc ẩn của file..."):
+        with st.spinner("Đang quét cấu trúc ẩn và điền trực tiếp vào Form..."):
             try:
-                # Đọc GIỮ NGUYÊN cấu trúc (không lấy tên cột tự động để tránh lỗi gộp ô của ERP)
-                df = pd.read_excel(f_tonkho, header=None)
-                
-                # Đảm bảo df có đủ số cột cần thiết (Chống lỗi nếu file hụt cột)
-                while len(df.columns) < 26:
-                    df[len(df.columns)] = ""
-
-                # 1. Tạo 7 cột rỗng với độ dài bằng file gốc
-                col_trung = [""] * len(df)
-                col_hang = [""] * len(df)
-                col_so_kg = [""] * len(df)
-                col_lech = [""] * len(df)
-                col_ky_chuan = [""] * len(df)
-                col_loai = [""] * len(df)
-                col_day_chuyen = [""] * len(df)
-
-                # 2. Ghi Tiêu đề cho 7 cột chèn vào ngay Dòng 13 (Tức index 12 trong Python)
-                header_idx = 12
-                if len(df) > header_idx:
-                    col_trung[header_idx] = "Trùng"
-                    col_hang[header_idx] = "hạng"
-                    col_so_kg[header_idx] = "số kg"
-                    col_lech[header_idx] = "ký chênh lệch"
-                    col_ky_chuan[header_idx] = "số ký chuẩn"
-                    col_loai[header_idx] = "loại"
-                    col_day_chuyen[header_idx] = "Dây chuyền"
-
-                # 3. Quét File Đối chiếu OPM 105 (Quét chết cột F - Index 5 y như COUNTIF)
+                # 1. Đọc File Đối Chiếu OPM 105
                 set_ma_doi_chieu = set()
                 if f_doichieu is not None:
                     try:
                         df_ref = pd.read_excel(f_doichieu)
+                        # Quét cột mã bên OPM (Ưu tiên cột F)
                         col_ref_ma = df_ref.columns[5] if len(df_ref.columns) > 5 else df_ref.columns[0]
                         set_ma_doi_chieu = set(df_ref[col_ref_ma].astype(str).str.replace(r"\.0$", "", regex=True).str.strip().str.upper())
-                    except Exception:
+                    except:
                         pass
 
-                # 4. Bắt đầu tính số từ Dòng 14 (Index 13)
-                for i in range(13, len(df)):
-                    # Lấy tọa độ cột CHÍNH XÁC (Sau khi trừ đi độ chênh 7 cột bạn chèn)
-                    ma_lo = str(df.iloc[i, 19]).replace(".0", "").strip()    # Gốc T (Vào file bạn là AA)
-                    gross_val = df.iloc[i, 21]                               # Gốc V (Vào file bạn là AC)
-                    net_val = df.iloc[i, 22]                                 # Gốc W (Vào file bạn là AD)
-                    loi_val = str(df.iloc[i, 24]).strip()                    # Gốc Y (Vào file bạn là AF)
+                # 2. Xử lý File Tồn kho bằng thư viện OpenPyXL để BẢO TOÀN 100% CẤU TRÚC GỐC
+                wb = openpyxl.load_workbook(f_tonkho)
+                ws = wb.active
+
+                # Bộ quét thông minh: Tự tìm vị trí các cột bạn đã tạo sẵn trong File
+                col_map = {}
+                max_header_row = 1
+                
+                for r in range(1, 26):
+                    for c in range(1, ws.max_column + 5):
+                        cell_val = ws.cell(row=r, column=c).value
+                        if not cell_val: continue
+                        val = str(cell_val).lower().strip()
+                        
+                        # Cột Dữ Liệu Nguồn
+                        if "mã lô" in val or "cuộn" in val: col_map['ma_lo'] = c; max_header_row = max(max_header_row, r)
+                        elif "gross" in val: col_map['gross'] = c; max_header_row = max(max_header_row, r)
+                        elif val == "net" or "net " in val: col_map['net'] = c; max_header_row = max(max_header_row, r)
+                        elif "loại lõi" in val or val == "lõi": col_map['loi'] = c
+                        
+                        # Cột Công Thức (Hệ thống sẽ điền thẳng vào cột L nếu bạn đặt tên nó là Số ký chuẩn)
+                        elif "trùng" in val: col_map['trung'] = c
+                        elif val == "hạng": col_map['hang'] = c
+                        elif "chênh lệch" in val or "lệch" in val: col_map['lech'] = c
+                        elif "ký chuẩn" in val or "kg chuẩn" in val or "chuẩn" in val: col_map['chuan'] = c
+                        elif val == "loại": col_map['loai'] = c
+                        elif "dây chuyền" in val: col_map['day_chuyen'] = c
+                        elif val == "số kg" or val == "số lượng kg": col_map['so_kg'] = c
+
+                # 3. Tạo cột mới Ở CUỐI BẢNG nếu bạn lỡ đưa file thô (Chống dư cột ở A-G)
+                next_col = ws.max_column + 1
+                for key, name in [
+                    ('trung', 'Trùng'), ('hang', 'Hạng'), ('so_kg', 'Số kg'), 
+                    ('lech', 'Ký chênh lệch'), ('chuan', 'Số ký chuẩn'), 
+                    ('loai', 'Loại'), ('day_chuyen', 'Dây chuyền')
+                ]:
+                    if key not in col_map:
+                        ws.cell(row=max_header_row, column=next_col).value = name
+                        col_map[key] = next_col
+                        next_col += 1
+
+                # 4. Bắt đầu tính toán
+                start_row = max_header_row + 1
+                yellow_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+
+                for r in range(start_row, ws.max_row + 1):
+                    ma_lo_val = str(ws.cell(row=r, column=col_map.get('ma_lo', 1)).value or "").replace(".0", "").strip()
+                    gross_val = ws.cell(row=r, column=col_map.get('gross', 1)).value
+                    net_val = ws.cell(row=r, column=col_map.get('net', 1)).value
+                    loi_val = str(ws.cell(row=r, column=col_map.get('loi', 1)).value or "").strip()
                     
                     try: gross_num = float(gross_val)
                     except: gross_num = 0
                     try: net_num = float(net_val)
                     except: net_num = 0
                     
-                    # Bỏ qua dòng rỗng không có ID hoặc thông số trọng lượng
-                    if not ma_lo and gross_num == 0 and net_num == 0:
+                    # Bỏ qua dòng trống
+                    if not ma_lo_val and gross_num == 0 and net_num == 0:
                         continue
-
-                    # Bắt đầu xử lý Công thức chuẩn
-                    day_chuyen = ma_lo[3:6] if len(ma_lo) >= 6 else ""
-                    
-                    # Hạng (Dựa vào Gross như công thức B14 = IF(AC14<...) của bạn)
-                    hang = xac_dinh_hang(gross_num) 
+                        
+                    # Áp dụng Công Thức
+                    day_chuyen = ma_lo_val[3:6] if len(ma_lo_val) >= 6 else ""
+                    hang = xac_dinh_hang(gross_num)
                     ky_chuan = xac_dinh_ky_chuan(hang, loi_val)
                     so_kg = gross_num - net_num
                     lech = so_kg - ky_chuan
+                    loai_str = loi_val[0] if len(loi_val) > 0 else ""
                     
-                    # Trùng lặp
-                    if set_ma_doi_chieu:
-                        is_trung = "Có" if ma_lo.upper() in set_ma_doi_chieu else "Không"
-                    else:
-                        is_trung = "Không"
-
-                    # Lưu vào danh sách
-                    col_trung[i] = is_trung
-                    col_hang[i] = hang
-                    col_so_kg[i] = so_kg
-                    col_lech[i] = lech
-                    col_ky_chuan[i] = ky_chuan
-                    col_day_chuyen[i] = day_chuyen
-
-                # 5. Chèn 7 cột vào bảng DataFrame
-                df.insert(0, "Dây chuyền_col", col_day_chuyen)
-                df.insert(0, "loại_col", col_loai)
-                df.insert(0, "số ký chuẩn_col", col_ky_chuan)
-                df.insert(0, "ký chênh lệch_col", col_lech)
-                df.insert(0, "số kg_col", col_so_kg)
-                df.insert(0, "hạng_col", col_hang)
-                df.insert(0, "Trùng_col", col_trung)
-
-                # ==========================================
-                # XUẤT EXCEL & TÔ VÀNG VƯỢT CHUẨN (Chuẩn Layout)
-                # ==========================================
-                output = io.BytesIO()
-                with pd.ExcelWriter(output, engine="openpyxl") as writer:
-                    # header=False giấu đi tên cột của Pandas, giữ lại bộ khung gốc của file!
-                    df.to_excel(writer, index=False, header=False, sheet_name="Data_Da_Tinh_Toan")
-                    
-                    ws = writer.sheets["Data_Da_Tinh_Toan"]
-                    yellow_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
-                    
-                    # Duyệt tô màu (Bắt đầu quét từ dòng dữ liệu số 14)
-                    for i in range(13, len(df)):
-                        trung_val = str(df.iloc[i, 0]).strip().lower()
-                        lech_val = df.iloc[i, 3] # Cột Ký chênh lệch ở vị trí D
+                    is_trung = "Không"
+                    if set_ma_doi_chieu and ma_lo_val.upper() in set_ma_doi_chieu:
+                        is_trung = "Có"
                         
-                        try:
-                            if trung_val == "không" and float(lech_val) > 0:
-                                excel_row = i + 1  # Tính khớp sang tọa độ file Excel
-                                for cell in ws[excel_row]:
-                                    cell.fill = yellow_fill
-                        except:
-                            pass
+                    # GHI KẾT QUẢ VÀO ĐÚNG TỌA ĐỘ BẠN ĐÃ TẠO SẴN TRONG FILE
+                    ws.cell(row=r, column=col_map['trung']).value = is_trung
+                    ws.cell(row=r, column=col_map['hang']).value = hang
+                    ws.cell(row=r, column=col_map['so_kg']).value = so_kg
+                    ws.cell(row=r, column=col_map['lech']).value = lech
+                    ws.cell(row=r, column=col_map['chuan']).value = ky_chuan
+                    ws.cell(row=r, column=col_map['loai']).value = loai_str
+                    ws.cell(row=r, column=col_map['day_chuyen']).value = day_chuyen
+                    
+                    # Logic Tô vàng nguyên dòng nếu Vượt chuẩn & Không trùng
+                    if is_trung == "Không" and lech > 0:
+                        for c_idx in range(1, ws.max_column + 1):
+                            cell = ws.cell(row=r, column=c_idx)
+                            cell.fill = yellow_fill
 
-                st.success(f"✅ Đã xử lý {len(df)-13:,} dòng. Đã fix hoàn toàn tọa độ cột dữ liệu!")
+                # 5. Đóng gói file trả về
+                output = io.BytesIO()
+                wb.save(output)
+
+                st.success(f"✅ Xử lý thành công! Đã điền thẳng dữ liệu vào cấu trúc gốc của bạn.")
                 st.download_button(
-                    label="📥 Tải File Excel Đã Tính Xong",
+                    label="📥 Tải File Excel (Chuẩn Form)",
                     data=output.getvalue(),
-                    file_name="Bao_Cao_Ton_Kho_Da_Kiem_Tra.xlsx",
+                    file_name="Bao_Cao_Ton_Kho_Hoan_Thien.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     use_container_width=True
                 )
