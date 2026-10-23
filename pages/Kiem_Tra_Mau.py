@@ -12,8 +12,9 @@ import io
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 import pandas as pd
 import streamlit as st
-from streamlit_lottie import st_lottie  # <--- Thêm dòng này vào đây
+from streamlit_lottie import st_lottie
 import requests
+
 # 3. Import module nội bộ
 from ai_chat import hien_thi_tro_ly_ai
 
@@ -23,7 +24,6 @@ def load_lottieurl(url: str):
     if r.status_code != 200:
         return None
     return r.json()
-
 
 # Gắn link bạn vừa copy
 lottie_hoat_anh = load_lottieurl("https://lottie.host/654b9803-9ee2-4c1b-91e3-3f074d4f79d3/b4IPc6jdqR.json")
@@ -178,10 +178,10 @@ if f_tonkho is not None:
                 df["_gross_num"] = pd.to_numeric(df[col_gross], errors="coerce").fillna(0) if col_gross else 0
                 df["_net_num"] = pd.to_numeric(df[col_net], errors="coerce").fillna(0) if col_net else 0
 
-                # Dây chuyền = MID(Mã lô, 4, 3)
+                # Dây chuyền = MID(Mã lô, 4, 3) - ĐÃ FIX LỖI "FLOAT HAS NO LEN"
                 if col_ma_lo:
-                    s_ma = df[col_ma_lo].astype(str).str.strip()
-                    col_day_chuyen = s_ma.apply(lambda x: x[3:6] if len(x) >= 6 else "")
+                    s_ma = df[col_ma_lo].fillna("").astype(str).str.strip()
+                    col_day_chuyen = s_ma.apply(lambda x: str(x)[3:6] if len(str(x)) >= 6 else "")
                 else:
                     col_day_chuyen = ""
 
@@ -210,8 +210,9 @@ if f_tonkho is not None:
                     except Exception:
                         pass
 
+                # ĐÃ BỔ SUNG .fillna("") ĐỂ CHỐNG LỖI CHO CỘT TRÙNG
                 if set_ma_doi_chieu and col_ma_lo:
-                    clean_ma_lo = df[col_ma_lo].astype(str).str.replace(r"\.0$", "", regex=True).str.strip().str.upper()
+                    clean_ma_lo = df[col_ma_lo].fillna("").astype(str).str.replace(r"\.0$", "", regex=True).str.strip().str.upper()
                     col_trung = clean_ma_lo.apply(lambda x: "Trùng" if x in set_ma_doi_chieu else "")
                 else:
                     col_trung = ""
@@ -248,4 +249,5 @@ else:
     # Đoạn này sẽ hiện hình động nếu người dùng chưa nạp file
     st_lottie(lottie_hoat_anh, height=300, key="cho_file")
     st.info("👉 Hãy nạp File Báo cáo Tồn Kho (Mẫu 2356) và File Dữ liệu Đối Chiếu để bắt đầu.")
+
 hien_thi_tro_ly_ai()
