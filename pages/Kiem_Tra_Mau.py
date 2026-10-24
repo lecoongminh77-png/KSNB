@@ -1,13 +1,8 @@
-import sys
-import os
-import requests 
 import io
 import pandas as pd
 import openpyxl
 from openpyxl.styles import PatternFill
 import streamlit as st
-from streamlit_lottie import st_lottie
-from ai_chat import hien_thi_tro_ly_ai
 
 # Bảng ma trận theo đúng hình ảnh cung cấp
 MA_TRAN_CHUAN = {
@@ -41,11 +36,16 @@ def xac_dinh_ky_chuan(hang, loai_loi):
     elif "giấy" in loai_str or "giay" in loai_str: return nhom["giay"]
     else: return nhom["khac"]
 
-st.set_page_config(page_title="Kiểm Tra Tồn Kho Cuộn", page_icon="📦", layout="wide")
+# Thêm initial_sidebar_state="collapsed" để thanh bên tự động gập lại khi vừa tải trang
+st.set_page_config(page_title="Kiểm Tra Tồn Kho Cuộn", page_icon="📦", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
 <style>
-    [data-testid="stSidebarNav"] { display: none !important; }
+    /* CSS CỐT LÕI ĐỂ ẨN HOÀN TOÀN THANH SIDEBAR VÀ NÚT BẤM CỦA NÓ */
+    [data-testid="stSidebar"] { display: none !important; }
+    [data-testid="collapsedControl"] { display: none !important; }
+    
+    /* Giao diện chung */
     .stApp { background-color: #f5f5f7; font-family: -apple-system, sans-serif; color: #1d1d1f; }
     .apple-header-box { display: flex; justify-content: space-between; align-items: flex-end; padding: 20px 0 10px 0; margin-bottom: 5px; }
     .apple-main-title { font-size: 38px; font-weight: 700; letter-spacing: -0.025em; margin: 0; }
@@ -167,5 +167,3 @@ if f_tonkho is not None:
 
             except Exception as e:
                 st.error(f"Lỗi: {e}")
-
-hien_thi_tro_ly_ai()
