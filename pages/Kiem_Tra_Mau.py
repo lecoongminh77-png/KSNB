@@ -68,10 +68,10 @@ with col_home:
 
 st.markdown("<div class='apple-header-box'><h1 class='apple-main-title'>📦 KSNB: Phân Tích Trọng Lượng Cuộn</h1></div>", unsafe_allow_html=True)
 
-# --- VÙNG NẠP FILE KÉO THẢ ĐA TẬP TIN ---
+# --- VÙNG NẠP FILE ---
 col_f1, col_f2 = st.columns(2)
 with col_f1: 
-    f_tonkhos = st.file_uploader("1. Nạp File Tồn Kho 110 (Có thể nạp NHIỀU file cùng lúc)", type=["xlsx", "xlsb", "xls"], accept_multiple_files=True)
+    f_tonkhos = st.file_uploader("1. Nạp File Tồn Kho 110 (Nạp NHIỀU file cùng lúc)", type=["xlsx", "xlsb", "xls"], accept_multiple_files=True)
 with col_f2: 
     f_doichieu = st.file_uploader("2. Nạp File RMA 105 (Tuỳ chọn)", type=["xlsx", "xlsb", "xls"])
 
@@ -79,7 +79,7 @@ if not f_tonkhos:
     st.info("💡 Kéo thả một hoặc nhiều file Tồn Kho 110 vào ô số 1 để bắt đầu KSNB.")
 
 if f_tonkhos:
-    if st.button("🚀 Bắt đầu Quét & Lọc Dữ Liệu", use_container_width=True):
+    if st.button("🚀 Bắt đầu Quét & Lọc Dữ Liệu (Bản Siêu Tốc)", use_container_width=True):
         
         progress_text = st.empty()
         
@@ -97,25 +97,25 @@ if f_tonkhos:
                 except Exception as e:
                     st.warning(f"⚠️ Không thể đọc file 105: {e}")
 
-            # 2. XỬ LÝ DANH SÁCH FILE 110
+            # 2. XỬ LÝ DANH SÁCH FILE 110 (THUẬT TOÁN MỚI)
             processed_files = {}
-            live_preview_data = [] # Lưu dữ liệu để hiện lên web
+            live_preview_data = [] 
             
             yellow_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
             red_fill = PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid")
+            no_fill = PatternFill(fill_type=None)
             bold_font = Font(bold=True)
 
             tong_loi = 0
             tong_da_xoa = 0
 
             for f_tk in f_tonkhos:
-                progress_text.text(f"Đang xử lý: {f_tk.name}...")
+                progress_text.text(f"Đang xử lý tốc độ cao: {f_tk.name}...")
                 wb = openpyxl.load_workbook(f_tk)
                 ws = wb.active
 
                 # BƯỚC 1: CHÈN THÊM 9 CỘT TRỐNG VÀO ĐẦU
                 ws.insert_cols(1, 9)
-
                 tieu_de = [
                     "TRẠNG THÁI KSNB", "ĐỘ LỆCH (KG)", "TỶ LỆ LỆCH (%)", 
                     "KHOẢNG TRỌNG", "KG CHUẨN (Tham khảo)", "LÕI KHAI BÁO (Hệ thống)", 
@@ -127,35 +127,31 @@ if f_tonkhos:
                     cell.font = bold_font
 
                 max_r = ws.max_row
+                max_c = ws.max_column
                 
-                # BƯỚC 2: QUÉT NGƯỢC TỪ DƯỚI LÊN ĐỂ LỌC VÀ TÍNH TOÁN
-                for r in range(max_r, 13, -1):
-                    # Toạ độ cột sau khi chèn thêm 9 cột ở đầu
-                    ma_hang = safe_str(ws.cell(row=r, column=11).value) # Cột B cũ
-                    ma_lo = safe_str(ws.cell(row=r, column=29).value).replace(".0", "").upper() # Cột T cũ
-                    gross_num = safe_float(ws.cell(row=r, column=31).value) # Cột V cũ
+                # BƯỚC 2: QUÉT & TÍNH TOÁN TRÊN RAM
+                danh_sach_hop_le = [] # Chứa các dòng đã sạch rác
+                
+                for r in range(14, max_r + 1):
+                    ma_hang = safe_str(ws.cell(row=r, column=11).value)
+                    ma_lo = safe_str(ws.cell(row=r, column=29).value).replace(".0", "").upper()
+                    gross_num = safe_float(ws.cell(row=r, column=31).value)
                     
-                    # --- VÒNG LỌC 1: DỌN RÁC NGAY LẬP TỨC ---
-                    # 1. Dòng rỗng
+                    # --- LỌC RÁC TỐC ĐỘ CAO ---
                     if not ma_hang and gross_num == 0:
-                        ws.delete_rows(r)
                         continue
-                    # 2. Xoá cuộn hàng RMA
                     if ma_lo in set_rma and ma_lo != "":
-                        ws.delete_rows(r)
                         tong_da_xoa += 1
                         continue
-                    # 3. Xoá cuộn KHÔNG bắt đầu bằng 3 hoặc 4
                     if not (ma_hang.startswith('3') or ma_hang.startswith('4')):
-                        ws.delete_rows(r)
                         tong_da_xoa += 1
                         continue
 
-                    # --- VÒNG LỌC 2: NHỮNG CUỘN SỐNG SÓT ĐƯỢC ĐEM ĐI KIỂM TOÁN ---
-                    locator = safe_str(ws.cell(row=r, column=27).value) # Cột R cũ
-                    net_num = safe_float(ws.cell(row=r, column=32).value) # Cột W cũ
-                    kg_loi_san = safe_float(ws.cell(row=r, column=33).value) # Cột X cũ
-                    loai_loi = safe_str(ws.cell(row=r, column=34).value) # Cột Y cũ
+                    # --- TÍNH TOÁN KSNB CHO DÒNG HỢP LỆ ---
+                    locator = safe_str(ws.cell(row=r, column=27).value)
+                    net_num = safe_float(ws.cell(row=r, column=32).value)
+                    kg_loi_san = safe_float(ws.cell(row=r, column=33).value)
+                    loai_loi = safe_str(ws.cell(row=r, column=34).value)
 
                     nhom_kho = "Kho B" if (len(locator) >= 4 and locator[3].upper() == 'B') else "Kho Khác"
                     has_explicit_core = True if kg_loi_san > 0 else False
@@ -166,7 +162,6 @@ if f_tonkhos:
                     hang = xac_dinh_hang(gross_num)
                     ky_chuan = xac_dinh_ky_chuan(hang, loai_loi)
                     
-                    # Logic Tính Toán
                     if has_explicit_core:
                         can_cu = "Lõi khai báo (Hệ thống)"
                         lech = abs((net_num + kg_loi_san) - gross_num)
@@ -179,7 +174,6 @@ if f_tonkhos:
                     ty_le_lech = (lech / gross_num * 100) if gross_num > 0 else 0
                     is_kinh_ngac = False
                     
-                    # AI Bẫy Lỗi
                     if net_num > gross_num:
                         is_kinh_ngac = True
                         chi_tiet_loi.append("Lỗi: Net > Gross")
@@ -190,7 +184,6 @@ if f_tonkhos:
                         is_kinh_ngac = True
                         chi_tiet_loi.append(f"Lỗi: Lệch > 150kg")
 
-                    # Đánh giá Trạng thái
                     if is_kinh_ngac or lech > 100 or len(chi_tiet_loi) > 0:
                         trang_thai = "NGHIÊM TRỌNG"
                         fill_color = red_fill
@@ -205,61 +198,69 @@ if f_tonkhos:
                         
                     ghi_chu = " | ".join(chi_tiet_loi) if chi_tiet_loi else ("Vượt chuẩn" if lech > 30 else "")
 
-                    # BƯỚC 3: GHI VÀO EXCEL VÀ THÊM VÀO BẢNG LIVE PREVIEW
-                    ws.cell(row=r, column=1).value = trang_thai
-                    ws.cell(row=r, column=2).value = round(lech, 2)
-                    ws.cell(row=r, column=3).value = f"{round(ty_le_lech, 2)}%"
-                    ws.cell(row=r, column=4).value = hang
-                    ws.cell(row=r, column=5).value = ky_chuan if ky_chuan > 0 else "-"
-                    ws.cell(row=r, column=6).value = kg_loi_san if has_explicit_core else "-"
-                    ws.cell(row=r, column=7).value = can_cu
-                    ws.cell(row=r, column=8).value = ghi_chu
-                    ws.cell(row=r, column=9).value = nhom_kho
+                    # Bưng toàn bộ dữ liệu của dòng này đưa vào RAM
+                    row_data = [
+                        trang_thai, round(lech, 2), f"{round(ty_le_lech, 2)}%", hang,
+                        ky_chuan if ky_chuan > 0 else "-", kg_loi_san if has_explicit_core else "-",
+                        can_cu, ghi_chu, nhom_kho
+                    ]
+                    # Chép nốt các cột gốc còn lại
+                    for c in range(10, max_c + 1):
+                        row_data.append(ws.cell(row=r, column=c).value)
+                        
+                    danh_sach_hop_le.append((row_data, fill_color))
 
                     if fill_color:
-                        for c_idx in range(1, ws.max_column + 1):
-                            ws.cell(row=r, column=c_idx).fill = fill_color
-                            
-                        # Đưa cuộn bị lỗi lên web để xem trước
                         live_preview_data.append({
-                            "File": f_tk.name,
-                            "Mã Lô": ma_lo,
-                            "Kho": nhom_kho,
-                            "Trạng Thái": trang_thai,
-                            "Lệch (Kg)": round(lech, 2),
-                            "Lý do": ghi_chu
+                            "File": f_tk.name, "Mã Lô": ma_lo, "Kho": nhom_kho,
+                            "Trạng Thái": trang_thai, "Lệch (Kg)": round(lech, 2), "Lý do": ghi_chu
                         })
 
-                # Lưu vào RAM file hiện tại
+                # BƯỚC 3: GHI ĐÈ DỮ LIỆU SẠCH XUỐNG EXCEL
+                current_row = 14
+                for row_data, fill_color in danh_sach_hop_le:
+                    for c_idx, val in enumerate(row_data, start=1):
+                        cell = ws.cell(row=current_row, column=c_idx)
+                        cell.value = val
+                        if fill_color:
+                            cell.fill = fill_color
+                        else:
+                            cell.fill = no_fill # Xóa màu cũ nếu có
+                    current_row += 1
+                    
+                # BƯỚC 4: XOÁ GỌN ĐUÔI THỪA 1 LẦN DUY NHẤT (Khắc phục lỗi treo Web)
+                so_dong_thua = max_r - current_row + 1
+                if so_dong_thua > 0:
+                    ws.delete_rows(current_row, so_dong_thua)
+
+                # Lưu File
                 file_stream = io.BytesIO()
                 wb.save(file_stream)
                 wb.close()
                 processed_files[f"KSNB_{f_tk.name}"] = file_stream.getvalue()
 
             progress_text.empty()
-            st.toast("Hoàn thành Dọn dẹp & Quét dữ liệu KSNB!", icon="🎉")
+            st.toast("Hoàn thành Quét dữ liệu Siêu Tốc!", icon="🎉")
             
             # --- BÁO CÁO NHANH TRÊN WEB ---
             col1, col2 = st.columns(2)
             col1.metric("🗑️ Cuộn rác & RMA đã dọn dẹp", tong_da_xoa)
             col2.metric("⚠️ Phát hiện cuộn bất thường", tong_loi, delta_color="inverse")
             
-            # Tính năng xem trước cực mạnh
             if live_preview_data:
                 st.error("🚨 Danh sách các cuộn bị cảnh báo (Xem trước):")
                 df_preview = pd.DataFrame(live_preview_data)
-                # Tự động sắp xếp từ Lệch cao xuống thấp
                 df_preview = df_preview.sort_values(by="Lệch (Kg)", ascending=False).reset_index(drop=True)
                 st.dataframe(df_preview, use_container_width=True)
             else:
-                st.success("✅ Tuyệt vời! Tất cả các cuộn đều Đạt tiêu chuẩn, không có sai lệch.")
+                st.success("✅ Tuyệt vời! Tất cả các cuộn đều Đạt tiêu chuẩn.")
 
             # --- TRẢ FILE VỀ MÁY TÍNH ---
             st.markdown("<hr>", unsafe_allow_html=True)
             if len(processed_files) == 1:
                 file_name, file_data = list(processed_files.items())[0]
                 st.download_button(
-                    label="📥 Tải File Báo Cáo (Đã loại trừ RMA)",
+                    label="📥 Tải File Báo Cáo KSNB",
                     data=file_data,
                     file_name=file_name,
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -272,7 +273,7 @@ if f_tonkhos:
                         zip_file.writestr(f_name, f_data)
                 
                 st.download_button(
-                    label=f"📥 Tải Về Zip Chứa {len(processed_files)} Báo Cáo (Đã loại trừ RMA)",
+                    label=f"📥 Tải Về Zip Chứa {len(processed_files)} Báo Cáo",
                     data=zip_buffer.getvalue(),
                     file_name="Bao_Cao_KSNB_Ton_Kho.zip",
                     mime="application/zip",
