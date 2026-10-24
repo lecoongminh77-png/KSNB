@@ -123,8 +123,11 @@ if f_tonkhos:
                 ]
                 for i, col_name in enumerate(tieu_de):
                     cell = ws.cell(row=13, column=i+1)
-                    cell.value = col_name
-                    cell.font = bold_font
+                    try:
+                        cell.value = col_name
+                        cell.font = bold_font
+                    except AttributeError:
+                        pass # Bỏ qua lỗi MergedCell ở tiêu đề
 
                 max_r = ws.max_row
                 max_c = ws.max_column
@@ -216,19 +219,23 @@ if f_tonkhos:
                             "Trạng Thái": trang_thai, "Lệch (Kg)": round(lech, 2), "Lý do": ghi_chu
                         })
 
-                # BƯỚC 3: GHI ĐÈ DỮ LIỆU SẠCH XUỐNG EXCEL
+                # BƯỚC 3: GHI ĐÈ DỮ LIỆU SẠCH XUỐNG EXCEL KÈM BẪY LỖI GỘP Ô
                 current_row = 14
                 for row_data, fill_color in danh_sach_hop_le:
                     for c_idx, val in enumerate(row_data, start=1):
                         cell = ws.cell(row=current_row, column=c_idx)
-                        cell.value = val
-                        if fill_color:
-                            cell.fill = fill_color
-                        else:
-                            cell.fill = no_fill # Xóa màu cũ nếu có
+                        try:
+                            cell.value = val
+                            if fill_color:
+                                cell.fill = fill_color
+                            else:
+                                cell.fill = no_fill # Xóa màu cũ nếu có
+                        except AttributeError:
+                            # KHẮC PHỤC LỖI: Bỏ qua nhẹ nhàng nếu ghi đè trúng phần bị ẩn của ô đã gộp
+                            pass
                     current_row += 1
                     
-                # BƯỚC 4: XOÁ GỌN ĐUÔI THỪA 1 LẦN DUY NHẤT (Khắc phục lỗi treo Web)
+                # BƯỚC 4: XOÁ GỌN ĐUÔI THỪA 1 LẦN DUY NHẤT
                 so_dong_thua = max_r - current_row + 1
                 if so_dong_thua > 0:
                     ws.delete_rows(current_row, so_dong_thua)
