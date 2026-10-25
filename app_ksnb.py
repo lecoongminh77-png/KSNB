@@ -165,17 +165,18 @@ st.components.v1.html(
 _, col1, col2, col3, _ = st.columns([0.2, 3, 3, 3, 0.2], gap="medium")
 
 with col1:
-    st.markdown("""
-    <div class="app-card" style="margin-bottom: 20px;">
-        <div>
-            <span class="badge badge-blue">AI Automation</span>
-            <div class="card-title">✍️ Sforum Studio</div>
-            <div class="card-desc">Hệ thống AI tự động phân tích bài viết gốc, áp dụng quy chuẩn Google Docs và biên tập bài viết.</div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-    if st.button("Truy cập Sforum Studio ➔", key="btn_sforum", use_container_width=True):
-        st.switch_page("pages/Sforum.py")
+    # ĐÃ TẮT SFORUM BẰNG CÁCH THÊM DẤU # VÀO ĐẦU DÒNG
+#     st.markdown("""
+#     <div class="app-card" style="margin-bottom: 20px;">
+#         <div>
+#             <span class="badge badge-blue">AI Automation</span>
+#             <div class="card-title">✍️ Sforum Studio</div>
+#             <div class="card-desc">Hệ thống AI tự động phân tích bài viết gốc, áp dụng quy chuẩn Google Docs và biên tập bài viết.</div>
+#         </div>
+#     </div>
+#     """, unsafe_allow_html=True)
+#     if st.button("Truy cập Sforum Studio ➔", key="btn_sforum", use_container_width=True):
+#         st.switch_page("pages/Sforum.py")
 
     st.markdown("""
     <div class="app-card">
@@ -227,4 +228,3 @@ with col3:
     """, unsafe_allow_html=True)
     if st.button("Mở Kiểm Tra Mẫu ➔", key="btn_2356", use_container_width=True):
         st.switch_page("pages/Kiem_Tra_Mau.py")
-
