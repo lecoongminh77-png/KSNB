@@ -26,6 +26,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# Thanh điều hướng
 col_home, _ = st.columns([1.5, 8.5])
 with col_home:
     if st.button("🏠 Trang chủ", use_container_width=True):
@@ -61,31 +62,50 @@ with col2:
 
 # HÀM LỌC DỮ LIỆU
 def xuly_105(df, is_cungung=True):
+    # Tự động dò dòng tiêu đề chứa 'Chuỗi' (bỏ qua các dòng trống phía trên)
+    header_idx = df.astype(str).apply(lambda row: row.str.contains('Chuỗi', case=False).any(), axis=1).idxmax()
+    if pd.isna(header_idx): return pd.DataFrame()
+    
+    df.columns = df.iloc[header_idx]
+    df = df.iloc[header_idx + 1:].reset_index(drop=True)
+    
     if df.empty or len(df.columns) < 4: return df
+    
     if is_cungung:
         remove_gd = ['COGS Recognition', 'WIP Return', 'WIP Issue', 'WIP Completion Return', 'WIP Completion', 'WIP Byproduct Return', 'WIP Byproduct Completion', 'Residual Qty Receipt', 'Residual Qty Issue']
-        df = df[~df.iloc[:, 0].isin(remove_gd)]
-        df = df[df.iloc[:, 3].astype(str).str.startswith(('3', '4'))]
+        df = df[~df.iloc[:, 1].isin(remove_gd)]  # Cột 1 là Loại Giao Dịch
+        df = df[df.iloc[:, 4].astype(str).str.startswith(('3', '4'))] # Cột 4 là Mã Mặt Hàng
     else:
-        df = df[~df.iloc[:, 0].isin(['COGS Recognition'])]
-    df = df[df.iloc[:, 0].notna()]
-    # Tạo cột "Chuỗi" cho 105 (Mã Kho + Khu Vực Kho + Locator + LPN + Loại GD)
+        df = df[~df.iloc[:, 1].isin(['COGS Recognition'])]
+        
+    df = df[df.iloc[:, 1].notna()]
+    
+    # Tạo cột "Chuỗi"
     try:
-        df['Chuỗi'] = df.iloc[:, 35].astype(str) + df.iloc[:, 36].astype(str) + df.iloc[:, 37].astype(str) + df.iloc[:, 6].astype(str) + df.iloc[:, 0].astype(str)
+        df['Chuỗi'] = df['Mă Kho'].astype(str) + df['Khu Vực Kho'].astype(str) + df['Locator'].astype(str) + df['LPN'].astype(str) + df['Loại Giao Dịch'].astype(str)
     except:
-        df['Chuỗi'] = ""
+        pass
     return df
 
 def xuly_021(df, is_cungung=True):
-    if df.empty or len(df.columns) < 18: return df
+    # Tự động dò dòng tiêu đề chứa 'Số chứng từ'
+    header_idx = df.astype(str).apply(lambda row: row.str.contains('Số chứng từ', case=False).any(), axis=1).idxmax()
+    if pd.isna(header_idx): return pd.DataFrame()
+    
+    df.columns = df.iloc[header_idx]
+    df = df.iloc[header_idx + 1:].reset_index(drop=True)
+    
+    if df.empty or 'Loại giao dịch' not in df.columns: return df
+    
     if is_cungung:
         remove_gd = ['WIP Issue', 'WIP Completion Return', 'Return to vender', 'Return to vendor']
     else:
         remove_gd = ['Return to Vendor', 'Return to vender']
-    df = df[~df.iloc[:, 17].isin(remove_gd)]
+        
+    df = df[~df['Loại giao dịch'].isin(remove_gd)]
     return df
 
-
+# XỬ LÝ CHÍNH
 if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_width=True):
     if not f_tramcan_nm:
         st.warning("⚠️ Vui lòng nạp File Trạm Cân Nhà Máy!")
@@ -94,59 +114,56 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
         progress_bar = st.progress(0)
         
         try:
+            # --- BƯỚC 1: ĐỌC TRẠM CÂN ---
             progress_text.markdown('<div class="progress-text">⏳ Đang đọc dữ liệu Trạm Cân... (10%)</div>', unsafe_allow_html=True)
             progress_bar.progress(10)
             xls_tc = pd.ExcelFile(f_tramcan_nm)
             sheet_tc = 'tramcan' if 'tramcan' in xls_tc.sheet_names else 0
             df_tc = pd.read_excel(f_tramcan_nm, sheet_name=sheet_tc)
             
-            progress_text.markdown('<div class="progress-text">⏳ Đang xử lý bộ lọc cho các file ERP... (30%)</div>', unsafe_allow_html=True)
+            # --- BƯỚC 2: ĐỌC VÀ LỌC ERP ---
+            progress_text.markdown('<div class="progress-text">⏳ Đang xử lý bộ lọc cho ERP... (30%)</div>', unsafe_allow_html=True)
             progress_bar.progress(30)
             
-            # Xử lý 105
-            frames_105 = []
-            if f_105_cu: frames_105.append(xuly_105(pd.read_excel(f_105_cu, skiprows=7), True))
-            if f_105_admin: frames_105.append(xuly_105(pd.read_excel(f_105_admin, skiprows=7), False))
+            frames_105, frames_021 = [], []
+            if f_105_cu: frames_105.append(xuly_105(pd.read_excel(f_105_cu, header=None), True))
+            if f_105_admin: frames_105.append(xuly_105(pd.read_excel(f_105_admin, header=None), False))
             df_105_all = pd.concat(frames_105, ignore_index=True) if frames_105 else pd.DataFrame()
             
-            # Xử lý 021
-            frames_021 = []
-            if f_021_cu: frames_021.append(xuly_021(pd.read_excel(f_021_cu, skiprows=7), True))
-            if f_021_admin: frames_021.append(xuly_021(pd.read_excel(f_021_admin, skiprows=7), False))
+            if f_021_cu: frames_021.append(xuly_021(pd.read_excel(f_021_cu, header=None), True))
+            if f_021_admin: frames_021.append(xuly_021(pd.read_excel(f_021_admin, header=None), False))
             df_021_all = pd.concat(frames_021, ignore_index=True) if frames_021 else pd.DataFrame()
 
             # --- TÍNH TOÁN SHEET 021 GIỐNG FILE CHÍNH ---
-            progress_text.markdown('<div class="progress-text">⏳ Đang tự động hóa VLOOKUP tạo bảng 021... (50%)</div>', unsafe_allow_html=True)
+            progress_text.markdown('<div class="progress-text">⏳ Đang tự động hóa VLOOKUP để tạo bảng 021... (50%)</div>', unsafe_allow_html=True)
             progress_bar.progress(50)
             
             df_021_export = pd.DataFrame()
             if not df_021_all.empty:
                 df_021_export = df_021_all.copy()
                 
-                # Tạo Chuỗi 2 (Mã kho + Subinventory + Locator + LPN + Loại GD)
-                # Dựa theo format file 021 (Cột 3, 4, 5, 6, 17)
+                # Tạo Chuỗi 2 
                 try:
-                    df_021_export['Chuỗi 2 '] = df_021_export.iloc[:, 3].astype(str) + df_021_export.iloc[:, 4].astype(str) + df_021_export.iloc[:, 5].astype(str) + df_021_export.iloc[:, 6].astype(str) + df_021_export.iloc[:, 17].astype(str)
+                    df_021_export['Chuỗi 2 '] = df_021_export['Mă kho'].astype(str) + df_021_export['Subinventory'].astype(str) + df_021_export['Locator'].astype(str) + df_021_export['LPN'].astype(str) + df_021_export['Loại giao dịch'].astype(str)
                 except:
                     df_021_export['Chuỗi 2 '] = ""
 
-                # VLOOKUP thông tin từ 105 qua 021
+                # VLOOKUP thông tin từ 105 qua 021 (ĐÃ SỬA LỖI REINDEX BẰNG CÁCH BỎ TRÙNG LẶP CHUỖI)
                 if not df_105_all.empty and 'Chuỗi' in df_105_all.columns:
-                    # Tạo từ điển map từ 105
-                    map_105 = df_105_all.set_index('Chuỗi')
-                    df_021_export['Ngày xuất'] = df_021_export['Chuỗi 2 '].map(map_105.iloc[:, 33] if len(map_105.columns) > 33 else {}) # Creation Date
-                    df_021_export['Thời gian thao tác'] = df_021_export['Chuỗi 2 '].map(map_105.iloc[:, 34] if len(map_105.columns) > 34 else {}) # Ngày GD
-                    df_021_export['Người thực hiện'] = df_021_export['Chuỗi 2 '].map(map_105.iloc[:, 39] if len(map_105.columns) > 39 else {}) # Created by User
-                    df_021_export['Số Gross'] = df_021_export['Chuỗi 2 '].map(map_105.iloc[:, 40] if len(map_105.columns) > 40 else {}) # Khối lượng Gross
+                    # Loại bỏ trùng lặp khóa tìm kiếm giống hệt hàm Vlookup trong Excel (chỉ lấy dòng đầu)
+                    map_105 = df_105_all.dropna(subset=['Chuỗi']).drop_duplicates(subset=['Chuỗi'], keep='first').set_index('Chuỗi')
+                    
+                    # Dò tìm
+                    df_021_export['Ngày xuất'] = df_021_export['Chuỗi 2 '].map(map_105['Creation Date'] if 'Creation Date' in map_105 else {})
+                    df_021_export['Thời gian thao tác'] = df_021_export['Chuỗi 2 '].map(map_105['Ngày Giao Dịch'] if 'Ngày Giao Dịch' in map_105 else {})
+                    df_021_export['Người thực hiện'] = df_021_export['Chuỗi 2 '].map(map_105['Created by User'] if 'Created by User' in map_105 else {})
+                    df_021_export['Số Gross'] = df_021_export['Chuỗi 2 '].map(map_105['Khối lượng Gross'] if 'Khối lượng Gross' in map_105 else {})
                 else:
-                    df_021_export['Ngày xuất'] = ""
-                    df_021_export['Thời gian thao tác'] = ""
-                    df_021_export['Người thực hiện'] = ""
-                    df_021_export['Số Gross'] = ""
+                    df_021_export['Ngày xuất'] = df_021_export['Thời gian thao tác'] = df_021_export['Người thực hiện'] = df_021_export['Số Gross'] = ""
 
                 # Các cột tự sinh
-                df_021_export['Chuyển text'] = df_021_export.iloc[:, 1].astype(str) + "A" # Cột số chứng từ + A
-                df_021_export['Chuỗi 1'] = df_021_export['Chuyển text'] + df_021_export.iloc[:, 17].astype(str)
+                df_021_export['Chuyển text'] = df_021_export['Số chứng từ'].astype(str) + "A" 
+                df_021_export['Chuỗi 1'] = df_021_export['Chuyển text'] + df_021_export['Loại giao dịch'].astype(str)
                 df_021_export['Check ra cổng'] = 0
                 df_021_export['Thời gian pick SO'] = ""
                 df_021_export['Người Pick SO'] = ""
@@ -156,11 +173,12 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
                 df_021_export = df_021_export[cols_order]
 
             # --- TÍNH TOÁN SHEET KSKT ---
-            progress_text.markdown('<div class="progress-text">⏳ Đang thu thập dữ liệu Net/Gross và đối soát Trạm cân... (75%)</div>', unsafe_allow_html=True)
+            progress_text.markdown('<div class="progress-text">⏳ Đang đối soát và tính dung sai... (75%)</div>', unsafe_allow_html=True)
             progress_bar.progress(75)
             
             dict_net, dict_gross = {}, {}
             df_erp = pd.concat([df_105_all, df_021_all], ignore_index=True) if not df_105_all.empty or not df_021_all.empty else pd.DataFrame()
+            
             if not df_erp.empty:
                 df_erp_search = df_erp.copy()
                 df_erp_search.columns = df_erp_search.columns.astype(str).str.lower().str.strip()
@@ -236,7 +254,7 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
                 if not df_021_export.empty:
                     df_021_export.to_excel(writer, index=False, sheet_name="021")
 
-            progress_text.markdown('<div class="progress-text" style="color: #28a745;">✅ Đã hoàn tất tự động hóa form và VLOOKUP!</div>', unsafe_allow_html=True)
+            progress_text.markdown('<div class="progress-text" style="color: #28a745;">✅ Đã hoàn tất đối soát và VLOOKUP tự động!</div>', unsafe_allow_html=True)
             progress_bar.progress(100)
             
             st.download_button(
