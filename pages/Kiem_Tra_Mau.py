@@ -51,7 +51,7 @@ def tinh_kg_chuan(hang, loai_loi, kg_loi_khai_bao):
     loai_str = safe_str(loai_loi).lower()
     nhom = MA_TRAN_CHUAN[hang]
     bao_bi_chuan = nhom["khac"]
-    
+
     if "sắt" in loai_str or "sat" in loai_str:
         chuan_mt = nhom["sat"]
     elif "giấy" in loai_str or "giay" in loai_str:
@@ -65,7 +65,7 @@ def tinh_kg_chuan(hang, loai_loi, kg_loi_khai_bao):
     return chuan_mt
 
 def doc_du_lieu_file_110(uploaded_file):
-    """Đọc nhanh mọi định dạng xlsx, xls, xlsb sang danh sách dòng"""
+    """Đọc nhanh các định dạng xlsx, xls, xlsb không bị vướng Merge Cells"""
     fname = uploaded_file.name.lower()
     if fname.endswith(".xlsx"):
         wb = openpyxl.load_workbook(uploaded_file, read_only=True, data_only=True)
@@ -87,7 +87,7 @@ st.markdown("""
     .stApp { background-color: #f5f5f7; }
     div.stButton > button { background: #0071e3 !important; color: white !important; border-radius: 8px !important; border: none !important; font-weight: bold; }
     div.stButton > button:hover { background: #005bb5 !important; transform: scale(1.02); }
-    div.stDownloadButton > button { background: #34c759 !important; color: white !important; border-radius: 8px !important; font-weight: bold; }
+    div.stDownloadButton > button { background: #34c759 !important; border-radius: 8px !important; font-weight: bold; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -96,7 +96,7 @@ with col_home:
     if st.button("🏠 Về Trang Chủ", use_container_width=True):
         st.switch_page("app_ksnb.py")
 
-st.title("📦 HỆ THỐNG KSNB TỒN KHO (BẢN NÂNG CẤP CHUYÊN SÂU)")
+st.title("📦 HỆ THỐNG KSNB TỒN KHO (NGƯỠNG SIẾT BẤT ĐỐI XỨNG)")
 
 col_f1, col_f2 = st.columns(2)
 with col_f1:
@@ -144,7 +144,7 @@ if st.button("🚀 Bắt đầu Tổng hợp & Kiểm toán", use_container_widt
         live_preview_data = []
         total_files = len(f_tonkhos)
 
-        # 3. DUYỆT TỪNG FILE 110
+        # 3. QUÉT DỮ LIỆU TỪNG FILE 110
         for file_idx, f_tk in enumerate(f_tonkhos):
             status_text.text(f"📂 Đang nạp file {f_tk.name} vào bộ nhớ...")
             rows_all = doc_du_lieu_file_110(f_tk)
@@ -152,7 +152,6 @@ if st.button("🚀 Bắt đầu Tổng hợp & Kiểm toán", use_container_widt
             if max_r < 14:
                 continue
 
-            # Xây dựng dòng tiêu đề từ dòng 12 (idx 11) và dòng 13 (idx 12) của file đầu tiên
             if not headers_goc:
                 r12 = rows_all[11]
                 r13 = rows_all[12]
@@ -177,7 +176,6 @@ if st.button("🚀 Bắt đầu Tổng hợp & Kiểm toán", use_container_widt
 
             total_data_rows = max_r - 13
 
-            # Quét dữ liệu từ dòng 14 (idx 13)
             for idx in range(13, max_r):
                 if (idx - 13) % 500 == 0 or idx == max_r - 1:
                     row_prog = (idx - 12) / total_data_rows
@@ -189,59 +187,57 @@ if st.button("🚀 Bắt đầu Tổng hợp & Kiểm toán", use_container_widt
                 ma_hang = safe_str(get_cell(row_vals, 1))      # Cột B: Mã hàng
                 gross_num = safe_float(get_cell(row_vals, 21)) # Cột V: Gross
 
-                # LUẬT 1: Bỏ dòng trống và xóa toàn bộ cuộn trống Gross (Gross <= 0)
+                # Dọn dòng trống & xóa vĩnh viễn cuộn không có Gross
                 if not ma_hang and gross_num <= 0:
                     continue
                 if gross_num <= 0:
                     tong_da_xoa += 1
                     continue
 
-                # LUẬT 2: Chỉ giữ mã hàng bắt đầu bằng 3 hoặc 4
+                # Chỉ xét mã hàng đầu 3 và đầu 4
                 if not (ma_hang.startswith("3") or ma_hang.startswith("4")):
                     tong_da_xoa += 1
                     continue
 
-                # LUẬT 3: Đối chiếu loại trừ Mã Lô nằm trong File RMA 105
-                ma_lo = safe_str(get_cell(row_vals, 19)).replace(".0", "").upper() # Cột T: Mã lô
+                # Loại trừ Mã Lô nằm trong File RMA 105
+                ma_lo = safe_str(get_cell(row_vals, 19)).replace(".0", "").upper()
                 if ma_lo and ma_lo in set_rma:
                     tong_da_xoa += 1
                     continue
 
-                # LUẬT 4: Radar quét cột AK (Cột 37 -> idx 36: Đánh tên) loại hàng Thu hồi / Lợp xưởng
+                # Loại trừ hàng Thu hồi / Lợp xưởng ở cột AK (Cột 37 -> idx 36)
                 danh_ten_ak = safe_str(get_cell(row_vals, 36)).upper()
                 if danh_ten_ak and any(kw in danh_ten_ak for kw in TU_KHOA_LOAI_AK):
                     tong_da_xoa += 1
                     continue
 
-                # Trích xuất thông tin kiểm toán
-                ten_hang = safe_str(get_cell(row_vals, 2))      # Cột C: Tên hàng
-                phan_loai = safe_str(get_cell(row_vals, 4)).upper() # Cột E: Phân loại (1, 2, CXL...)
-                locator = safe_str(get_cell(row_vals, 17))      # Cột R: Locator
-                net_num = safe_float(get_cell(row_vals, 22))    # Cột W: Net
-                kg_loi_san = safe_float(get_cell(row_vals, 23)) # Cột X: Lõi khai báo
-                loai_loi = safe_str(get_cell(row_vals, 24))     # Cột Y: Loại lõi
+                ten_hang = safe_str(get_cell(row_vals, 2))          # Cột C: Tên hàng
+                phan_loai = safe_str(get_cell(row_vals, 4)).upper() # Cột E: Phân loại
+                locator = safe_str(get_cell(row_vals, 17))          # Cột R: Locator
+                net_num = safe_float(get_cell(row_vals, 22))        # Cột W: Net
+                kg_loi_san = safe_float(get_cell(row_vals, 23))     # Cột X: Lõi khai báo
+                loai_loi = safe_str(get_cell(row_vals, 24))         # Cột Y: Loại lõi
 
                 bo_loc_kho = locator[3].upper() if len(locator) >= 4 else "-"
                 gross_net = round(gross_num - net_num, 2)
                 hang = xac_dinh_hang(gross_num)
                 kg_chuan = tinh_kg_chuan(hang, loai_loi, kg_loi_san)
-                
-                # Giữ nguyên dấu (+/-): Dương = Dư bì, Âm = Thiếu bì
                 lech_co_dau = round(gross_net - kg_chuan, 2)
-                abs_lech = abs(lech_co_dau)
+
+                is_thep_day_khong_loi = ("thép dày" in ten_hang.lower() and kg_loi_san == 0 and loai_loi == "")
                 tag_cxl = " - Hàng CXL" if phan_loai == "CXL" else ""
 
                 fill_color = None
                 is_error = False
 
-                # --- HỆ THỐNG PHÂN LOẠI TRẠNG THÁI NÂNG CẤP ---
+                # --- BỘ LUẬT BẤT ĐỐI XỨNG: ĐẠT [-20kg .. +15kg] | ĐỎ [> ±50kg] ---
                 if gross_num < net_num:
                     trang_thai = f"NGHIÊM TRỌNG (Gross < Net{tag_cxl})"
                     fill_color = red_fill
                     is_error = True
                     tong_do += 1
                 elif gross_num == net_num:
-                    if "thép dày" in ten_hang.lower() and kg_loi_san == 0:
+                    if is_thep_day_khong_loi:
                         trang_thai = "ĐẠT"
                         lech_co_dau = 0.0
                     else:
@@ -259,21 +255,32 @@ if st.button("🚀 Bắt đầu Tổng hợp & Kiểm toán", use_container_widt
                     fill_color = red_fill
                     is_error = True
                     tong_do += 1
-                elif abs_lech > 100:
-                    trang_thai = f"NGHIÊM TRỌNG (Lệch > 100kg{tag_cxl})"
+                elif lech_co_dau > 50:
+                    trang_thai = f"NGHIÊM TRỌNG (Dư bì > 50kg{tag_cxl})"
                     fill_color = red_fill
                     is_error = True
                     tong_do += 1
-                elif lech_co_dau > 30:
-                    trang_thai = f"NGHI NGỜ (Dư bì > 30kg{tag_cxl})"
+                elif lech_co_dau < -50 and not is_thep_day_khong_loi:
+                    if kg_loi_san > 0 and gross_net == kg_loi_san:
+                        trang_thai = f"NGHI NGỜ (Chưa cộng bao bì{tag_cxl})"
+                        fill_color = yellow_fill
+                        is_error = True
+                        tong_vang += 1
+                    else:
+                        trang_thai = f"NGHIÊM TRỌNG (Thiếu bì > 50kg{tag_cxl})"
+                        fill_color = red_fill
+                        is_error = True
+                        tong_do += 1
+                elif lech_co_dau > 15:
+                    trang_thai = f"NGHI NGỜ (Dư bì > 15kg{tag_cxl})"
                     fill_color = yellow_fill
                     is_error = True
                     tong_vang += 1
-                elif lech_co_dau < -30:
+                elif lech_co_dau < -20 and not is_thep_day_khong_loi:
                     if kg_loi_san > 0 and gross_net == kg_loi_san:
                         trang_thai = f"NGHI NGỜ (Chưa cộng bao bì{tag_cxl})"
                     else:
-                        trang_thai = f"NGHI NGỜ (Thiếu bì > 30kg{tag_cxl})"
+                        trang_thai = f"NGHI NGỜ (Thiếu bì > 20kg{tag_cxl})"
                     fill_color = yellow_fill
                     is_error = True
                     tong_vang += 1
@@ -303,18 +310,17 @@ if st.button("🚀 Bắt đầu Tổng hợp & Kiểm toán", use_container_widt
                         "Tên Hàng": ten_hang
                     })
 
-        # Bật sẵn AutoFilter & cố định dòng tiêu đề trên Excel xuất ra
         if ws_tong.max_row >= 1:
             ws_tong.auto_filter.ref = ws_tong.dimensions
             ws_tong.freeze_panes = "A2"
 
-        # 4. ĐÓNG GÓI FILE EXCEL DUY NHẤT
+        # 4. LƯU RA BỘ NHỚ ĐỂ TẢI VỀ
         status_text.text("📦 Đang đóng gói Báo cáo Excel Tổng hợp...")
         file_tong = io.BytesIO()
         wb_tong.save(file_tong)
         wb_tong.close()
 
-        # 5. HIỂN THỊ KẾT QUẢ
+        # 5. HIỂN THỊ KẾT QUẢ LÊN GIAO DIỆN
         progress_bar.empty()
         status_text.empty()
         st.toast("🎉 Kiểm toán hoàn tất!")
@@ -334,7 +340,7 @@ if st.button("🚀 Bắt đầu Tổng hợp & Kiểm toán", use_container_widt
         )
 
         if live_preview_data:
-            st.warning(f"🔍 XEM TRƯỚC {len(live_preview_data)} CUỘN BẤT THƯỜNG (Sắp xếp theo mức độ lệch):")
+            st.warning(f"🔍 XEM TRƯỚC {len(live_preview_data)} CUỘN BẤT THƯỜNG (Sắp xếp theo độ lệch):")
             df_preview = pd.DataFrame(live_preview_data)
             df_preview["abs_sort"] = df_preview["Độ Lệch (Kg)"].abs()
             df_preview = df_preview.sort_values(by="abs_sort", ascending=False).drop(columns=["abs_sort"]).reset_index(drop=True)
