@@ -1,29 +1,16 @@
-import sys
-import os
-import requests
-
-# 1. Ép Python nhận diện thư mục gốc (nơi chứa ai_chat.py)
-root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-if root_path not in sys.path:
-    sys.path.insert(0, root_path)
-
-# 2. Khai báo các thư viện khác
 import io
+import requests
 import pandas as pd
 import numpy as np
 import streamlit as st
 from streamlit_lottie import st_lottie
 
-# 3. Import module nội bộ
-from ai_chat import hien_thi_tro_ly_ai
-
-# Hàm tải hình động
+# Hàm tải hình động (giữ lại nếu sau này bạn cần dùng hiệu ứng Lottie)
 def load_lottieurl(url: str):
     r = requests.get(url)
     if r.status_code != 200:
         return None
     return r.json()
-
 
 st.set_page_config(
     page_title="Kiểm Tra Hàng Ra Cổng - KSNB",
@@ -111,7 +98,6 @@ st.markdown("""
 </div>
 <hr style='border: none; border-top: 1px solid #e2e8f0; margin: 15px 0 25px 0;'>
 """, unsafe_allow_html=True)
-
 
 # 4 Ô NẠP FILE (2 Cột x 2 Hàng)
 st.markdown("### 📥 Tải Dữ Liệu Đầu Vào (4 File Nguồn)")
@@ -239,4 +225,3 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
 
             except Exception as e:
                 st.error(f"Lỗi khi xử lý dữ liệu: {e}")
-hien_thi_tro_ly_ai()
