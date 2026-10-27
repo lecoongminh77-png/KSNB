@@ -1,25 +1,19 @@
 import streamlit as st
 
 st.set_page_config(layout="wide")
+st.title("Hệ Thống Quản Lý Nội Bộ")
 
-# Tạo menu bên trái bằng Radio button
-with st.sidebar:
-    st.markdown("### LÊ CÔNG MINH")
-    chuc_nang = st.radio(
-        "📍 DANH MỤC CHỨC NĂNG",
-        ["🏠 Trang Chủ", "🚛 Trạm Cân & ERP", "🔍 Kiểm Soát Nội Bộ", "📦 Quản Lý Tồn Kho"]
-    )
+# Tạo 3 thẻ điều hướng ngang
+tab1, tab2, tab3 = st.tabs(["🚛 Trạm Cân & ERP", "🔍 Kiểm Soát Nội Bộ", "📦 Quản Lý Tồn Kho"])
 
-# Routing nội dung theo nút được chọn
-if chuc_nang == "🏠 Trang Chủ":
-    st.title("Tổng Quan Hệ Thống")
-    st.write("Chào mừng bạn đến với công cụ kiểm soát tự động.")
+with tab1:
+    st.header("Đối soát dữ liệu 4 bên")
+    # Bỏ code phần đối soát cổng ở đây
 
-elif chuc_nang == "🚛 Trạm Cân & ERP":
-    st.title("Quản lý Trạm Cân")
-    
-elif chuc_nang == "🔍 Kiểm Soát Nội Bộ":
-    st.title("Đối chiếu HRC")
-    
-elif chuc_nang == "📦 Quản Lý Tồn Kho":
-    st.title("Báo cáo NXT")
+with tab2:
+    st.header("Kiểm Tra Mẫu & Đối Chiếu HRC")
+    # Bỏ code kiểm soát HRC ở đây
+
+with tab3:
+    st.header("Tổng Hợp Nhập Xuất Tồn")
+    # Bỏ code dashboard NXT ở đây
