@@ -86,7 +86,6 @@ st.markdown("""
     div.stButton > button { background: #0071e3 !important; color: white !important; border-radius: 8px !important; border: none !important; font-weight: bold; }
     div.stButton > button:hover { background: #005bb5 !important; transform: scale(1.02); }
     div.stDownloadButton > button { background: #34c759 !important; border-radius: 8px !important; font-weight: bold; }
-    /* Style cho các chú thích */
     .note-box { font-size: 0.85rem; color: #555; background: #eef2f5; padding: 10px; border-radius: 6px; margin-top: -15px; margin-bottom: 15px; border-left: 4px solid #0071e3; line-height: 1.5; }
     .note-title { font-weight: bold; color: #005bb5; }
 </style>
@@ -99,7 +98,6 @@ with col_home:
 
 st.title("📦 HỆ THỐNG KSNB TỒN KHO (NGƯỠNG SIẾT BẤT ĐỐI XỨNG)")
 
-# --- GIAO DIỆN: CHIA THÀNH 3 CỘT ĐỂ NẠP FILE KÈM CHÚ THÍCH ---
 col_f1, col_f2, col_f3 = st.columns(3)
 
 with col_f1:
@@ -141,17 +139,16 @@ with col_f3:
     </div>
     """, unsafe_allow_html=True)
 
-if st.button("🚀 Bắt đầu Tổng hợp & Kiểm toán", use_container_width=True) and f_tonkhos:
-    progress_bar = st.progress(0)
+# THAY ĐỔI TÊN NÚT BẤM TẠI ĐÂY
+if st.button("🚀 Bắt đầu", use_container_width=True) and f_tonkhos:
     status_text = st.empty()
+    progress_bar = st.progress(0)
 
     try:
-        # 1. ĐỌC FILE LOẠI TRỪ (RMA 105 VÀ OPM 105) VÀO CHUNG 1 TẬP HỢP
         set_loai_tru = set()
         
-        # 1a. Đọc RMA 105
         if f_doichieu:
-            status_text.text("⏳ Đang đọc danh sách Mã Lô từ File RMA 105...")
+            status_text.markdown("⏳ **Đang đọc danh sách Mã Lô từ File RMA 105...**")
             df_rma = pd.read_excel(f_doichieu, header=None, dtype=object)
             for _, row in df_rma.iterrows():
                 if len(row) > 5:
@@ -159,9 +156,8 @@ if st.button("🚀 Bắt đầu Tổng hợp & Kiểm toán", use_container_widt
                     if val and val not in ("NAN", "NONE", "MÃ LÔ"):
                         set_loai_tru.add(val)
         
-        # 1b. Đọc OPM 105 (Chỉ lấy Mã lô của dòng WIP Issue)
         if f_opm:
-            status_text.text("⏳ Đang đọc danh sách Mã Lô (WIP Issue) từ File OPM 105...")
+            status_text.markdown("⏳ **Đang đọc danh sách Mã Lô (WIP Issue) từ File OPM 105...**")
             df_opm = pd.read_excel(f_opm, header=None, dtype=object)
             for _, row in df_opm.iterrows():
                 if len(row) > 5:
@@ -171,7 +167,6 @@ if st.button("🚀 Bắt đầu Tổng hợp & Kiểm toán", use_container_widt
                         if ma_lo_opm and ma_lo_opm not in ("NAN", "NONE", "MÃ LÔ"):
                             set_loai_tru.add(ma_lo_opm)
 
-        # 2. KHỞI TẠO 1 FILE BÁO CÁO DUY NHẤT
         wb_tong = openpyxl.Workbook()
         ws_tong = wb_tong.active
         ws_tong.title = "Bao_Cao_KSNB"
@@ -195,9 +190,8 @@ if st.button("🚀 Bắt đầu Tổng hợp & Kiểm toán", use_container_widt
         live_preview_data = []
         total_files = len(f_tonkhos)
 
-        # 3. QUÉT DỮ LIỆU TỪNG FILE 110
         for file_idx, f_tk in enumerate(f_tonkhos):
-            status_text.text(f"📂 Đang nạp file {f_tk.name} vào bộ nhớ...")
+            status_text.markdown(f"📂 **Đang nạp file `{f_tk.name}` vào bộ nhớ...**")
             rows_all = doc_du_lieu_file_110(f_tk)
             max_r = len(rows_all)
             if max_r < 14:
@@ -228,11 +222,13 @@ if st.button("🚀 Bắt đầu Tổng hợp & Kiểm toán", use_container_widt
             total_data_rows = max_r - 13
 
             for idx in range(13, max_r):
+                # Hiển thị % thanh chạy rõ ràng hơn
                 if (idx - 13) % 500 == 0 or idx == max_r - 1:
                     row_prog = (idx - 12) / total_data_rows
                     overall_prog = (file_idx + row_prog) / total_files
+                    percent = int(min(overall_prog, 1.0) * 100)
                     progress_bar.progress(min(overall_prog, 1.0))
-                    status_text.text(f"🔄 Đang kiểm toán: {f_tk.name} (Dòng {idx + 1}/{max_r}) - {round(overall_prog * 100)}%")
+                    status_text.markdown(f"🔄 **Đang quét:** `{f_tk.name}` (Dòng {idx + 1}/{max_r}) ➔ **{percent}% hoàn thành**")
 
                 row_vals = rows_all[idx]
                 ma_hang = safe_str(get_cell(row_vals, 1))
@@ -248,7 +244,6 @@ if st.button("🚀 Bắt đầu Tổng hợp & Kiểm toán", use_container_widt
                     tong_da_xoa += 1
                     continue
 
-                # Loại trừ Mã Lô nằm trong cả File RMA 105 & OPM 105
                 ma_lo = safe_str(get_cell(row_vals, 19)).replace(".0", "").upper()
                 if ma_lo and ma_lo in set_loai_tru:
                     tong_da_xoa += 1
@@ -361,7 +356,7 @@ if st.button("🚀 Bắt đầu Tổng hợp & Kiểm toán", use_container_widt
             ws_tong.auto_filter.ref = ws_tong.dimensions
             ws_tong.freeze_panes = "A2"
 
-        status_text.text("📦 Đang đóng gói Báo cáo Excel Tổng hợp...")
+        status_text.markdown("📦 **Đang đóng gói Báo cáo Excel Tổng hợp...**")
         file_tong = io.BytesIO()
         wb_tong.save(file_tong)
         wb_tong.close()
