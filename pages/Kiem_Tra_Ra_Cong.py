@@ -75,6 +75,7 @@ def xuly_105(df, is_cungung=True):
             df = df[~df['Loại Giao Dịch'].isin(['COGS Recognition'])]
             
         df = df[df['Loại Giao Dịch'].notna()]
+        
         if all(col in df.columns for col in ['Mă Kho', 'Khu Vực Kho', 'Locator', 'LPN', 'Loại Giao Dịch']):
             df['Chuỗi'] = df['Mă Kho'].astype(str) + df['Khu Vực Kho'].astype(str) + df['Locator'].astype(str) + df['LPN'].astype(str) + df['Loại Giao Dịch'].astype(str)
         else:
@@ -132,11 +133,12 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
             sheet_tc = 'tramcan' if 'tramcan' in xls_tc.sheet_names else 0
             df_tc = pd.read_excel(f_tramcan_nm, sheet_name=sheet_tc)
             
+            # Ép kiểu danh sách trạm cân thành CHUỖI 100% để chống lỗi "float is not iterable"
             tc_chungtu_list = []
             if 'Lấy phiếu xuất.1' in df_tc.columns:
-                tc_chungtu_list = df_tc['Lấy phiếu xuất.1'].astype(str).str.strip().str.upper().tolist()
+                tc_chungtu_list = [str(x).strip().upper() for x in df_tc['Lấy phiếu xuất.1'].tolist() if pd.notna(x)]
             elif 'SỐ CHỨNG TỪ' in df_tc.columns:
-                tc_chungtu_list = df_tc['SỐ CHỨNG TỪ'].astype(str).str.strip().str.upper().tolist()
+                tc_chungtu_list = [str(x).strip().upper() for x in df_tc['SỐ CHỨNG TỪ'].tolist() if pd.notna(x)]
 
             # --- BƯỚC 2: ĐỌC VÀ LỌC ERP ---
             progress_text.markdown('<div class="progress-text">⏳ Đang xử lý bộ lọc cho ERP 105 và 021... (30%)</div>', unsafe_allow_html=True)
@@ -182,8 +184,9 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
                 df_021_export['Chuyển text'] = safe_str('Số chứng từ') + "A" 
                 df_021_export['Chuỗi 1'] = df_021_export['Chuyển text'] + safe_str('Loại giao dịch')
                 
+                # Check cổng bọc str() tuyệt đối
                 df_021_export['Check ra cổng'] = df_021_export['Số chứng từ'].apply(
-                    lambda x: 1 if any(str(x).strip().upper() in tc_val for tc_val in tc_chungtu_list) else 0
+                    lambda x: 1 if any(str(x).strip().upper() in str(tc_val) for tc_val in tc_chungtu_list) else 0
                 )
                 
                 cols_10_first = ['Check ra cổng', 'Thời gian pick SO', 'Người Pick SO', 'Ngày xuất', 'Thời gian thao tác', 'Người thực hiện', 'Số Gross', 'Chuỗi 2 ', 'Chuỗi 1', 'Chuyển text']
@@ -200,8 +203,9 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
                 df_021_search = df_021_all.copy()
                 df_021_search.columns = df_021_search.columns.astype(str).str.lower().str.strip()
                 
-                erp_col_phieu = next((c for c in df_021_search.columns if "chứng từ" in c or "phiếu" in c or "tham chiếu" in c), None)
-                erp_col_net = next((c for c in df_021_search.columns if "khối lượng" in c or "số lượng" in c or "net" in c), None)
+                # Dò tìm tên cột với biến `c` đã được bọc str()
+                erp_col_phieu = next((c for c in df_021_search.columns if "chứng từ" in str(c) or "phiếu" in str(c) or "tham chiếu" in str(c)), None)
+                erp_col_net = next((c for c in df_021_search.columns if "khối lượng" in str(c) or "số lượng" in str(c) or "net" in str(c)), None)
                 
                 if erp_col_phieu:
                     phieu_series = df_021_search.iloc[:, df_021_search.columns.get_loc(erp_col_phieu)]
@@ -220,7 +224,6 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
                     malo_series = df_105_search['mã lô'].astype(str).str.replace('.0', '', regex=False).str.strip().str.upper()
                     dict_gross = pd.to_numeric(df_105_search['khối lượng gross'], errors='coerce').groupby(malo_series).sum().to_dict()
 
-            # Thêm 2 cột đánh giá rủi ro vào list xuất
             final_cols = ['STT', 'Số phiếu cân', 'Bàn cân', 'Số xe', 'Giờ vào', 'Giờ ra', 'Tên hàng hóa', 'Khối lượng vào', 'Khối lượng ra', 'Khối lượng hàng hóa', 'Số chứng từ', '1', '2', '3', '4', '5', 'Khối lượng Net', 'Khối lượng Gross', '1-CỔNG TRƯỚC', '2-CỔNG TRƯỚC', '1-CỔNG SAU', '2-CỔNG SAU', 'KL bàn cân lớn nhất', 'Chênh lệch', 'Dung sai', 'Chênh lệch Max - Min', 'Check net -gross', 'Thời gian lưu bãi (Phút)', 'Đánh giá KSNB', 'Ghi chú']
             df_out = pd.DataFrame(columns=final_cols)
             
