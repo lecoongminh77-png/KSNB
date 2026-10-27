@@ -59,13 +59,11 @@ def tinh_kg_chuan(hang, loai_loi, kg_loi_khai_bao):
     else:
         chuan_mt = bao_bi_chuan
 
-    # Nếu có khai báo lõi dày đặc biệt -> lấy max(Chuẩn ma trận, Lõi khai báo + Bao bì chuẩn)
     if kg_loi_khai_bao > 0:
         return max(chuan_mt, kg_loi_khai_bao + bao_bi_chuan)
     return chuan_mt
 
 def doc_du_lieu_file_110(uploaded_file):
-    """Đọc nhanh các định dạng xlsx, xls, xlsb không bị vướng Merge Cells"""
     fname = uploaded_file.name.lower()
     if fname.endswith(".xlsx"):
         wb = openpyxl.load_workbook(uploaded_file, read_only=True, data_only=True)
@@ -88,6 +86,9 @@ st.markdown("""
     div.stButton > button { background: #0071e3 !important; color: white !important; border-radius: 8px !important; border: none !important; font-weight: bold; }
     div.stButton > button:hover { background: #005bb5 !important; transform: scale(1.02); }
     div.stDownloadButton > button { background: #34c759 !important; border-radius: 8px !important; font-weight: bold; }
+    /* Style cho các chú thích */
+    .note-box { font-size: 0.85rem; color: #555; background: #eef2f5; padding: 10px; border-radius: 6px; margin-top: -15px; margin-bottom: 15px; border-left: 4px solid #0071e3; line-height: 1.5; }
+    .note-title { font-weight: bold; color: #005bb5; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -98,19 +99,57 @@ with col_home:
 
 st.title("📦 HỆ THỐNG KSNB TỒN KHO (NGƯỠNG SIẾT BẤT ĐỐI XỨNG)")
 
-col_f1, col_f2 = st.columns(2)
+# --- GIAO DIỆN: CHIA THÀNH 3 CỘT ĐỂ NẠP FILE KÈM CHÚ THÍCH ---
+col_f1, col_f2, col_f3 = st.columns(3)
+
 with col_f1:
-    f_tonkhos = st.file_uploader("1. Nạp các File 110 (Kéo thả nhiều file)", type=["xlsx", "xlsb", "xls"], accept_multiple_files=True)
+    st.markdown("### 1. Nạp File INV 110 (File gốc)")
+    f_tonkhos = st.file_uploader("Nạp File 110", type=["xlsx", "xlsb", "xls"], accept_multiple_files=True, label_visibility="collapsed")
+    st.markdown("""
+    <div class='note-box'>
+        <span class='note-title'>📌 HSG_KS_INV_Cung Ứng:</span><br>
+        - Kho: 031, 034, 036, 038<br>
+        - Thời gian: Hôm nay<br><br>
+        <span class='note-title'>📌 HSH_HSSC_HTKD_MN_DA_INV_Admin:</span><br>
+        - Kho: Chọn tất cả kho (All)<br>
+        - Thời gian: Hôm nay
+    </div>
+    """, unsafe_allow_html=True)
+
 with col_f2:
-    f_doichieu = st.file_uploader("2. Nạp File RMA 105 (Tuỳ chọn)", type=["xlsx", "xlsb", "xls"])
+    st.markdown("### 2. Nạp File RMA 105 (Lọc Lỗi)")
+    f_doichieu = st.file_uploader("Nạp File RMA 105", type=["xlsx", "xlsb", "xls"], label_visibility="collapsed")
+    st.markdown("""
+    <div class='note-box'>
+        <span class='note-title'>📌 Nguồn: HSG_KS_INV_Cung Ứng</span><br>
+        - Kho: 031, 034, 036, 038<br>
+        - Giao dịch: Chọn <b>RMA</b> (Lọc mã lỗi trả về)<br>
+        - Thời gian: 1 năm đổ lại
+    </div>
+    """, unsafe_allow_html=True)
+
+with col_f3:
+    st.markdown("### 3. Nạp File OPM 105 (Lọc WIP)")
+    f_opm = st.file_uploader("Nạp File OPM 105", type=["xlsx", "xlsb", "xls"], label_visibility="collapsed")
+    st.markdown("""
+    <div class='note-box'>
+        <span class='note-title'>📌 Nguồn: Báo cáo OPM 105</span><br>
+        - Nghiệp vụ: Job or Schedule<br>
+        - Kho: 031, 034, 036, 038<br>
+        - Thời gian: Nửa năm<br>
+        - Mục đích: Hệ thống tự động xóa các GD <b>WIP Issue</b>
+    </div>
+    """, unsafe_allow_html=True)
 
 if st.button("🚀 Bắt đầu Tổng hợp & Kiểm toán", use_container_width=True) and f_tonkhos:
     progress_bar = st.progress(0)
     status_text = st.empty()
 
     try:
-        # 1. ĐỌC FILE 105 RMA (NẾU CÓ)
-        set_rma = set()
+        # 1. ĐỌC FILE LOẠI TRỪ (RMA 105 VÀ OPM 105) VÀO CHUNG 1 TẬP HỢP
+        set_loai_tru = set()
+        
+        # 1a. Đọc RMA 105
         if f_doichieu:
             status_text.text("⏳ Đang đọc danh sách Mã Lô từ File RMA 105...")
             df_rma = pd.read_excel(f_doichieu, header=None, dtype=object)
@@ -118,7 +157,19 @@ if st.button("🚀 Bắt đầu Tổng hợp & Kiểm toán", use_container_widt
                 if len(row) > 5:
                     val = safe_str(row.iloc[5]).replace(".0", "").upper()
                     if val and val not in ("NAN", "NONE", "MÃ LÔ"):
-                        set_rma.add(val)
+                        set_loai_tru.add(val)
+        
+        # 1b. Đọc OPM 105 (Chỉ lấy Mã lô của dòng WIP Issue)
+        if f_opm:
+            status_text.text("⏳ Đang đọc danh sách Mã Lô (WIP Issue) từ File OPM 105...")
+            df_opm = pd.read_excel(f_opm, header=None, dtype=object)
+            for _, row in df_opm.iterrows():
+                if len(row) > 5:
+                    loai_gd = safe_str(row.iloc[0]).upper()
+                    if loai_gd == "WIP ISSUE":
+                        ma_lo_opm = safe_str(row.iloc[5]).replace(".0", "").upper()
+                        if ma_lo_opm and ma_lo_opm not in ("NAN", "NONE", "MÃ LÔ"):
+                            set_loai_tru.add(ma_lo_opm)
 
         # 2. KHỞI TẠO 1 FILE BÁO CÁO DUY NHẤT
         wb_tong = openpyxl.Workbook()
@@ -184,39 +235,36 @@ if st.button("🚀 Bắt đầu Tổng hợp & Kiểm toán", use_container_widt
                     status_text.text(f"🔄 Đang kiểm toán: {f_tk.name} (Dòng {idx + 1}/{max_r}) - {round(overall_prog * 100)}%")
 
                 row_vals = rows_all[idx]
-                ma_hang = safe_str(get_cell(row_vals, 1))      # Cột B: Mã hàng
-                gross_num = safe_float(get_cell(row_vals, 21)) # Cột V: Gross
+                ma_hang = safe_str(get_cell(row_vals, 1))
+                gross_num = safe_float(get_cell(row_vals, 21))
 
-                # Dọn dòng trống & xóa vĩnh viễn cuộn không có Gross
                 if not ma_hang and gross_num <= 0:
                     continue
                 if gross_num <= 0:
                     tong_da_xoa += 1
                     continue
 
-                # Chỉ xét mã hàng đầu 3 và đầu 4
                 if not (ma_hang.startswith("3") or ma_hang.startswith("4")):
                     tong_da_xoa += 1
                     continue
 
-                # Loại trừ Mã Lô nằm trong File RMA 105
+                # Loại trừ Mã Lô nằm trong cả File RMA 105 & OPM 105
                 ma_lo = safe_str(get_cell(row_vals, 19)).replace(".0", "").upper()
-                if ma_lo and ma_lo in set_rma:
+                if ma_lo and ma_lo in set_loai_tru:
                     tong_da_xoa += 1
                     continue
 
-                # Loại trừ hàng Thu hồi / Lợp xưởng ở cột AK (Cột 37 -> idx 36)
                 danh_ten_ak = safe_str(get_cell(row_vals, 36)).upper()
                 if danh_ten_ak and any(kw in danh_ten_ak for kw in TU_KHOA_LOAI_AK):
                     tong_da_xoa += 1
                     continue
 
-                ten_hang = safe_str(get_cell(row_vals, 2))          # Cột C: Tên hàng
-                phan_loai = safe_str(get_cell(row_vals, 4)).upper() # Cột E: Phân loại
-                locator = safe_str(get_cell(row_vals, 17))          # Cột R: Locator
-                net_num = safe_float(get_cell(row_vals, 22))        # Cột W: Net
-                kg_loi_san = safe_float(get_cell(row_vals, 23))     # Cột X: Lõi khai báo
-                loai_loi = safe_str(get_cell(row_vals, 24))         # Cột Y: Loại lõi
+                ten_hang = safe_str(get_cell(row_vals, 2))
+                phan_loai = safe_str(get_cell(row_vals, 4)).upper()
+                locator = safe_str(get_cell(row_vals, 17))
+                net_num = safe_float(get_cell(row_vals, 22))
+                kg_loi_san = safe_float(get_cell(row_vals, 23))
+                loai_loi = safe_str(get_cell(row_vals, 24))
 
                 bo_loc_kho = locator[3].upper() if len(locator) >= 4 else "-"
                 gross_net = round(gross_num - net_num, 2)
@@ -230,7 +278,6 @@ if st.button("🚀 Bắt đầu Tổng hợp & Kiểm toán", use_container_widt
                 fill_color = None
                 is_error = False
 
-                # --- BỘ LUẬT BẤT ĐỐI XỨNG: ĐẠT [-20kg .. +15kg] | ĐỎ [> ±50kg] ---
                 if gross_num < net_num:
                     trang_thai = f"NGHIÊM TRỌNG (Gross < Net{tag_cxl})"
                     fill_color = red_fill
@@ -281,9 +328,9 @@ if st.button("🚀 Bắt đầu Tổng hợp & Kiểm toán", use_container_widt
                         trang_thai = f"NGHI NGỜ (Chưa cộng bao bì{tag_cxl})"
                     else:
                         trang_thai = f"NGHI NGỜ (Thiếu bì > 20kg{tag_cxl})"
-                    fill_color = yellow_fill
-                    is_error = True
-                    tong_vang += 1
+                        fill_color = yellow_fill
+                        is_error = True
+                        tong_vang += 1
                 else:
                     trang_thai = "ĐẠT"
 
@@ -314,13 +361,11 @@ if st.button("🚀 Bắt đầu Tổng hợp & Kiểm toán", use_container_widt
             ws_tong.auto_filter.ref = ws_tong.dimensions
             ws_tong.freeze_panes = "A2"
 
-        # 4. LƯU RA BỘ NHỚ ĐỂ TẢI VỀ
         status_text.text("📦 Đang đóng gói Báo cáo Excel Tổng hợp...")
         file_tong = io.BytesIO()
         wb_tong.save(file_tong)
         wb_tong.close()
 
-        # 5. HIỂN THỊ KẾT QUẢ LÊN GIAO DIỆN
         progress_bar.empty()
         status_text.empty()
         st.toast("🎉 Kiểm toán hoàn tất!")
