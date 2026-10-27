@@ -53,7 +53,7 @@ with col2:
     f_021_admin = st.file_uploader("4. INV 021 (HSH_HSSC... Admin)", type=["xlsx", "xls"])
     st.markdown('</div>', unsafe_allow_html=True)
 
-# HÀM LỌC DỮ LIỆU
+# HÀM LỌC DỮ LIỆU ERP
 def xuly_105(df, is_cungung=True):
     try:
         header_idx = df.astype(str).apply(lambda row: row.str.contains('Loại Giao Dịch', case=False, na=False).any(), axis=1).idxmax()
@@ -97,11 +97,9 @@ def xuly_021(df, is_cungung=True):
 # HÀM TÔ MÀU EXCEL
 def style_excel_cells(val):
     val_str = str(val).strip()
-    if val_str in ['Vượt dung sai', 'Lỗi Gross/Net', '0'] or '🔴' in val_str:
+    if '🔴' in val_str or val_str in ['Vượt dung sai']:
         return 'background-color: #FFC7CE; color: #9C0006' 
-    elif '🟡' in val_str:
-        return 'background-color: #FFEB9C; color: #9C6500' 
-    elif val_str in ['OK', 'Hợp lệ', '1'] or '🟢' in val_str:
+    elif '🟢' in val_str or val_str in ['OK']:
         return 'background-color: #C6EFCE; color: #006100' 
     return ''
 
@@ -115,27 +113,34 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
         
         try:
             # --- BƯỚC 1: ĐỌC DỮ LIỆU TRẠM CÂN ---
-            progress_text.markdown('<div class="progress-text">⏳ Đang đọc và làm sạch dữ liệu Trạm Cân... (10%)</div>', unsafe_allow_html=True)
+            progress_text.markdown('<div class="progress-text">⏳ Đang dọn dẹp dữ liệu Trạm Cân (Loại bỏ dòng trống)... (10%)</div>', unsafe_allow_html=True)
             progress_bar.progress(10)
             xls_tc = pd.ExcelFile(f_tramcan_nm)
             sheet_tc = 'tramcan' if 'tramcan' in xls_tc.sheet_names else 0
-            df_tc = pd.read_excel(f_tramcan_nm, sheet_name=sheet_tc)
+            df_tc_raw = pd.read_excel(f_tramcan_nm, sheet_name=sheet_tc)
+            
+            # Quét rác: Xóa bỏ 100% các dòng không có SỐ PHIẾU CÂN
+            df_tc_full = df_tc_raw.dropna(subset=['PHIẾU CÂN']).copy()
+            
+            # Quét dữ liệu 4 cổng chéo nhau (Dùng df_tc_full để nhặt được mọi lần cân)
+            dict_cong_can = {}
+            for _, row in df_tc_full.iterrows():
+                ct = str(row.get('Lấy phiếu xuất.1', row.get('SỐ CHỨNG TỪ', ''))).strip().upper()
+                cong = str(row.get('BÀN CÂN RA', '')).strip().upper()
+                kl = pd.to_numeric(row.get('KHỐI LƯỢNG PHIẾU CÂN', np.nan), errors='coerce')
+                if ct and ct != 'NAN' and pd.notna(kl):
+                    if ct not in dict_cong_can: dict_cong_can[ct] = {}
+                    dict_cong_can[ct][cong] = kl
+
+            # Tạo form báo cáo chính bằng cách Bỏ trùng (Giống file gốc KSKT)
+            if 'Bỏ trùng' in df_tc_full.columns:
+                df_tc_main = df_tc_full[df_tc_full['Bỏ trùng'] == 1].copy()
+            else:
+                df_tc_main = df_tc_full.drop_duplicates(subset=['PHIẾU CÂN']).copy()
             
             tc_chungtu_list = []
-            if 'Lấy phiếu xuất.1' in df_tc.columns: tc_chungtu_list = [str(x).strip().upper() for x in df_tc['Lấy phiếu xuất.1'].tolist() if pd.notna(x)]
-            elif 'SỐ CHỨNG TỪ' in df_tc.columns: tc_chungtu_list = [str(x).strip().upper() for x in df_tc['SỐ CHỨNG TỪ'].tolist() if pd.notna(x)]
-
-            # Lấy thông tin khối lượng theo Cổng cân (Phục vụ cột S, T, U, V)
-            dict_cong_can = {}
-            if 'Lấy phiếu xuất.1' in df_tc.columns and 'BÀN CÂN RA' in df_tc.columns and 'KHỐI LƯỢNG PHIẾU CÂN' in df_tc.columns:
-                df_tc_valid = df_tc.dropna(subset=['Lấy phiếu xuất.1', 'BÀN CÂN RA', 'KHỐI LƯỢNG PHIẾU CÂN'])
-                for _, row in df_tc_valid.iterrows():
-                    ct = str(row['Lấy phiếu xuất.1']).strip().upper()
-                    cong = str(row['BÀN CÂN RA']).strip().upper()
-                    kl = pd.to_numeric(row['KHỐI LƯỢNG PHIẾU CÂN'], errors='coerce')
-                    if ct not in dict_cong_can:
-                        dict_cong_can[ct] = {}
-                    dict_cong_can[ct][cong] = kl
+            if 'Lấy phiếu xuất.1' in df_tc_main.columns: tc_chungtu_list = [str(x).strip().upper() for x in df_tc_main['Lấy phiếu xuất.1'].tolist() if pd.notna(x)]
+            elif 'SỐ CHỨNG TỪ' in df_tc_main.columns: tc_chungtu_list = [str(x).strip().upper() for x in df_tc_main['SỐ CHỨNG TỪ'].tolist() if pd.notna(x)]
 
             # --- BƯỚC 2: ĐỌC VÀ LỌC ERP ---
             progress_text.markdown('<div class="progress-text">⏳ Đang xử lý bộ lọc cho ERP 105 và 021... (30%)</div>', unsafe_allow_html=True)
@@ -184,8 +189,8 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
                 final_021_cols = cols_10_first + [c for c in df_021_all.columns if c not in cols_10_first and c != 'Chuỗi 2 ' and c != 'Chuỗi Pick']
                 df_021_export = df_021_export[final_021_cols]
 
-            # --- TÍNH TOÁN SHEET KSKT ---
-            progress_text.markdown('<div class="progress-text">⏳ Đang tự động bóc tách chứng từ, VLOOKUP Cổng Cân và Net/Gross... (75%)</div>', unsafe_allow_html=True)
+            # --- TÍNH TOÁN SHEET KSKT (GOM 4 CỔNG CHÉO) ---
+            progress_text.markdown('<div class="progress-text">⏳ Đang ráp dữ liệu 4 cổng chéo nhau & VLOOKUP Net/Gross... (75%)</div>', unsafe_allow_html=True)
             progress_bar.progress(75)
             
             dict_net, dict_gross = {}, {}
@@ -196,27 +201,28 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
                     if 'Số lượng' in df_calc.columns: dict_net = pd.to_numeric(df_calc['Số lượng'], errors='coerce').groupby(phieu_series).sum().to_dict()
                     if 'Số Gross' in df_calc.columns: dict_gross = pd.to_numeric(df_calc['Số Gross'], errors='coerce').groupby(phieu_series).sum().to_dict()
 
-            final_cols = ['STT', 'Số phiếu cân', 'Bàn cân', 'Số xe', 'Giờ vào', 'Giờ ra', 'Tên hàng hóa', 'Khối lượng vào', 'Khối lượng ra', 'Khối lượng hàng hóa', 'Số chứng từ', '1', '2', '3', '4', '5', 'Khối lượng Net', 'Khối lượng Gross', '1-CỔNG TRƯỚC', '2-CỔNG TRƯỚC', '1-CỔNG SAU', '2-CỔNG SAU', 'KL bàn cân lớn nhất', 'Chênh lệch', 'Dung sai', 'Chênh lệch Max - Min', 'Check net -gross', 'Thời gian lưu bãi (Phút)', 'Đánh giá KSNB', 'Ghi chú']
+            # Form chuẩn (Đã xóa thời gian lưu bãi và check net gross)
+            final_cols = ['STT', 'Số phiếu cân', 'Bàn cân', 'Số xe', 'Giờ vào', 'Giờ ra', 'Tên hàng hóa', 'Khối lượng vào', 'Khối lượng ra', 'Khối lượng hàng hóa', 'Số chứng từ', '1', '2', '3', '4', '5', 'Khối lượng Net', 'Khối lượng Gross', '1-CỔNG TRƯỚC', '2-CỔNG TRƯỚC', '1-CỔNG SAU', '2-CỔNG SAU', 'KL bàn cân lớn nhất', 'Chênh lệch', 'Dung sai', 'Chênh lệch Max - Min', 'Đánh giá KSNB', 'Ghi chú']
             df_out = pd.DataFrame(columns=final_cols)
             
-            def get_tc_col(col_names):
+            def get_tc_main_col(col_names):
                 for c in col_names:
-                    if c in df_tc.columns: return df_tc[c]
+                    if c in df_tc_main.columns: return df_tc_main[c]
                 return ""
 
-            df_out['STT'] = range(1, len(df_tc) + 1)
-            df_out['Số phiếu cân'] = get_tc_col(['PHIẾU CÂN', 'Số phiếu cân'])
-            df_out['Bàn cân'] = get_tc_col(['BÀN CÂN RA', 'CỔNG'])
-            df_out['Số xe'] = get_tc_col(['BS RA 1', 'BS VÀO 1', 'Số xe'])
-            df_out['Giờ vào'] = get_tc_col(['NGÀY GIỜ VÀO', 'Giờ vào'])
-            df_out['Giờ ra'] = get_tc_col(['NGÀY GIỜ RA', 'Giờ ra'])
-            df_out['Tên hàng hóa'] = get_tc_col(['TÊN HÀNG HÓA'])
-            df_out['Khối lượng vào'] = pd.to_numeric(get_tc_col(['KL VÀO']), errors='coerce').fillna(0)
-            df_out['Khối lượng ra'] = pd.to_numeric(get_tc_col(['KL RA']), errors='coerce').fillna(0)
-            df_out['Khối lượng hàng hóa'] = pd.to_numeric(get_tc_col(['KHỐI LƯỢNG PHIẾU CÂN']), errors='coerce').fillna(0)
+            df_out['STT'] = range(1, len(df_tc_main) + 1)
+            df_out['Số phiếu cân'] = get_tc_main_col(['PHIẾU CÂN', 'Số phiếu cân'])
+            df_out['Bàn cân'] = get_tc_main_col(['BÀN CÂN RA', 'CỔNG'])
+            df_out['Số xe'] = get_tc_main_col(['BS RA 1', 'BS VÀO 1', 'Số xe'])
+            df_out['Giờ vào'] = get_tc_main_col(['NGÀY GIỜ VÀO', 'Giờ vào'])
+            df_out['Giờ ra'] = get_tc_main_col(['NGÀY GIỜ RA', 'Giờ ra'])
+            df_out['Tên hàng hóa'] = get_tc_main_col(['TÊN HÀNG HÓA'])
+            df_out['Khối lượng vào'] = pd.to_numeric(get_tc_main_col(['KL VÀO']), errors='coerce').fillna(0)
+            df_out['Khối lượng ra'] = pd.to_numeric(get_tc_main_col(['KL RA']), errors='coerce').fillna(0)
+            df_out['Khối lượng hàng hóa'] = pd.to_numeric(get_tc_main_col(['KHỐI LƯỢNG PHIẾU CÂN']), errors='coerce').fillna(0)
             
-            if 'Lấy phiếu xuất.1' in df_tc.columns: df_out['Số chứng từ'] = df_tc['Lấy phiếu xuất.1']
-            else: df_out['Số chứng từ'] = get_tc_col(['SỐ CHỨNG TỪ'])
+            if 'Lấy phiếu xuất.1' in df_tc_main.columns: df_out['Số chứng từ'] = df_tc_main['Lấy phiếu xuất.1']
+            else: df_out['Số chứng từ'] = get_tc_main_col(['SỐ CHỨNG TỪ'])
             
             for i in range(1, 6): df_out[str(i)] = ""
                 
@@ -231,24 +237,23 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
             df_out['1-CỔNG SAU'] = np.nan
             df_out['2-CỔNG SAU'] = np.nan
 
+            # Quét mã và nhặt số liệu
             for idx, row in df_out.iterrows():
                 net_sum = 0
                 gross_sum = 0
                 c1t, c2t, c1s, c2s = np.nan, np.nan, np.nan, np.nan
                 
-                # Quét 5 ô chứng từ để cộng dồn Net/Gross và dò tìm Cổng
                 for i in range(1, 6):
                     v = str(row[str(i)]).replace('.0', '').strip().upper()
                     if v and v != 'NAN':
                         net_sum += dict_net.get(v, 0)
                         gross_sum += dict_gross.get(v, 0)
                         
-                        # Dò số liệu Cổng Cân từ trạm cân
                         if v in dict_cong_can:
-                            if '1-CỔNG TRƯỚC' in dict_cong_can[v]: c1t = dict_cong_can[v]['1-CỔNG TRƯỚC']
-                            if '2-CỔNG TRƯỚC' in dict_cong_can[v]: c2t = dict_cong_can[v]['2-CỔNG TRƯỚC']
-                            if '1-CỔNG SAU' in dict_cong_can[v]: c1s = dict_cong_can[v]['1-CỔNG SAU']
-                            if '2-CỔNG SAU' in dict_cong_can[v]: c2s = dict_cong_can[v]['2-CỔNG SAU']
+                            c1t = dict_cong_can[v].get('1-CỔNG TRƯỚC', c1t)
+                            c2t = dict_cong_can[v].get('2-CỔNG TRƯỚC', c2t)
+                            c1s = dict_cong_can[v].get('1-CỔNG SAU', c1s)
+                            c2s = dict_cong_can[v].get('2-CỔNG SAU', c2s)
 
                 df_out.at[idx, 'Khối lượng Net'] = net_sum
                 df_out.at[idx, 'Khối lượng Gross'] = gross_sum
@@ -258,7 +263,6 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
                 df_out.at[idx, '2-CỔNG SAU'] = c2s
 
             cong_cols = ['1-CỔNG TRƯỚC', '2-CỔNG TRƯỚC', '1-CỔNG SAU', '2-CỔNG SAU']
-            # Tìm KL bàn cân lớn nhất dựa trên 4 cổng, nếu trống hết thì lấy Khối lượng hàng hóa (cột J)
             temp_cong = df_out[cong_cols].replace(0, np.nan)
             df_out['KL bàn cân lớn nhất'] = temp_cong.max(axis=1).fillna(df_out['Khối lượng hàng hóa'])
             df_out['Chênh lệch Max - Min'] = temp_cong.max(axis=1) - temp_cong.min(axis=1)
@@ -266,39 +270,40 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
             df_out['Chênh lệch'] = df_out['Khối lượng Gross'] - df_out['KL bàn cân lớn nhất']
             df_out['Dung sai'] = np.where(df_out['Khối lượng Gross'] != 0, (df_out['Chênh lệch'] / df_out['Khối lượng Gross']).round(4), 0)
             df_out['Dung sai'] = df_out['Dung sai'].apply(lambda x: 'Vượt dung sai' if abs(x) > 0.003 else 'OK')
-            df_out['Check net -gross'] = np.where(df_out['Khối lượng Gross'] - df_out['Khối lượng Net'] > 0, "Hợp lệ", "Lỗi Gross/Net")
-
-            df_out['Giờ vào_dt'] = pd.to_datetime(df_out['Giờ vào'], errors='coerce')
-            df_out['Giờ ra_dt'] = pd.to_datetime(df_out['Giờ ra'], errors='coerce')
-            df_out['Thời gian lưu bãi (Phút)'] = (df_out['Giờ ra_dt'] - df_out['Giờ vào_dt']).dt.total_seconds() / 60
-            df_out['Thời gian lưu bãi (Phút)'] = df_out['Thời gian lưu bãi (Phút)'].round(0)
             
             def danh_gia_rui_ro(row):
-                if row['Check net -gross'] == 'Lỗi Gross/Net' or row['Dung sai'] == 'Vượt dung sai': return '🔴 Rủi ro Cao'
-                elif pd.notna(row['Thời gian lưu bãi (Phút)']) and row['Thời gian lưu bãi (Phút)'] > 180: return '🟡 Cảnh báo (Lưu bãi lâu)'
-                else: return '🟢 An toàn'
+                if row['Khối lượng Gross'] == 0 and row['Khối lượng Net'] == 0: return '🔴 Rủi ro (Thiếu dữ liệu ERP)'
+                if pd.notna(row['Chênh lệch Max - Min']) and row['Chênh lệch Max - Min'] > 30: return '🔴 Rủi ro (Bất thường bàn cân)'
+                if row['Dung sai'] == 'Vượt dung sai': return '🔴 Rủi ro Cao (Vượt dung sai)'
+                return '🟢 An toàn'
                     
             df_out['Đánh giá KSNB'] = df_out.apply(danh_gia_rui_ro, axis=1)
-            df_out = df_out.drop(columns=['Giờ vào_dt', 'Giờ ra_dt'])
 
-            # --- BƯỚC 6: ÁP DỤNG MÀU SẮC VÀ XUẤT FILE ---
-            progress_text.markdown('<div class="progress-text">⏳ Đang tô màu và đóng gói File Báo Cáo... (95%)</div>', unsafe_allow_html=True)
+            # --- BƯỚC 6: XUẤT FILE & AUTO FILTER ---
+            progress_text.markdown('<div class="progress-text">⏳ Đang đóng gói & Cài đặt bộ lọc Excel tự động... (95%)</div>', unsafe_allow_html=True)
             progress_bar.progress(95)
             
             try:
-                style_out = df_out.style.map(style_excel_cells, subset=['Dung sai', 'Check net -gross', 'Đánh giá KSNB'])
+                style_out = df_out.style.map(style_excel_cells, subset=['Dung sai', 'Đánh giá KSNB'])
                 style_021 = df_021_export.style.map(style_excel_cells, subset=['Check ra cổng']) if not df_021_export.empty else df_021_export
             except AttributeError:
-                style_out = df_out.style.applymap(style_excel_cells, subset=['Dung sai', 'Check net -gross', 'Đánh giá KSNB'])
+                style_out = df_out.style.applymap(style_excel_cells, subset=['Dung sai', 'Đánh giá KSNB'])
                 style_021 = df_021_export.style.applymap(style_excel_cells, subset=['Check ra cổng']) if not df_021_export.empty else df_021_export
             
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine="openpyxl") as writer:
                 style_out.to_excel(writer, index=False, sheet_name="KSKTDulieucan-NM")
+                ws1 = writer.sheets["KSKTDulieucan-NM"]
+                ws1.freeze_panes = "A2"
+                ws1.auto_filter.ref = ws1.dimensions
+                
                 if not df_021_export.empty:
                     style_021.to_excel(writer, index=False, sheet_name="021")
+                    ws2 = writer.sheets["021"]
+                    ws2.freeze_panes = "A2"
+                    ws2.auto_filter.ref = ws2.dimensions
 
-            progress_text.markdown('<div class="progress-text" style="color: #28a745;">✅ Đã hoàn tất! Các cổng cân đã được điền số liệu chuẩn 100%.</div>', unsafe_allow_html=True)
+            progress_text.markdown('<div class="progress-text" style="color: #28a745;">✅ Đã hoàn tất! Các cổng cân đã được điền số liệu. File Excel đã tích hợp sẵn bộ lọc (Filter).</div>', unsafe_allow_html=True)
             progress_bar.progress(100)
             
             st.download_button(
