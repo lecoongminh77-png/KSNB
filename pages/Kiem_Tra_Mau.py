@@ -96,13 +96,13 @@ with col_home:
     if st.button("🏠 Về Trang Chủ", use_container_width=True):
         st.switch_page("app_ksnb.py")
 
-st.title("📦 HỆ THỐNG KSNB TỒN KHO (NGƯỠNG SIẾT BẤT ĐỐI XỨNG)")
+st.title("📦 KIỂM SOÁT HÀNG THÀNH PHẨM (ĐỐI CHIẾU GROSS NET)")
 
 col_f1, col_f2, col_f3 = st.columns(3)
 
 with col_f1:
-    st.markdown("### 1. Nạp File INV 110 (File gốc)")
-    f_tonkhos = st.file_uploader("Nạp File 110", type=["xlsx", "xlsb", "xls"], accept_multiple_files=True, label_visibility="collapsed")
+    st.markdown("### 1. Nạp File INV 110")
+    f_tonkhos = st.file_uploader("Nạp File INV 110", type=["xlsx", "xlsb", "xls"], accept_multiple_files=True, label_visibility="collapsed")
     st.markdown("""
     <div class='note-box'>
         <span class='note-title'>📌 HSG_KS_INV_Cung Ứng:</span><br>
@@ -115,31 +115,28 @@ with col_f1:
     """, unsafe_allow_html=True)
 
 with col_f2:
-    st.markdown("### 2. Nạp File RMA 105 (Lọc Lỗi)")
-    f_doichieu = st.file_uploader("Nạp File RMA 105", type=["xlsx", "xlsb", "xls"], label_visibility="collapsed")
+    st.markdown("### 2. Nạp File OPM 105")
+    f_doichieu = st.file_uploader("Nạp File OPM 105", type=["xlsx", "xlsb", "xls"], label_visibility="collapsed")
     st.markdown("""
     <div class='note-box'>
         <span class='note-title'>📌 Nguồn: HSG_KS_INV_Cung Ứng</span><br>
         - Kho: 031, 034, 036, 038<br>
-        - Giao dịch: Chọn <b>RMA</b> (Lọc mã lỗi trả về)<br>
         - Thời gian: 1 năm đổ lại
     </div>
     """, unsafe_allow_html=True)
 
 with col_f3:
-    st.markdown("### 3. Nạp File OPM 105 (Lọc WIP)")
-    f_opm = st.file_uploader("Nạp File OPM 105", type=["xlsx", "xlsb", "xls"], label_visibility="collapsed")
+    st.markdown("### 3. Nạp File OPM 105 (WIP)")
+    f_opm = st.file_uploader("Nạp File OPM 105 (WIP)", type=["xlsx", "xlsb", "xls"], label_visibility="collapsed")
     st.markdown("""
     <div class='note-box'>
         <span class='note-title'>📌 Nguồn: Báo cáo OPM 105</span><br>
         - Nghiệp vụ: Job or Schedule<br>
         - Kho: 031, 034, 036, 038<br>
-        - Thời gian: Nửa năm<br>
-        - Mục đích: Hệ thống tự động xóa các GD <b>WIP Issue</b>
+        - Thời gian: Nửa năm
     </div>
     """, unsafe_allow_html=True)
 
-# THAY ĐỔI TÊN NÚT BẤM TẠI ĐÂY
 if st.button("🚀 Bắt đầu", use_container_width=True) and f_tonkhos:
     status_text = st.empty()
     progress_bar = st.progress(0)
@@ -148,7 +145,7 @@ if st.button("🚀 Bắt đầu", use_container_width=True) and f_tonkhos:
         set_loai_tru = set()
         
         if f_doichieu:
-            status_text.markdown("⏳ **Đang đọc danh sách Mã Lô từ File RMA 105...**")
+            status_text.markdown("⏳ **Đang đọc danh sách Mã Lô từ File OPM 105...**")
             df_rma = pd.read_excel(f_doichieu, header=None, dtype=object)
             for _, row in df_rma.iterrows():
                 if len(row) > 5:
@@ -157,7 +154,7 @@ if st.button("🚀 Bắt đầu", use_container_width=True) and f_tonkhos:
                         set_loai_tru.add(val)
         
         if f_opm:
-            status_text.markdown("⏳ **Đang đọc danh sách Mã Lô (WIP Issue) từ File OPM 105...**")
+            status_text.markdown("⏳ **Đang đọc danh sách Mã Lô (WIP Issue) từ File OPM 105 (WIP)...**")
             df_opm = pd.read_excel(f_opm, header=None, dtype=object)
             for _, row in df_opm.iterrows():
                 if len(row) > 5:
@@ -222,7 +219,6 @@ if st.button("🚀 Bắt đầu", use_container_width=True) and f_tonkhos:
             total_data_rows = max_r - 13
 
             for idx in range(13, max_r):
-                # Hiển thị % thanh chạy rõ ràng hơn
                 if (idx - 13) % 500 == 0 or idx == max_r - 1:
                     row_prog = (idx - 12) / total_data_rows
                     overall_prog = (file_idx + row_prog) / total_files
