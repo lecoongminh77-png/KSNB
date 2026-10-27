@@ -38,8 +38,8 @@ if not st.session_state.da_xem_intro:
     with splash_placeholder.container():
         st.markdown("<br><br>", unsafe_allow_html=True)
         
-        # Link Lottie của bạn
-        lottie_welcome = load_lottieurl("https://lottie.host/4a9438d1-b8fb-4a3b-aed8-58a48b9413e2/BnRtyhhxBR.json") 
+        # LINK LOTTIE ĐÃ ĐƯỢC ĐỔI THÀNH LINK MỚI CỦA BẠN Ở ĐÂY
+        lottie_welcome = load_lottieurl("https://lottie.host/ca748732-359a-4b53-9a5d-0efef2ebcc72/jsulU4JRsN.json") 
         
         # Hiển thị hình động
         st_lottie(lottie_welcome, height=350, key="welcome_animation")
@@ -228,5 +228,3 @@ with col3:
     """, unsafe_allow_html=True)
     if st.button("Mở Kiểm Tra Mẫu ➔", key="btn_2356", use_container_width=True):
         st.switch_page("pages/Kiem_Tra_Mau.py")
-
-
