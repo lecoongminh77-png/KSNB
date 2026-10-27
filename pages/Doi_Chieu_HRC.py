@@ -1,12 +1,9 @@
 import sys
 import os
-
-# 2. Khai báo các thư viện khác
 import io
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 import pandas as pd
 import streamlit as st
-
 
 # -------------------------------------------------------------
 # CẤU HÌNH GIAO DIỆN CHUẨN APPLE & THANH TIỆN ÍCH CỐ ĐỊNH
@@ -19,14 +16,18 @@ st.set_page_config(
 st.markdown(
     """
 <style>
+    /* Ẩn sidebar */
     [data-testid="stSidebar"] { display: none !important; }
     [data-testid="collapsedControl"] { display: none !important; }
 
+    /* Nền trang */
     .stApp {
         background-color: #f5f5f7;
         font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
         color: #1d1d1f;
     }
+    
+    /* Header */
     .apple-header-box {
         display: flex;
         justify-content: space-between;
@@ -41,21 +42,8 @@ st.markdown(
         letter-spacing: -0.025em;
         margin: 0;
     }
-    .apple-sub-text {
-        font-size: 17px;
-        font-weight: 600;
-        color: #1d1d1f;
-        text-align: right;
-        margin: 0;
-        line-height: 1.35;
-    }
-    .apple-sub-text span {
-        color: #0071e3;
-        font-size: 14px;
-        display: block;
-        margin-top: 2px;
-        font-weight: 500;
-    }
+    
+    /* Nút bấm Apple Style */
     div.stButton > button:first-child {
         background: #0071e3 !important;
         color: #ffffff !important;
@@ -66,19 +54,62 @@ st.markdown(
         font-size: 14px !important;
         box-shadow: 0 4px 12px rgba(0, 113, 227, 0.2) !important;
     }
+    div.stButton > button:first-child:hover {
+        background: #0077ed !important;
+        color: #ffffff !important;
+    }
+
+    /* CSS Thẻ Hướng Dẫn Tải File */
+    .upload-card {
+        background: #ffffff;
+        border-radius: 16px;
+        padding: 24px;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
+        margin-bottom: 20px;
+        min-height: 250px;
+    }
+    .upload-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: #1d1d1f;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .guide-box {
+        background: #fbfbfd;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 16px;
+        border: 1px solid rgba(0,0,0,0.04);
+    }
+    .guide-header {
+        font-weight: 700;
+        color: #0071e3;
+        font-size: 14px;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .guide-text {
+        font-size: 13px;
+        color: #515154;
+        line-height: 1.6;
+        margin: 0;
+    }
 </style>
 """,
     unsafe_allow_html=True,
 )
 
-# Thanh điều hướng
 # Thanh điều hướng (Chỉ giữ nút Trang chủ)
 col_home, _ = st.columns([1.5, 8.5])
 with col_home:
     if st.button('🏠 Trang chủ', use_container_width=True):
         st.switch_page('app_ksnb.py')
-
-
 
 st.markdown(
     "<hr style='border: none; border-top: 1px solid #e2e8f0; margin: 10px 0 20px 0;'>",
@@ -92,7 +123,6 @@ st.markdown(
     <div>
         <h1 class="apple-main-title">📑 Đối Chiếu Nghiệm Thu HRC</h1>
     </div>
-    
 </div>
 """,
     unsafe_allow_html=True,
@@ -103,50 +133,75 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-
 # ==============================================================================
 # CHỨC NĂNG: ĐỐI CHIẾU NGHIỆM THU HRC
 # ==============================================================================
 def doi_chieu_hrc_tung_file():
     st.caption('Kiểm soát nội bộ • Tự động đối soát 4 bên và tô đỏ ô sai phạm dữ liệu')
-    with st.expander("📖 Bấm vào đây để xem Hướng dẫn lấy file từ hệ thống"):
-        col_hd1, col_hd2 = st.columns(2)
-    with col_hd1:
-            st.markdown("""
-            **1. Biên bản nghiệm thu (BBNT):**
-            - Đường dẫn: `Nguyen Thi Thu Thuong > Biên bản nghiệm thu (BBNT)`
-
-            **2. Packing List nhà cung cấp:**
-            - Đường dẫn: `Nguyen Thi Thu Thuong > Packing List nhà cung cấp`
-
-            **3. Dữ liệu Trạm cân:**
-            - Vào sheet: Tài khoản
-            - Truy cập: `http://172.17.24.9/#/login` | **ID:** PM4444 | **Mk:** 123456
-            - Quản lý truy cập > Tra cứu trạm cân
-            - Chọn mốc thời gian: **1 tháng rưỡi**
-            """)
-    with col_hd2:
-            st.markdown("""
-            **4. Dữ liệu Nhập Bảo vệ:**
-            - Quản lý truy cập > Tra cứu xuất nhập hàng > chọn mục **nhập hàng**
-            - Chọn mốc thời gian giống tra cứu trạm cân
-
-            **5. OPM 105:**
-            - Chọn: `HSG_OPM_105_BCKiemSoatThongTinGDTheoLo_GD2`
-            - Tích chọn: `035`, `03G`, `03H`
-            - Loại nghiệp vụ: `Inventory`, `Job or Schedule`, `Purchase order`
-            - Thời gian: Chọn mốc **1 tháng** cần kiểm tra
-            """)
-
-    col1, col2 = st.columns(2)
-    with col1:
+    
+    st.markdown("### 📥 Nạp Dữ Liệu Nguồn")
+    
+    # ---------------------------------------------------------
+    # KHU VỰC HƯỚNG DẪN & UPLOAD (ĐÃ LÀM LẠI GIAO DIỆN BO GÓC)
+    # ---------------------------------------------------------
+    col_upload1, col_upload2 = st.columns(2, gap="large")
+    
+    with col_upload1:
+        st.markdown("""
+<div class="upload-card">
+<div class="upload-title">1️⃣ Dữ liệu Nghiệm thu & Trạm cân</div>
+<div class="guide-box">
+<div class="guide-header">📌 1. Biên bản nghiệm thu (BBNT)</div>
+<div class="guide-text">Đường dẫn: Nguyen Thi Thu Thuong > Biên bản nghiệm thu (BBNT)</div>
+</div>
+<div class="guide-box">
+<div class="guide-header">📌 2. Packing List nhà cung cấp</div>
+<div class="guide-text">Đường dẫn: Nguyen Thi Thu Thuong > Packing List nhà cung cấp</div>
+</div>
+<div class="guide-box">
+<div class="guide-header">📌 3. Dữ liệu Trạm cân</div>
+<div class="guide-text">
+Truy cập: http://172.17.24.9/#/login (PM4444 / 123456)<br>
+Quản lý truy cập > Tra cứu trạm cân<br>
+Thời gian: 1 tháng rưỡi
+</div>
+</div>
+</div>
+""", unsafe_allow_html=True)
+        
         f_bbnt = st.file_uploader('1. File Biên bản nghiệm thu (BBNT)', type=['xlsx', 'xls'])
         f_pl = st.file_uploader('2. File Packing List nhà cung cấp', type=['xlsx', 'xls'])
         f_tc = st.file_uploader('3. File Dữ liệu Trạm cân', type=['xlsx', 'xls'])
-    with col2:
+
+    with col_upload2:
+        st.markdown("""
+<div class="upload-card">
+<div class="upload-title">2️⃣ Dữ liệu Bảo vệ & ERP</div>
+<div class="guide-box">
+<div class="guide-header">📌 4. Dữ liệu Nhập Bảo vệ</div>
+<div class="guide-text">
+Quản lý truy cập > Tra cứu xuất nhập hàng > Chọn Nhập hàng<br>
+Thời gian: Giống mốc Tra cứu trạm cân
+</div>
+</div>
+<div class="guide-box">
+<div class="guide-header">📌 5. Báo cáo ERP OPM 105</div>
+<div class="guide-text">
+Chọn: HSG_OPM_105_BCKiemSoatThongTinGDTheoLo_GD2<br>
+Tích chọn kho: 035, 03G, 03H<br>
+Nghiệp vụ: Inventory, Job or Schedule, Purchase order<br>
+Thời gian: 1 tháng cần kiểm tra
+</div>
+</div>
+</div>
+""", unsafe_allow_html=True)
+
         f_bv = st.file_uploader('4. File Dữ liệu Nhập Bảo vệ', type=['xlsx', 'xls'])
         f_opm = st.file_uploader('5. File Báo cáo ERP OPM 105', type=['xlsx', 'xls'])
 
+    # ---------------------------------------------------------
+    # XỬ LÝ LOGIC (GIỮ NGUYÊN 100% CỦA BẠN, KHÔNG CAN THIỆP)
+    # ---------------------------------------------------------
     if f_bbnt is not None:
         if st.button('🚀 Bắt đầu đối chiếu tự động', use_container_width=True):
             with st.spinner('Đang đối soát dữ liệu và định dạng màu...'):
@@ -366,6 +421,5 @@ def doi_chieu_hrc_tung_file():
                     st.error(f'Lỗi xử lý: {e}')
     else:
         st.info('👉 Hãy nạp tối thiểu File BBNT để bắt đầu đối chiếu.')
+
 doi_chieu_hrc_tung_file()
-
-
