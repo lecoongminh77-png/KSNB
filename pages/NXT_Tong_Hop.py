@@ -1,3 +1,20 @@
+import streamlit as st
+import pandas as pd
+import numpy as np
+import io
+import base64
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
+
+# --- CẤU HÌNH TRANG ---
+st.set_page_config(
+    page_title="Báo Cáo NXT NVL Chính",
+    page_icon="📊",
+    layout="wide"
+)
+
+# Bạn giữ nguyên các đoạn code từ đây trở xuống nhé...
 # --- 4. GIAO DIỆN HƯỚNG DẪN & UPLOAD ---
 
 # Thêm CSS riêng cho các thẻ Hướng dẫn tải file
