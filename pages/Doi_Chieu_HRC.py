@@ -59,16 +59,16 @@ st.markdown(
         color: #ffffff !important;
     }
 
-    /* CSS Thẻ Hướng Dẫn Tải File */
-    .upload-card {
+    /* Bắt ép Container của Streamlit biến thành Thẻ Apple */
+    [data-testid="stVerticalBlockBorderWrapper"] {
         background: #ffffff;
         border-radius: 16px;
-        padding: 24px;
+        padding: 15px;
         border: 1px solid rgba(0, 0, 0, 0.08);
         box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
-        margin-bottom: 20px;
-        min-height: 250px;
     }
+
+    /* Các thành phần chữ bên trong thẻ */
     .upload-title {
         font-size: 18px;
         font-weight: 700;
@@ -142,13 +142,14 @@ def doi_chieu_hrc_tung_file():
     st.markdown("### 📥 Nạp Dữ Liệu Nguồn")
     
     # ---------------------------------------------------------
-    # KHU VỰC HƯỚNG DẪN & UPLOAD (ĐÃ LÀM LẠI GIAO DIỆN BO GÓC)
+    # KHU VỰC HƯỚNG DẪN & UPLOAD (SỬ DỤNG CONTAINER)
     # ---------------------------------------------------------
     col_upload1, col_upload2 = st.columns(2, gap="large")
     
     with col_upload1:
-        st.markdown("""
-<div class="upload-card">
+        # Wrap toàn bộ khối thành 1 box có viền bao bọc cả chữ lẫn ô upload
+        with st.container(border=True):
+            st.markdown("""
 <div class="upload-title">1️⃣ Dữ liệu Nghiệm thu & Trạm cân</div>
 <div class="guide-box">
 <div class="guide-header">📌 1. Biên bản nghiệm thu (BBNT)</div>
@@ -166,16 +167,16 @@ Quản lý truy cập > Tra cứu trạm cân<br>
 Thời gian: 1 tháng rưỡi
 </div>
 </div>
-</div>
 """, unsafe_allow_html=True)
-        
-        f_bbnt = st.file_uploader('1. File Biên bản nghiệm thu (BBNT)', type=['xlsx', 'xls'])
-        f_pl = st.file_uploader('2. File Packing List nhà cung cấp', type=['xlsx', 'xls'])
-        f_tc = st.file_uploader('3. File Dữ liệu Trạm cân', type=['xlsx', 'xls'])
+            
+            # Các ô upload giờ đây nằm hoàn toàn BÊN TRONG thẻ trắng bo góc
+            f_bbnt = st.file_uploader('1. File Biên bản nghiệm thu (BBNT)', type=['xlsx', 'xls'])
+            f_pl = st.file_uploader('2. File Packing List nhà cung cấp', type=['xlsx', 'xls'])
+            f_tc = st.file_uploader('3. File Dữ liệu Trạm cân', type=['xlsx', 'xls'])
 
     with col_upload2:
-        st.markdown("""
-<div class="upload-card">
+        with st.container(border=True):
+            st.markdown("""
 <div class="upload-title">2️⃣ Dữ liệu Bảo vệ & ERP</div>
 <div class="guide-box">
 <div class="guide-header">📌 4. Dữ liệu Nhập Bảo vệ</div>
@@ -193,14 +194,13 @@ Nghiệp vụ: Inventory, Job or Schedule, Purchase order<br>
 Thời gian: 1 tháng cần kiểm tra
 </div>
 </div>
-</div>
 """, unsafe_allow_html=True)
 
-        f_bv = st.file_uploader('4. File Dữ liệu Nhập Bảo vệ', type=['xlsx', 'xls'])
-        f_opm = st.file_uploader('5. File Báo cáo ERP OPM 105', type=['xlsx', 'xls'])
+            f_bv = st.file_uploader('4. File Dữ liệu Nhập Bảo vệ', type=['xlsx', 'xls'])
+            f_opm = st.file_uploader('5. File Báo cáo ERP OPM 105', type=['xlsx', 'xls'])
 
     # ---------------------------------------------------------
-    # XỬ LÝ LOGIC (GIỮ NGUYÊN 100% CỦA BẠN, KHÔNG CAN THIỆP)
+    # XỬ LÝ LOGIC (GIỮ NGUYÊN 100% - KHÔNG CAN THIỆP)
     # ---------------------------------------------------------
     if f_bbnt is not None:
         if st.button('🚀 Bắt đầu đối chiếu tự động', use_container_width=True):
