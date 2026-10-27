@@ -2,7 +2,6 @@ import io
 import pandas as pd
 import numpy as np
 import streamlit as st
-import time
 
 st.set_page_config(page_title="Kiểm Tra Hàng Ra Cổng - KSNB", page_icon="🚛", layout="wide")
 
@@ -65,19 +64,17 @@ def xuly_105(df, is_cungung=True):
         
         df = df.loc[:, df.columns.notna()]
         df = df.loc[:, ~df.columns.duplicated()]
-        
         if df.empty or 'Loại Giao Dịch' not in df.columns: return df
         
         if is_cungung:
             remove_gd = ['COGS Recognition', 'WIP Return', 'WIP Issue', 'WIP Completion Return', 'WIP Completion', 'WIP Byproduct Return', 'WIP Byproduct Completion', 'Residual Qty Receipt', 'Residual Qty Issue']
             df = df[~df['Loại Giao Dịch'].isin(remove_gd)]
             if 'Mã Mặt Hàng' in df.columns:
-                df = df[df['Mã Mặt Hàng'].astype(str).str.startswith(('3', '4'))]
+                df = df[df['Mã Mặt Hàng'].astype(str).str.startswith(('3', '4'), na=False)]
         else:
             df = df[~df['Loại Giao Dịch'].isin(['COGS Recognition'])]
             
         df = df[df['Loại Giao Dịch'].notna()]
-        
         if all(col in df.columns for col in ['Mă Kho', 'Khu Vực Kho', 'Locator', 'LPN', 'Loại Giao Dịch']):
             df['Chuỗi'] = df['Mă Kho'].astype(str) + df['Khu Vực Kho'].astype(str) + df['Locator'].astype(str) + df['LPN'].astype(str) + df['Loại Giao Dịch'].astype(str)
         else:
@@ -96,7 +93,6 @@ def xuly_021(df, is_cungung=True):
         
         df = df.loc[:, df.columns.notna()]
         df = df.loc[:, ~df.columns.duplicated()]
-        
         if df.empty or 'Loại giao dịch' not in df.columns: return df
         
         if is_cungung:
@@ -108,6 +104,17 @@ def xuly_021(df, is_cungung=True):
         return df
     except:
         return pd.DataFrame()
+
+# HÀM TÔ MÀU EXCEL
+def style_excel_cells(val):
+    val_str = str(val).strip()
+    if val_str in ['Vượt dung sai', 'Lỗi Gross/Net', '0'] or '🔴' in val_str:
+        return 'background-color: #FFC7CE; color: #9C0006' # Đỏ nhạt, chữ đỏ đậm
+    elif '🟡' in val_str:
+        return 'background-color: #FFEB9C; color: #9C6500' # Vàng cam cảnh báo
+    elif val_str in ['OK', 'Hợp lệ', '1'] or '🟢' in val_str:
+        return 'background-color: #C6EFCE; color: #006100' # Xanh lá
+    return ''
 
 # XỬ LÝ CHÍNH
 if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_width=True):
@@ -125,11 +132,11 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
             sheet_tc = 'tramcan' if 'tramcan' in xls_tc.sheet_names else 0
             df_tc = pd.read_excel(f_tramcan_nm, sheet_name=sheet_tc)
             
-            # Quét tìm cột Số chứng từ ở trạm cân an toàn tuyệt đối
-            tc_chungtu_cols = [c for c in df_tc.columns if 'chứng từ' in str(c).lower()]
             tc_chungtu_list = []
-            if tc_chungtu_cols:
-                tc_chungtu_list = df_tc[tc_chungtu_cols[0]].astype(str).str.strip().str.upper().tolist()
+            if 'Lấy phiếu xuất.1' in df_tc.columns:
+                tc_chungtu_list = df_tc['Lấy phiếu xuất.1'].astype(str).str.strip().str.upper().tolist()
+            elif 'SỐ CHỨNG TỪ' in df_tc.columns:
+                tc_chungtu_list = df_tc['SỐ CHỨNG TỪ'].astype(str).str.strip().str.upper().tolist()
 
             # --- BƯỚC 2: ĐỌC VÀ LỌC ERP ---
             progress_text.markdown('<div class="progress-text">⏳ Đang xử lý bộ lọc cho ERP 105 và 021... (30%)</div>', unsafe_allow_html=True)
@@ -145,7 +152,7 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
             df_021_all = pd.concat(frames_021, ignore_index=True) if frames_021 else pd.DataFrame()
 
             # --- TÍNH TOÁN SHEET 021 ---
-            progress_text.markdown('<div class="progress-text">⏳ Đang chạy công thức VLOOKUP đa tầng cho bảng 021... (55%)</div>', unsafe_allow_html=True)
+            progress_text.markdown('<div class="progress-text">⏳ Đang tự động hóa VLOOKUP đa tầng cho bảng 021... (55%)</div>', unsafe_allow_html=True)
             progress_bar.progress(55)
             
             df_021_export = pd.DataFrame()
@@ -155,7 +162,6 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
                 def safe_str(col):
                     return df_021_export[col].astype(str).replace('nan', '') if col in df_021_export.columns else ""
                 
-                # Tạo khóa VLOOKUP
                 df_021_export['Chuỗi 2 '] = safe_str('Mă kho') + safe_str('Subinventory') + safe_str('Locator') + safe_str('LPN') + safe_str('Loại giao dịch')
                 df_021_export['Chuỗi Pick'] = safe_str('Mă kho') + safe_str('Subinventory') + safe_str('Locator') + safe_str('LPN') + "Sales Order Pick"
 
@@ -176,46 +182,34 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
                 df_021_export['Chuyển text'] = safe_str('Số chứng từ') + "A" 
                 df_021_export['Chuỗi 1'] = df_021_export['Chuyển text'] + safe_str('Loại giao dịch')
                 
-                # Check ra cổng bọc str() triệt để
                 df_021_export['Check ra cổng'] = df_021_export['Số chứng từ'].apply(
-                    lambda x: 1 if any(str(x).strip().upper() in str(tc_val) for tc_val in tc_chungtu_list) else 0
+                    lambda x: 1 if any(str(x).strip().upper() in tc_val for tc_val in tc_chungtu_list) else 0
                 )
                 
                 cols_10_first = ['Check ra cổng', 'Thời gian pick SO', 'Người Pick SO', 'Ngày xuất', 'Thời gian thao tác', 'Người thực hiện', 'Số Gross', 'Chuỗi 2 ', 'Chuỗi 1', 'Chuyển text']
-                final_021_cols = cols_10_first + [c for c in df_021_all.columns if c not in cols_10_first and c != 'Chuỗi 2 ']
+                final_021_cols = cols_10_first + [c for c in df_021_all.columns if c not in cols_10_first and c != 'Chuỗi 2 ' and c != 'Chuỗi Pick']
                 df_021_export = df_021_export[final_021_cols]
 
             # --- TÍNH TOÁN SHEET KSKT ---
-            progress_text.markdown('<div class="progress-text">⏳ Đang đối soát và tính Max-Min Dung sai... (80%)</div>', unsafe_allow_html=True)
-            progress_bar.progress(80)
+            progress_text.markdown('<div class="progress-text">⏳ Đang tự động bóc tách chứng từ, VLOOKUP Net/Gross và Đánh giá Rủi ro... (75%)</div>', unsafe_allow_html=True)
+            progress_bar.progress(75)
             
             dict_net, dict_gross = {}, {}
-            df_erp = pd.DataFrame()
             
-            if not df_105_all.empty and not df_021_all.empty:
-                df_105_temp = df_105_all.copy()
-                df_021_temp = df_021_all.copy()
-                df_105_temp.columns = df_105_temp.columns.astype(str).str.lower().str.strip()
-                df_021_temp.columns = df_021_temp.columns.astype(str).str.lower().str.strip()
-                df_erp = pd.concat([df_105_temp, df_021_temp], ignore_index=True)
-            elif not df_105_all.empty:
-                df_erp = df_105_all.copy()
-                df_erp.columns = df_erp.columns.astype(str).str.lower().str.strip()
-            elif not df_021_all.empty:
-                df_erp = df_021_all.copy()
-                df_erp.columns = df_erp.columns.astype(str).str.lower().str.strip()
-            
-            if not df_erp.empty:
-                erp_col_phieu = next((c for c in df_erp.columns if "chứng từ" in str(c) or "phiếu" in str(c) or "tham chiếu" in str(c)), None)
-                erp_col_net = next((c for c in df_erp.columns if "khối lượng" in str(c) or "số lượng" in str(c) or "net" in str(c)), None)
+            if not df_021_all.empty:
+                df_021_search = df_021_all.copy()
+                df_021_search.columns = df_021_search.columns.astype(str).str.lower().str.strip()
+                
+                erp_col_phieu = next((c for c in df_021_search.columns if "chứng từ" in c or "phiếu" in c or "tham chiếu" in c), None)
+                erp_col_net = next((c for c in df_021_search.columns if "khối lượng" in c or "số lượng" in c or "net" in c), None)
                 
                 if erp_col_phieu:
-                    phieu_series = df_erp.iloc[:, df_erp.columns.get_loc(erp_col_phieu)]
+                    phieu_series = df_021_search.iloc[:, df_021_search.columns.get_loc(erp_col_phieu)]
                     if isinstance(phieu_series, pd.DataFrame): phieu_series = phieu_series.iloc[:, 0]
                     phieu_series = phieu_series.astype(str).str.replace('.0', '', regex=False).str.strip().str.upper()
                     
                     if erp_col_net:
-                        net_series = df_erp.iloc[:, df_erp.columns.get_loc(erp_col_net)]
+                        net_series = df_021_search.iloc[:, df_021_search.columns.get_loc(erp_col_net)]
                         if isinstance(net_series, pd.DataFrame): net_series = net_series.iloc[:, 0]
                         dict_net = pd.to_numeric(net_series, errors='coerce').groupby(phieu_series).sum().to_dict()
 
@@ -226,7 +220,8 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
                     malo_series = df_105_search['mã lô'].astype(str).str.replace('.0', '', regex=False).str.strip().str.upper()
                     dict_gross = pd.to_numeric(df_105_search['khối lượng gross'], errors='coerce').groupby(malo_series).sum().to_dict()
 
-            final_cols = ['STT', 'Số phiếu cân', 'Bàn cân', 'Số xe', 'Giờ vào', 'Giờ ra', 'Tên hàng hóa', 'Khối lượng vào', 'Khối lượng ra', 'Khối lượng hàng hóa', 'Số chứng từ', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Khối lượng Net', 'Khối lượng Gross', '1-CỔNG TRƯỚC', '2-CỔNG TRƯỚC', '1-CỔNG SAU', '2-CỔNG SAU', 'KL bàn cân lớn nhất', 'Chênh lệch', 'Dung sai', 'Chênh lệch Max - Min', 'Check net -gross', 'Ghi chú']
+            # Thêm 2 cột đánh giá rủi ro vào list xuất
+            final_cols = ['STT', 'Số phiếu cân', 'Bàn cân', 'Số xe', 'Giờ vào', 'Giờ ra', 'Tên hàng hóa', 'Khối lượng vào', 'Khối lượng ra', 'Khối lượng hàng hóa', 'Số chứng từ', '1', '2', '3', '4', '5', 'Khối lượng Net', 'Khối lượng Gross', '1-CỔNG TRƯỚC', '2-CỔNG TRƯỚC', '1-CỔNG SAU', '2-CỔNG SAU', 'KL bàn cân lớn nhất', 'Chênh lệch', 'Dung sai', 'Chênh lệch Max - Min', 'Check net -gross', 'Thời gian lưu bãi (Phút)', 'Đánh giá KSNB', 'Ghi chú']
             df_out = pd.DataFrame(columns=final_cols)
             
             def get_tc_col(col_names):
@@ -244,17 +239,22 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
             df_out['Khối lượng vào'] = pd.to_numeric(get_tc_col(['KL VÀO']), errors='coerce').fillna(0)
             df_out['Khối lượng ra'] = pd.to_numeric(get_tc_col(['KL RA']), errors='coerce').fillna(0)
             df_out['Khối lượng hàng hóa'] = pd.to_numeric(get_tc_col(['KHỐI LƯỢNG PHIẾU CÂN']), errors='coerce').fillna(0)
-            df_out['Số chứng từ'] = get_tc_col(['Đưa số chứng từ về 1 cột', 'SỐ CHỨNG TỪ'])
             
-            for i in range(1, 11):
-                c = str(i)
-                if i in df_tc.columns: df_out[c] = df_tc[i]
-                elif c in df_tc.columns: df_out[c] = df_tc[c]
+            if 'Lấy phiếu xuất.1' in df_tc.columns:
+                df_out['Số chứng từ'] = df_tc['Lấy phiếu xuất.1']
+            else:
+                df_out['Số chứng từ'] = get_tc_col(['SỐ CHỨNG TỪ'])
+            
+            for i in range(1, 6): df_out[str(i)] = ""
+                
+            split_vouchers = df_out['Số chứng từ'].astype(str).replace('nan', '').str.replace('+', ',', regex=False).str.split(',', expand=True)
+            for i in range(min(5, len(split_vouchers.columns))):
+                df_out[str(i+1)] = split_vouchers[i].str.strip()
 
             df_out['Khối lượng Net'] = 0.0
             df_out['Khối lượng Gross'] = 0.0
 
-            for i in range(1, 11):
+            for i in range(1, 6):
                 c = str(i)
                 if c in df_out.columns:
                     vouchers = df_out[c].astype(str).str.replace('.0', '', regex=False).str.strip().str.upper()
@@ -279,21 +279,45 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
             df_out['Dung sai'] = df_out['Dung sai'].apply(lambda x: 'Vượt dung sai' if abs(x) > 0.003 else 'OK')
             df_out['Check net -gross'] = np.where(df_out['Khối lượng Gross'] - df_out['Khối lượng Net'] > 0, "Hợp lệ", "Lỗi Gross/Net")
 
-            # --- BƯỚC 6: XUẤT FILE ---
-            progress_text.markdown('<div class="progress-text">⏳ Đang đóng gói File Báo Cáo... (95%)</div>', unsafe_allow_html=True)
+            # Tính Thời gian lưu bãi và Đánh giá KSNB
+            df_out['Giờ vào_dt'] = pd.to_datetime(df_out['Giờ vào'], errors='coerce')
+            df_out['Giờ ra_dt'] = pd.to_datetime(df_out['Giờ ra'], errors='coerce')
+            df_out['Thời gian lưu bãi (Phút)'] = (df_out['Giờ ra_dt'] - df_out['Giờ vào_dt']).dt.total_seconds() / 60
+            df_out['Thời gian lưu bãi (Phút)'] = df_out['Thời gian lưu bãi (Phút)'].round(0)
+            
+            def danh_gia_rui_ro(row):
+                if row['Check net -gross'] == 'Lỗi Gross/Net' or row['Dung sai'] == 'Vượt dung sai':
+                    return '🔴 Rủi ro Cao'
+                elif pd.notna(row['Thời gian lưu bãi (Phút)']) and row['Thời gian lưu bãi (Phút)'] > 180:
+                    return '🟡 Cảnh báo (Lưu bãi lâu)'
+                else:
+                    return '🟢 An toàn'
+                    
+            df_out['Đánh giá KSNB'] = df_out.apply(danh_gia_rui_ro, axis=1)
+            df_out = df_out.drop(columns=['Giờ vào_dt', 'Giờ ra_dt'])
+
+            # --- BƯỚC 6: ÁP DỤNG MÀU SẮC VÀ XUẤT FILE ---
+            progress_text.markdown('<div class="progress-text">⏳ Đang tô màu và đóng gói File Báo Cáo... (95%)</div>', unsafe_allow_html=True)
             progress_bar.progress(95)
+            
+            try:
+                style_out = df_out.style.map(style_excel_cells, subset=['Dung sai', 'Check net -gross', 'Đánh giá KSNB'])
+                style_021 = df_021_export.style.map(style_excel_cells, subset=['Check ra cổng']) if not df_021_export.empty else df_021_export
+            except AttributeError:
+                style_out = df_out.style.applymap(style_excel_cells, subset=['Dung sai', 'Check net -gross', 'Đánh giá KSNB'])
+                style_021 = df_021_export.style.applymap(style_excel_cells, subset=['Check ra cổng']) if not df_021_export.empty else df_021_export
             
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine="openpyxl") as writer:
-                df_out.to_excel(writer, index=False, sheet_name="KSKTDulieucan-NM")
+                style_out.to_excel(writer, index=False, sheet_name="KSKTDulieucan-NM")
                 if not df_021_export.empty:
-                    df_021_export.to_excel(writer, index=False, sheet_name="021")
+                    style_021.to_excel(writer, index=False, sheet_name="021")
 
-            progress_text.markdown('<div class="progress-text" style="color: #28a745;">✅ Đã hoàn tất đối soát và VLOOKUP tự động!</div>', unsafe_allow_html=True)
+            progress_text.markdown('<div class="progress-text" style="color: #28a745;">✅ Đã hoàn tất! Kéo cột Đánh giá KSNB trong Excel để xem ngay rủi ro nhé.</div>', unsafe_allow_html=True)
             progress_bar.progress(100)
             
             st.download_button(
-                label="📥 Tải File Báo Cáo Chuẩn KSNB",
+                label="📥 Tải File Báo Cáo Chuẩn KSNB (Đã Tô Màu)",
                 data=output.getvalue(),
                 file_name="Bao_Cao_KSNB_Ra_Cong.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
