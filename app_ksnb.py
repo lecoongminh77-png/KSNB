@@ -38,13 +38,13 @@ if not st.session_state.da_xem_intro:
     with splash_placeholder.container():
         st.markdown("<br><br>", unsafe_allow_html=True)
         
-        # LINK LOTTIE ĐÃ ĐƯỢC ĐỔI THÀNH LINK MỚI CỦA BẠN Ở ĐÂY
-        lottie_welcome = load_lottieurl("https://lottie.host/ca748732-359a-4b53-9a5d-0efef2ebcc72/jsulU4JRsN.json") 
+        # TRẢ LẠI LINK WELCOME CŨ Ở NGOÀI
+        lottie_welcome = load_lottieurl("https://lottie.host/4a9438d1-b8fb-4a3b-aed8-58a48b9413e2/BnRtyhhxBR.json") 
         
         # Hiển thị hình động
         st_lottie(lottie_welcome, height=350, key="welcome_animation")
         
-    # Cho hệ thống dừng 3 giây để người dùng kịp nhìn animation
+    # Cho hệ thống dừng 5 giây để người dùng kịp nhìn animation
     time.sleep(5)
     
     # Đánh dấu là đã xem intro
@@ -148,36 +148,14 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Hoạt ảnh quả bóng xoay mượt mà (Bản nhẹ 398 KB)
-st.components.v1.html(
-    """
-    <div style="display: flex; justify-content: center; align-items: center; width: 100%; height: 100%;">
-        <iframe src="https://lottie.host/embed/e0de51c8-efda-4e88-9533-0cc945c996c6/uHcdBzdiUG.lottie" 
-                style="width: 260px; height: 180px; border: none; background: transparent;" 
-                frameborder="0">
-        </iframe>
-    </div>
-    """,
-    height=190,
-)
+# THAY ẢNH NGƯỜI ĐÁNH PICKLEBALL VÀO CHỖ TRÁI BANH Ở ĐÂY
+lottie_pickleball = load_lottieurl("https://lottie.host/ca748732-359a-4b53-9a5d-0efef2ebcc72/jsulU4JRsN.json")
+st_lottie(lottie_pickleball, height=190, key="pickleball_animation")
 
 # Lưới hiển thị các thẻ công cụ (Chia làm 3 cột chính)
 _, col1, col2, col3, _ = st.columns([0.2, 3, 3, 3, 0.2], gap="medium")
 
 with col1:
-    # ĐÃ TẮT SFORUM BẰNG CÁCH THÊM DẤU # VÀO ĐẦU DÒNG
-#     st.markdown("""
-#     <div class="app-card" style="margin-bottom: 20px;">
-#         <div>
-#             <span class="badge badge-blue">AI Automation</span>
-#             <div class="card-title">✍️ Sforum Studio</div>
-#             <div class="card-desc">Hệ thống AI tự động phân tích bài viết gốc, áp dụng quy chuẩn Google Docs và biên tập bài viết.</div>
-#         </div>
-#     </div>
-#     """, unsafe_allow_html=True)
-#     if st.button("Truy cập Sforum Studio ➔", key="btn_sforum", use_container_width=True):
-#         st.switch_page("pages/Sforum.py")
-
     st.markdown("""
     <div class="app-card">
         <div>
@@ -203,7 +181,6 @@ with col2:
     if st.button("Mở Đối Chiếu Nghiệm Thu ➔", key="btn_ksnb", use_container_width=True):
         st.switch_page("pages/Doi_Chieu_HRC.py")
 
-    # ĐÂY LÀ THẺ MỚI BỔ SUNG CHO TỔNG HỢP NXT
     st.markdown("""
     <div class="app-card">
         <div>
