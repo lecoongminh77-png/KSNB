@@ -6,3 +6,4 @@ google-genai
 beautifulsoup4
 streamlit-lottie
 requests
+streamlit-option-menu
