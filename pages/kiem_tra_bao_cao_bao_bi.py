@@ -1,7 +1,6 @@
 import sys
 import os
 import io
-import re
 import time
 import pandas as pd
 import streamlit as st
@@ -132,11 +131,10 @@ st.markdown(
 col_home, _ = st.columns([1.5, 8.5])
 with col_home:
     if st.button('🏠 Trang chủ', use_container_width=True):
-        st.switch_page('app_ksnb.py') # Cập nhật file trang chủ của bạn
+        st.switch_page('app_ksnb.py')
 
 st.markdown("<hr style='border: none; border-top: 1px solid #e2e8f0; margin: 10px 0 20px 0;'>", unsafe_allow_html=True)
 
-# Header Trang
 st.markdown(
     """
 <div class="apple-header-box">
@@ -161,7 +159,6 @@ def is_negative(val):
     return False
 
 def clean_ma_lo(val):
-    """Làm sạch khoảng trắng thừa và viết hoa mã lô để tránh lệch oan"""
     if pd.isna(val): return ""
     return str(val).strip().upper()
 
@@ -173,9 +170,6 @@ def kiem_soat_san_xuat():
     
     st.markdown("### 📥 Nạp Dữ Liệu Nguồn")
     
-    # ---------------------------------------------------------
-    # KHU VỰC CHỌN THỜI GIAN
-    # ---------------------------------------------------------
     col_t1, col_t2, _ = st.columns([2, 2, 6])
     with col_t1:
         thang_chon = st.selectbox('Chọn Tháng', list(range(1, 13)), index=9)
@@ -185,9 +179,6 @@ def kiem_soat_san_xuat():
     chuoi_yymm = f"{str(nam_chon)[-2:]}{thang_chon:02d}"
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # ---------------------------------------------------------
-    # KHU VỰC UPLOAD
-    # ---------------------------------------------------------
     col_upload1, col_upload2 = st.columns(2, gap="large")
     
     with col_upload1:
@@ -215,9 +206,6 @@ Thời gian: Chọn đúng tháng đang kiểm tra.
 """, unsafe_allow_html=True)
             f_105 = st.file_uploader('Tải lên File OPM 105', type=['xlsx', 'xls'])
 
-    # ---------------------------------------------------------
-    # XỬ LÝ LOGIC ĐỐI CHIẾU
-    # ---------------------------------------------------------
     if st.button('🚀 Bắt đầu đối chiếu tự động', use_container_width=True):
         if not f_bc and not f_105:
             st.warning("⚠️ Vui lòng tải lên ít nhất một file để kiểm tra!")
@@ -225,7 +213,6 @@ Thời gian: Chọn đúng tháng đang kiểm tra.
 
         progress_bar = st.progress(0, text="Khởi động tiến trình kiểm tra...")
         
-        # Đọc tên các sheet từ file BCCT để tránh lỗi sai tên sheet
         bc_sheets = []
         if f_bc:
             xl_bc = pd.ExcelFile(f_bc)
@@ -241,7 +228,7 @@ Thời gian: Chọn đúng tháng đang kiểm tra.
                 progress_bar.progress(10, text="Đang đọc dữ liệu NXT_TAM_LOT...")
                 st.markdown("### 📊 KẾT QUẢ: BÁO CÁO CẮT TẤM")
                 try:
-                    df_nxt_tam_lot = pd.read_excel(f_bc, sheet_name='NXT_TAM_LOT', header=None)
+                    df_nxt_tam_lot = pd.read_excel(f_bc, sheet_name='NXT_TAM_LOT', header=None, dtype=str)
                     
                     ma_kien_am = []
                     for idx, row in df_nxt_tam_lot.iterrows():
@@ -280,7 +267,7 @@ Thời gian: Chọn đúng tháng đang kiểm tra.
                         
                         if sheet_real_name:
                             try:
-                                df_qlsx = pd.read_excel(f_bc, sheet_name=sheet_real_name, header=None)
+                                df_qlsx = pd.read_excel(f_bc, sheet_name=sheet_real_name, header=None, dtype=str)
                                 max_seq = 0
                                 for val in df_qlsx[12].dropna():
                                     val_str = str(val).strip()
@@ -311,34 +298,36 @@ Thời gian: Chọn đúng tháng đang kiểm tra.
                     st.error(f"Lỗi hệ thống: {e}")
 
         # ==============================================================
-        # PHẦN 2: ĐỐI CHIẾU OPM 105 VÀ NXT NGUYÊN LIỆU (NHÓM LẠI & TÍNH LỆCH)
+        # PHẦN 2: ĐỐI CHIẾU OPM 105 VÀ NXT NGUYÊN LIỆU (CỘNG ÂM DƯƠNG = 0)
         # ==============================================================
         if f_105 is not None and f_bc is not None:
             progress_bar.progress(80, text="Đang đồng bộ và gom nhóm dữ liệu ERP 105...")
             st.markdown("### 📊 DASHBOARD: ĐỐI CHIẾU ERP 105 & NXT NGUYÊN LIỆU")
             
             try:
-                # 1. Chuẩn bị dữ liệu 105 (Gom nhóm theo Lô, GIỮ NGUYÊN SỐ ÂM)
-                df_105_raw = pd.read_excel(f_105, header=None, skiprows=11)
+                # 1. Chuẩn bị dữ liệu 105 
+                # Chống mất số 0 ở đầu bằng cách đọc ép kiểu String
+                df_105_raw = pd.read_excel(f_105, header=None, dtype=str)
                 df_105_raw['Mã Lô 105'] = df_105_raw[5].apply(clean_ma_lo)
                 df_105_raw['Khối Lượng 105'] = pd.to_numeric(df_105_raw[9], errors='coerce').fillna(0)
                 
-                df_105_grouped = df_105_raw[df_105_raw['Mã Lô 105'] != ""].groupby('Mã Lô 105', as_index=False)['Khối Lượng 105'].sum()
+                # Lọc lấy các dòng có Mã Lô dài hơn 3 ký tự để loại bỏ dòng tiêu đề nhiễu
+                df_105_filtered = df_105_raw[(df_105_raw['Mã Lô 105'] != "") & (df_105_raw['Mã Lô 105'].str.len() > 3)]
+                df_105_grouped = df_105_filtered.groupby('Mã Lô 105', as_index=False)['Khối Lượng 105'].sum()
 
                 # 2. Chuẩn bị dữ liệu NXT NGUYÊN LIỆU (LẤY CỘT H DƯƠNG)
                 nl_sheet_name = next((s for s in bc_sheets if "NXT NGUYEN LIEU" in s.upper()), None)
                 if not nl_sheet_name:
                     st.error("🚨 Không tìm thấy sheet có tên 'NXT NGUYEN LIEU' trong Báo cáo.")
                 else:
-                    df_nl = pd.read_excel(f_bc, sheet_name=nl_sheet_name, header=None)
+                    df_nl = pd.read_excel(f_bc, sheet_name=nl_sheet_name, header=None, dtype=str)
                     dict_nl = {}
                     for idx, row in df_nl.iterrows():
                         ma_lo_nxt = clean_ma_lo(row[1])
-                        # Lấy cột H (Index 7)
+                        # Lấy cột H (Index 7) - Số dương
                         kl_nxt = pd.to_numeric(row[7], errors='coerce') if pd.notna(row[7]) else 0
                         
-                        if ma_lo_nxt != "":
-                            # Nếu mã lô xuất hiện nhiều dòng bên NXT thì cộng dồn số dương
+                        if ma_lo_nxt != "" and len(ma_lo_nxt) > 3:
                             dict_nl[ma_lo_nxt] = dict_nl.get(ma_lo_nxt, 0) + kl_nxt
 
                     # 3. Đối chiếu và tính Delta
@@ -370,8 +359,8 @@ Thời gian: Chọn đúng tháng đang kiểm tra.
                             
                         ket_qua_105.append({
                             'Mã Lô': ma_105,
-                            'Khối Lượng ERP 105 (Âm)': kl_105,
-                            'Khối Lượng Thực NXT (Dương)': kl_nxt,
+                            'KL ERP 105 (Âm)': kl_105,
+                            'KL Thực NXT (Dương)': kl_nxt,
                             'Chênh Lệch (kg)': round(chenh_lech, 2),
                             'Trạng Thái': trang_thai
                         })
@@ -394,7 +383,6 @@ Thời gian: Chọn đúng tháng đang kiểm tra.
                             df_kq.to_excel(writer, index=False, sheet_name='Ket_Qua_105')
                             worksheet = writer.sheets['Ket_Qua_105']
                             
-                            # Định dạng màu
                             fill_green = PatternFill(start_color='C6EFCE', end_color='C6EFCE', fill_type='solid')
                             font_green = Font(color='006100')
                             fill_yellow = PatternFill(start_color='FFEB9C', end_color='FFEB9C', fill_type='solid')
@@ -418,7 +406,6 @@ Thời gian: Chọn đúng tháng đang kiểm tra.
                                         cell.fill = fill_red
                                         cell.font = font_red
                                         
-                            # Chỉnh độ rộng cột tự động
                             for col in worksheet.columns:
                                 max_length = 0
                                 column = col[0].column_letter
@@ -436,7 +423,7 @@ Thời gian: Chọn đúng tháng đang kiểm tra.
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                         )
                     else:
-                        st.info("Không tìm thấy dữ liệu hợp lệ trên file OPM 105.")
+                        st.info("Không tìm thấy dữ liệu hợp lệ trên file OPM 105. Vui lòng kiểm tra lại cấu trúc file!")
 
             except Exception as e:
                 st.error(f"Lỗi hệ thống khi xử lý OPM 105: {e}")
