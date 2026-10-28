@@ -44,7 +44,7 @@ st.markdown("<h1 class='apple-main-title'>📸 AI Kiểm Kê Bằng Hình Ảnh<
 st.markdown("<hr style='border-top: 1px solid #e2e8f0; margin-bottom: 20px;'>", unsafe_allow_html=True)
 
 # -------------------------------------------------------------
-# HÀM HỖ TRỢ & HÀM GỌI API TRỰC TIẾP (CHỐNG LỖI 404)
+# HÀM HỖ TRỢ & HÀM GỌI API TRỰC TIẾP (BỎ THƯ VIỆN GOOGLE)
 # -------------------------------------------------------------
 def parse_and_check_date(val, t_month, t_year):
     if pd.isna(val) or str(val).strip() == "": return False
@@ -55,15 +55,21 @@ def parse_and_check_date(val, t_month, t_year):
     return False
 
 def quet_anh_bang_gemini_api(image_bytes, api_key):
-    """Bỏ qua thư viện Python, gọi thẳng API mạng để né 100% lỗi 404"""
-    base64_image = base64.b64encode(image_bytes).decode('utf-8')
+    """Gửi hình thẳng lên Google bằng mạng, không dùng thư viện rác để né lỗi 404/401"""
+    # Ép dung lượng ảnh nhỏ lại siêu nhẹ trước khi gửi (Chống đứng RAM)
+    img_goc = Image.open(io.BytesIO(image_bytes))
+    img_goc.thumbnail((800, 800)) 
+    buffered = io.BytesIO()
+    img_goc.save(buffered, format="JPEG", quality=85)
+    base64_image = base64.b64encode(buffered.getvalue()).decode('utf-8')
+    
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key.strip()}"
     
     headers = {"Content-Type": "application/json"}
     payload = {
         "contents": [{
             "parts": [
-                {"text": "Bạn là chuyên gia kiểm kê. Hãy đọc toàn bộ chữ, số, mã vạch có trên nhãn sản phẩm trong ảnh này. Chỉ liệt kê các đoạn ký tự tìm được, không cần giải thích."},
+                {"text": "Bạn là chuyên gia kiểm kê. Hãy đọc toàn bộ chữ, số, mã vạch có trên nhãn mác trong ảnh. Chỉ liệt kê các đoạn ký tự tìm được, không cần giải thích."},
                 {"inlineData": {
                     "mimeType": "image/jpeg",
                     "data": base64_image
@@ -72,6 +78,7 @@ def quet_anh_bang_gemini_api(image_bytes, api_key):
         }]
     }
     
+    # Gửi đi y hệt như lệnh CURL
     response = requests.post(url, headers=headers, json=payload)
     if response.status_code == 200:
         try:
@@ -79,13 +86,13 @@ def quet_anh_bang_gemini_api(image_bytes, api_key):
         except:
             return ""
     else:
-        raise Exception(f"Lỗi {response.status_code}: {response.text}")
+        raise Exception(f"Lỗi kết nối ({response.status_code}): Vui lòng kiểm tra lại API Key.")
 
 # -------------------------------------------------------------
 # KHU VỰC NHẬP KEY & TẢI DỮ LIỆU
 # -------------------------------------------------------------
-st.markdown("### 🔑 Cấu hình Trí Tuệ Nhân Tạo (Gemini)")
-api_key_input = st.text_input("Dán Google Gemini API Key MỚI vào đây (Tuyệt đối không lưu vào GitHub):", type="password")
+st.markdown("### 🔑 Cấu hình Trí Tuệ Nhân Tạo")
+api_key_input = st.text_input("Dán Google Gemini API Key vào đây (Chấp nhận mọi mã AQ...):", type="password")
 
 st.markdown("<hr style='border-top: 1px dashed #ccc; margin: 20px 0;'>", unsafe_allow_html=True)
 
@@ -109,12 +116,12 @@ with col_upload2:
         f_images = st.file_uploader("Tải nhiều hình ảnh", type=['jpg', 'jpeg', 'png'], accept_multiple_files=True, label_visibility="collapsed")
 
 # -------------------------------------------------------------
-# LOGIC XỬ LÝ (CHỐNG SẬP RAM)
+# LOGIC XỬ LÝ (TỰ ĐỘNG CHỐNG ĐỨNG MÁY)
 # -------------------------------------------------------------
 if not f_excel or not f_images:
     st.info("👆 Hãy tải lên File Excel và Hình ảnh để AI bắt đầu quét.")
 elif not api_key_input:
-    st.warning("⚠️ Vui lòng dán Key API của Google vào ô bên trên.")
+    st.warning("⚠️ Vui lòng dán Key API vào ô bên trên.")
 else:
     progress_bar = st.progress(0, text="Đang bóc tách danh sách mã lô từ File Excel...")
     time.sleep(0.5)
@@ -144,7 +151,7 @@ else:
             st.error("🚨 Không tìm thấy mã lô nào trong Excel!")
             st.stop()
 
-        # BƯỚC 2: QUÉT ẢNH TRỰC TIẾP (KHÔNG DÙNG THƯ VIỆN)
+        # BƯỚC 2: QUÉT ẢNH TRỰC TIẾP
         ma_da_thay = {} 
         hinh_nghi_ngo = [] 
         
@@ -154,15 +161,15 @@ else:
             progress_bar.progress(ptram, text=f"🤖 AI đang soi tấm ảnh {i+1}/{tong_hinh}: {img_file.name}...")
             
             img_bytes = img_file.getvalue()
-            image = Image.open(io.BytesIO(img_bytes))
             
             try:
-                # Gọi thẳng URL API - Triệt tiêu lỗi 404
+                # Giao tiếp qua mạng, bỏ qua mọi lỗi của thư viện Google
                 ocr_text = quet_anh_bang_gemini_api(img_bytes, api_key_input)
                 chuoi_hinh_anh = ocr_text.upper().replace(" ", "").replace("-", "").replace("\n", "")
                 
-                # Ép ảnh thu nhỏ cỡ 300px để không làm đứng RAM
-                image.thumbnail((300, 300))
+                # Tạo ảnh thu nhỏ tí xíu (chống RAM bị đứng)
+                image_hien_thi = Image.open(io.BytesIO(img_bytes))
+                image_hien_thi.thumbnail((300, 300))
                 
                 tim_thay_trong_hinh = False
                 for ma in ds_ma_can_tim:
@@ -170,21 +177,21 @@ else:
                     if ma_clean in chuoi_hinh_anh:
                         if ma not in ma_da_thay:
                             ma_da_thay[ma] = []
-                        ma_da_thay[ma].append({'ten_file': img_file.name, 'hinh_anh': image.copy()})
+                        ma_da_thay[ma].append({'ten_file': img_file.name, 'hinh_anh': image_hien_thi.copy()})
                         tim_thay_trong_hinh = True
                 
                 if not tim_thay_trong_hinh:
-                    hinh_nghi_ngo.append({'ten_file': img_file.name, 'hinh_anh': image.copy(), 'chu_nhan_dien': ocr_text})
+                    hinh_nghi_ngo.append({'ten_file': img_file.name, 'hinh_anh': image_hien_thi.copy(), 'chu_nhan_dien': ocr_text})
                 
-                # Dọn rác bộ nhớ ngay lập tức
-                del image, img_bytes
+                # Quét dọn bộ nhớ ngay lập tức
+                del image_hien_thi, img_bytes
                 gc.collect()
-                time.sleep(3) # Nghỉ 3s chống Google chặn IP
+                time.sleep(2) # Giãn cách để máy chủ mượt mà
                 
             except Exception as e:
-                st.error(f"Lỗi AI ở ảnh {img_file.name}: {e}")
+                st.error(f"Lỗi ở ảnh {img_file.name}: {e}")
 
-        progress_bar.progress(100, text="✅ Hoàn tất phân tích bằng AI!")
+        progress_bar.progress(100, text="✅ Hoàn tất phân tích!")
         time.sleep(0.5)
         progress_bar.empty()
 
