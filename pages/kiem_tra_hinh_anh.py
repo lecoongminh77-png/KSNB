@@ -3,7 +3,6 @@ import pandas as pd
 from PIL import Image
 import io
 import time
-import base64
 import requests
 import gc
 
@@ -42,11 +41,11 @@ with col_home:
             st.switch_page('app_ksnb.py')
         except: pass
 
-st.markdown("<h1 class='apple-main-title'>📸 AI Kiểm Kê Bằng Hình Ảnh (Groq Vision)</h1>", unsafe_allow_html=True)
+st.markdown("<h1 class='apple-main-title'>📸 Quét Hình Ảnh (OCR.Space Engine)</h1>", unsafe_allow_html=True)
 st.markdown("<hr style='border-top: 1px solid #e2e8f0; margin-bottom: 20px;'>", unsafe_allow_html=True)
 
 # -------------------------------------------------------------
-# HÀM GỌI AI GROQ (NÉN MẠNH CHỐNG NGHẼN MẠNG)
+# HÀM HỖ TRỢ & KẾT NỐI OCR CHUYÊN DỤNG
 # -------------------------------------------------------------
 def parse_and_check_date(val, t_month, t_year):
     if pd.isna(val) or str(val).strip() == "": return False
@@ -56,76 +55,44 @@ def parse_and_check_date(val, t_month, t_year):
     except: pass
     return False
 
-def quet_anh_bang_groq(image_bytes, api_key, model_name, max_retries=3):
-    """Gửi ảnh lên siêu máy chủ Groq - Phiên bản chống đứt cáp"""
-    # 1. Ép dung lượng ảnh nhỏ lại mức (800x800) để gói tin siêu nhẹ
-    img_goc = Image.open(io.BytesIO(image_bytes))
-    img_goc.thumbnail((800, 800))
+def quet_anh_bang_ocr_space(image_bytes, api_key):
+    """Máy chủ OCR chuyên dụng: Quét siêu chuẩn bằng Engine 2"""
+    # Ép ảnh dưới 1MB (Giới hạn của OCR.Space Free)
+    img = Image.open(io.BytesIO(image_bytes))
+    img.thumbnail((1200, 1200)) 
     buffered = io.BytesIO()
-    img_goc.save(buffered, format="JPEG", quality=80)
-    base64_image = base64.b64encode(buffered.getvalue()).decode('utf-8')
-    
-    url = "https://api.groq.com/openai/v1/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {api_key.strip()}",
-        "Content-Type": "application/json"
-    }
+    img.save(buffered, format="JPEG", quality=85)
+    compressed_bytes = buffered.getvalue()
+
+    url = 'https://api.ocr.space/parse/image'
     payload = {
-        "model": model_name, 
-        "messages": [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": "Bạn là chuyên gia kiểm kê. Hãy đọc toàn bộ chữ, số, mã vạch có trên nhãn mác trong ảnh. Chỉ liệt kê các đoạn ký tự tìm được, không cần giải thích."},
-                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
-                ]
-            }
-        ],
-        "temperature": 0.1
+        'apikey': api_key.strip(),
+        'language': 'eng', # Tối ưu quét số và mã ký tự
+        'isOverlayRequired': False,
+        'OCREngine': 2, # Engine 2 chuyên quét nhãn mác lộn xộn, số lô
+        'scale': True # Tự động phóng to ảnh để đọc chữ nhỏ
     }
+    files = {'file': ('image.jpg', compressed_bytes, 'image/jpeg')}
     
-    # 3. Gửi và thử lại với Timeout cao (60s)
-    for lan_thu in range(max_retries):
-        try:
-            response = requests.post(url, headers=headers, json=payload, timeout=60)
-            if response.status_code == 200:
-                return response.json()['choices'][0]['message']['content']
-            elif response.status_code == 429: # Quá tải
-                time.sleep(10) # Nghỉ 10s cho máy chủ thở
-                continue
-            else:
-                return f"LỖI TỪ GROQ ({response.status_code}): {response.text}"
-        except Exception as e:
-            if lan_thu == max_retries - 1: return f"LỖI MẠNG: {str(e)}"
-            time.sleep(5)
-    return "LỖI: Máy chủ Groq liên tục ngắt kết nối (Quá tải mạng)."
+    response = requests.post(url, data=payload, files=files)
+    
+    if response.status_code == 200:
+        result = response.json()
+        if result.get('IsErroredOnProcessing'):
+            return f"LỖI: {result.get('ErrorMessage', [''])[0]}"
+            
+        parsed_text = ""
+        for item in result.get('ParsedResults', []):
+            parsed_text += item.get('ParsedText', '') + "\n"
+        return parsed_text
+    else:
+        return f"LỖI MẠNG: {response.status_code}"
 
 # -------------------------------------------------------------
-# KHU VỰC GIAO DIỆN (TỰ ĐỘNG QUÉT MODEL CỦA GROQ)
+# KHU VỰC GIAO DIỆN CHÍNH
 # -------------------------------------------------------------
-st.markdown("### 🔑 Cấu hình Trí Tuệ Nhân Tạo (Groq)")
-api_key_input = st.text_input("Dán Groq API Key (bắt đầu bằng gsk_...) vào đây:", type="password")
-
-selected_model = None
-if api_key_input:
-    with st.spinner("Đang kết nối vào tài khoản Groq để lấy danh sách AI..."):
-        try:
-            headers = {"Authorization": f"Bearer {api_key_input.strip()}"}
-            resp = requests.get("https://api.groq.com/openai/v1/models", headers=headers, timeout=15)
-            if resp.status_code == 200:
-                models = resp.json().get("data", [])
-                # Lọc ra các model chuyên đọc ảnh (Vision)
-                danh_sach_model = [m["id"] for m in models if "vision" in m["id"].lower() or "3.2" in m["id"].lower()]
-                
-                if danh_sach_model:
-                    st.success("✅ Kết nối máy chủ thành công!")
-                    selected_model = st.selectbox("🤖 Vui lòng chọn Model AI (Không lo bị lỗi 404):", danh_sach_model)
-                else:
-                    st.warning("⚠️ Tài khoản của bạn hiện tại chưa được Groq cấp phát các model có khả năng đọc ảnh (Vision).")
-            else:
-                st.error(f"❌ Key không hợp lệ hoặc máy chủ đang bảo trì. Mã lỗi: {resp.status_code}")
-        except Exception as e:
-            st.error(f"❌ Không thể tải danh sách model do mạng nhà mạng chặn: {e}")
+st.markdown("### 🔑 Cấu hình Máy Quét OCR")
+api_key_input = st.text_input("Dán mã API Key của OCR.Space vào đây (Bắt đầu bằng K...):", type="password")
 
 st.markdown("<hr style='border-top: 1px dashed #ccc; margin: 20px 0;'>", unsafe_allow_html=True)
 
@@ -149,14 +116,14 @@ with col_upload2:
         f_images = st.file_uploader("Tải nhiều hình ảnh", type=['jpg', 'jpeg', 'png'], accept_multiple_files=True, label_visibility="collapsed")
 
 # -------------------------------------------------------------
-# LOGIC XỬ LÝ ẢNH CHỐNG ĐỨT CÁP
+# LOGIC XỬ LÝ ẢNH
 # -------------------------------------------------------------
 if not f_excel or not f_images:
-    st.info("👆 Hãy tải lên File Excel và Hình ảnh để AI bắt đầu quét.")
-elif not api_key_input or not selected_model:
-    st.warning("⚠️ Vui lòng cấu hình Key và chọn Model bên trên để bắt đầu.")
+    st.info("👆 Hãy tải lên File Excel và Hình ảnh để bắt đầu quét.")
+elif not api_key_input:
+    st.warning("⚠️ Vui lòng dán Key API OCR.Space vào ô bên trên.")
 else:
-    btn_quet = st.button("🚀 BẮT ĐẦU QUÉT KIỂM KÊ (DÙNG GROQ)", use_container_width=True)
+    btn_quet = st.button("🚀 BẮT ĐẦU QUÉT KIỂM KÊ", use_container_width=True)
     
     if btn_quet:
         progress_bar = st.progress(0, text="Đang bóc tách danh sách mã lô từ File Excel...")
@@ -187,19 +154,18 @@ else:
                 st.error("🚨 Không tìm thấy mã lô nào trong Excel!")
                 st.stop()
 
-            # 2. QUÉT ẢNH BẰNG GROQ (VỚI CƠ CHẾ CHỜ)
+            # 2. QUÉT ẢNH CHỐNG TRÀN RAM
             ma_da_thay = {} 
             hinh_nghi_ngo = [] 
             tong_hinh = len(f_images)
             
             for i, img_file in enumerate(f_images):
                 ptram = int(20 + (80 * (i + 1) / tong_hinh))
-                progress_bar.progress(ptram, text=f"🤖 Đang soi ảnh {i+1}/{tong_hinh}: {img_file.name}...")
+                progress_bar.progress(ptram, text=f"🔍 Máy quét đang soi ảnh {i+1}/{tong_hinh}: {img_file.name}...")
                 
                 img_bytes = img_file.getvalue()
                 
-                # Gọi thẳng hàm AI tự tạo
-                ocr_text = quet_anh_bang_groq(img_bytes, api_key_input, selected_model)
+                ocr_text = quet_anh_bang_ocr_space(img_bytes, api_key_input)
                 
                 if "LỖI" in ocr_text:
                     st.error(f"Lỗi ở ảnh {img_file.name}: {ocr_text}")
@@ -207,7 +173,6 @@ else:
                 else:
                     chuoi_hinh_anh = ocr_text.upper().replace(" ", "").replace("-", "").replace("\n", "")
                 
-                # Bóp ảnh siêu nhỏ lưu RAM chống sập app
                 image_hien_thi = Image.open(io.BytesIO(img_bytes))
                 image_hien_thi.thumbnail((300, 300))
                 
@@ -223,12 +188,11 @@ else:
                 if not tim_thay_trong_hinh and "LỖI" not in ocr_text:
                     hinh_nghi_ngo.append({'ten_file': img_file.name, 'hinh_anh': image_hien_thi.copy(), 'chu_nhan_dien': ocr_text})
                 
-                # Dọn RAM & Nghỉ nhịp 5 giây để tuân thủ luật chống Spam của máy chủ
                 del image_hien_thi, img_bytes
                 gc.collect()
-                time.sleep(5)
+                time.sleep(1) # Nghỉ 1s cho mượt máy chủ OCR
 
-            progress_bar.progress(100, text="✅ Hoàn tất phân tích bằng Groq AI!")
+            progress_bar.progress(100, text="✅ Hoàn tất phân tích!")
             time.sleep(0.5)
             progress_bar.empty()
 
@@ -271,7 +235,7 @@ else:
                     for item in hinh_nghi_ngo:
                         with st.expander(f"📷 {item['ten_file']}"):
                             st.image(item['hinh_anh'], use_container_width=True)
-                            st.caption("AI đọc được:")
+                            st.caption("Máy quét đọc được:")
                             st.write(item['chu_nhan_dien'])
                 else:
                     st.success("Tất cả hình tải lên đều nhận diện thành công.")
