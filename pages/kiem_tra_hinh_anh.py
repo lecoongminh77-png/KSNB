@@ -11,7 +11,7 @@ except ImportError:
     st.error("⚠️ Bạn chưa cài thư viện google-generativeai. Hãy thêm nó vào file requirements.txt nhé!")
 
 # -------------------------------------------------------------
-# CẤU HÌNH GIAO DIỆN
+# CẤU HÌNH GIAO DIỆN & MÀU SẮC
 # -------------------------------------------------------------
 st.set_page_config(page_title='Kiểm Kê Bằng Hình Ảnh', page_icon='📸', layout='wide')
 
@@ -25,13 +25,30 @@ st.markdown("""
     div[data-testid="stMetric"] { background-color: #ffffff; border-radius: 12px; padding: 15px; border: 1px solid rgba(0,0,0,0.05); box-shadow: 0 2px 8px rgba(0,0,0,0.02); text-align: center; }
     .upload-title { font-size: 18px; font-weight: 700; margin-bottom: 10px; color: #0071e3;}
     .list-box { background: #fff; padding: 15px; border-radius: 10px; border: 1px solid #e2e8f0; height: 100%; }
+    
+    /* Làm cho nút Trang Chủ có màu xanh dương */
+    button[kind="primary"] {
+        background-color: #007aff !important;
+        color: white !important;
+        border-color: #007aff !important;
+    }
+    button[kind="primary"]:hover {
+        background-color: #0056b3 !important;
+        border-color: #0056b3 !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# Nút quay về
+# -------------------------------------------------------------
+# NHÚNG TRỰC TIẾP API KEY (Không cần nhập tay nữa)
+# -------------------------------------------------------------
+GEMINI_API_KEY = "AIzaSyDyWRpLAc8AgAaumfo5lDhCfqEFO6zWe50"
+genai.configure(api_key=GEMINI_API_KEY)
+
+# Nút quay về Trang chủ (Màu xanh dương)
 col_home, _ = st.columns([1.5, 8.5])
 with col_home:
-    if st.button('🏠 Trang chủ', use_container_width=True):
+    if st.button('🏠 Trang chủ', type='primary', use_container_width=True):
         st.switch_page('app_ksnb.py')
 
 st.markdown("<h1 class='apple-main-title'>📸 AI Kiểm Kê Bằng Hình Ảnh</h1>", unsafe_allow_html=True)
@@ -49,16 +66,8 @@ def parse_and_check_date(val, t_month, t_year):
     return False
 
 # -------------------------------------------------------------
-# KHU VỰC NHẬP KEY & TẢI DỮ LIỆU
+# KHU VỰC TẢI DỮ LIỆU
 # -------------------------------------------------------------
-st.markdown("### 🔑 Cấu hình Trí Tuệ Nhân Tạo (Gemini)")
-api_key_input = st.text_input("Nhập Google Gemini API Key (Bắt buộc phải bắt đầu bằng AIza...):", type="password")
-
-if api_key_input:
-    genai.configure(api_key=api_key_input.strip())
-
-st.markdown("<hr style='border-top: 1px dashed #ccc; margin: 20px 0;'>", unsafe_allow_html=True)
-
 st.markdown("### 📥 1. Thiết Lập Mốc Thời Gian Kiểm Kê")
 col_t1, col_t2, _ = st.columns([2, 2, 6])
 with col_t1: thang_chon = st.selectbox('Chọn Tháng', list(range(1, 13)), index=9)
@@ -79,12 +88,10 @@ with col_upload2:
         f_images = st.file_uploader("Tải hình ảnh", type=['jpg', 'jpeg', 'png'], accept_multiple_files=True, label_visibility="collapsed")
 
 # -------------------------------------------------------------
-# LOGIC XỬ LÝ
+# LOGIC XỬ LÝ (TỰ ĐỘNG CHẠY KHI TẢI ĐỦ FILE)
 # -------------------------------------------------------------
 if not f_excel or not f_images:
-    st.info("👆 Hãy tải lên File Excel và Hình ảnh để bắt đầu kiểm kê.")
-elif not api_key_input or not api_key_input.startswith("AIza"):
-    st.warning("⚠️ Vui lòng xóa trắng ô trên cùng, copy chính xác mã 'AIza...' và dán lại vào ô!")
+    st.info("👆 Hãy tải lên File Excel và Hình ảnh để AI bắt đầu quét.")
 else:
     progress_bar = st.progress(0, text="Đang bóc tách danh sách mã lô từ File Excel...")
     time.sleep(0.5)
@@ -116,6 +123,7 @@ else:
             st.stop()
 
         # BƯỚC 2: AI GEMINI ĐỌC HÌNH ẢNH
+        # Chốt sử dụng model chuẩn gemini-1.5-flash
         model = genai.GenerativeModel('gemini-1.5-flash')
         
         ma_da_thay = {} 
@@ -129,7 +137,7 @@ else:
             image = Image.open(img_file)
             
             try:
-                prompt = "Hãy đọc toàn bộ dãy số và mã chữ trên nhãn mác trong ảnh. Chỉ xuất ra kết quả."
+                prompt = "Hãy đọc toàn bộ dãy số và mã chữ trên nhãn mác trong ảnh. Chỉ xuất ra các dãy ký tự tìm được."
                 response = model.generate_content([prompt, image])
                 
                 ocr_text = response.text if response.text else ""
@@ -147,7 +155,8 @@ else:
                 if not tim_thay_trong_hinh:
                     hinh_nghi_ngo.append({'ten_file': img_file.name, 'hinh_anh': image, 'chu_nhan_dien': ocr_text})
                 
-                time.sleep(3) # Tránh bị Google chặn spam
+                # Nghỉ 3 giây để Google không báo lỗi quá tải (Rate limit)
+                time.sleep(3) 
                 
             except Exception as e:
                 st.error(f"Lỗi kết nối AI ở ảnh {img_file.name}: {e}")
