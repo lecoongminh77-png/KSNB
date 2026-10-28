@@ -3,11 +3,8 @@ import pandas as pd
 from PIL import Image
 import io
 import time
-
-try:
-    import google.generativeai as genai
-except ImportError:
-    st.error("⚠️ Bạn chưa cài thư viện google-generativeai trong file requirements.txt!")
+import base64
+import requests
 
 # -------------------------------------------------------------
 # CẤU HÌNH GIAO DIỆN
@@ -47,7 +44,7 @@ st.markdown("<h1 class='apple-main-title'>📸 AI Kiểm Kê Bằng Hình Ảnh<
 st.markdown("<hr style='border-top: 1px solid #e2e8f0; margin-bottom: 20px;'>", unsafe_allow_html=True)
 
 # -------------------------------------------------------------
-# HÀM HỖ TRỢ
+# HÀM HỖ TRỢ XỬ LÝ ẢNH & API
 # -------------------------------------------------------------
 def parse_and_check_date(val, t_month, t_year):
     if pd.isna(val) or str(val).strip() == "": return False
@@ -57,12 +54,42 @@ def parse_and_check_date(val, t_month, t_year):
     except: pass
     return False
 
+def quet_anh_bang_gemini_api(image_bytes, api_key):
+    """Gửi trực tiếp bằng giao thức mạng gốc, chấp nhận mọi loại Key (AQ..., AIza...)"""
+    base64_image = base64.b64encode(image_bytes).decode('utf-8')
+    
+    # Dùng chuẩn URL ổn định nhất của Google
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key.strip()}"
+    
+    headers = {"Content-Type": "application/json"}
+    
+    payload = {
+        "contents": [{
+            "parts": [
+                {"text": "Bạn là chuyên gia kiểm kê kho. Hãy đọc và viết ra toàn bộ các dãy số, mã chữ có trên nhãn mác trong bức ảnh này. Không cần giải thích, chỉ xuất ra các mã chữ/số bạn thấy."},
+                {"inlineData": {
+                    "mimeType": "image/jpeg",
+                    "data": base64_image
+                }}
+            ]
+        }]
+    }
+    
+    response = requests.post(url, headers=headers, json=payload)
+    
+    if response.status_code == 200:
+        try:
+            return response.json()['candidates'][0]['content']['parts'][0]['text']
+        except KeyError:
+            return ""
+    else:
+        raise Exception(f"Lỗi {response.status_code}: {response.text}")
+
 # -------------------------------------------------------------
 # KHU VỰC NHẬP KEY & TẢI DỮ LIỆU
 # -------------------------------------------------------------
 st.markdown("### 🔑 Cấu hình Trí Tuệ Nhân Tạo (Gemini)")
-# Đã sửa lại để chấp nhận mọi loại Key (AQ..., AIza...)
-api_key_input = st.text_input("Dán Google Gemini API Key vào đây:", type="password", help="Chấp nhận mọi chuẩn Key của Google.")
+api_key_input = st.text_input("Dán Google Gemini API Key vào đây (Hỗ trợ cả mã AQ...):", type="password")
 
 st.markdown("<hr style='border-top: 1px dashed #ccc; margin: 20px 0;'>", unsafe_allow_html=True)
 
@@ -86,7 +113,7 @@ with col_upload2:
         f_images = st.file_uploader("Tải hình ảnh", type=['jpg', 'jpeg', 'png'], accept_multiple_files=True, label_visibility="collapsed")
 
 # -------------------------------------------------------------
-# LOGIC XỬ LÝ AI
+# LOGIC XỬ LÝ CHÍNH
 # -------------------------------------------------------------
 if not f_excel or not f_images:
     st.info("👆 Hãy tải lên File Excel và Hình ảnh để AI bắt đầu quét.")
@@ -97,7 +124,7 @@ else:
     time.sleep(0.5)
 
     try:
-        # LỌC MÃ EXCEL
+        # BƯỚC 1: LỌC MÃ EXCEL
         ds_ma_can_tim = set()
         xls = pd.ExcelFile(f_excel)
         sheet_names = xls.sheet_names
@@ -121,10 +148,7 @@ else:
             st.error("🚨 Không tìm thấy mã lô nào trong Excel!")
             st.stop()
 
-        # KẾT NỐI GEMINI AI
-        genai.configure(api_key=api_key_input.strip())
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        
+        # BƯỚC 2: QUÉT ẢNH TRỰC TIẾP QUA API
         ma_da_thay = {} 
         hinh_nghi_ngo = [] 
         
@@ -133,14 +157,12 @@ else:
             ptram = int(20 + (80 * (i + 1) / tong_hinh))
             progress_bar.progress(ptram, text=f"🤖 Trí tuệ nhân tạo đang soi tấm ảnh {i+1}/{tong_hinh}: {img_file.name}...")
             
-            image = Image.open(img_file)
+            img_bytes = img_file.getvalue()
+            image_obj = Image.open(io.BytesIO(img_bytes))
             
             try:
-                # Prompt ép AI chỉ đọc số và mã
-                prompt = "Bạn là chuyên gia kiểm kê. Hãy đọc toàn bộ chữ, số, mã vạch có trên nhãn sản phẩm trong ảnh này. Chỉ liệt kê các đoạn ký tự tìm được, không cần giải thích."
-                response = model.generate_content([prompt, image])
-                
-                ocr_text = response.text if response.text else ""
+                # Gọi hàm xử lý gốc, không qua thư viện SDK
+                ocr_text = quet_anh_bang_gemini_api(img_bytes, api_key_input)
                 chuoi_hinh_anh = ocr_text.upper().replace(" ", "").replace("-", "").replace("\n", "")
                 
                 tim_thay_trong_hinh = False
@@ -149,13 +171,13 @@ else:
                     if ma_clean in chuoi_hinh_anh:
                         if ma not in ma_da_thay:
                             ma_da_thay[ma] = []
-                        ma_da_thay[ma].append({'ten_file': img_file.name, 'hinh_anh': image})
+                        ma_da_thay[ma].append({'ten_file': img_file.name, 'hinh_anh': image_obj})
                         tim_thay_trong_hinh = True
                 
                 if not tim_thay_trong_hinh:
-                    hinh_nghi_ngo.append({'ten_file': img_file.name, 'hinh_anh': image, 'chu_nhan_dien': ocr_text})
+                    hinh_nghi_ngo.append({'ten_file': img_file.name, 'hinh_anh': image_obj, 'chu_nhan_dien': ocr_text})
                 
-                time.sleep(3) # Nghỉ 3 giây để Google không quét spam
+                time.sleep(3) # Nghỉ 3 giây để máy chủ Google không chặn spam
                 
             except Exception as e:
                 st.error(f"Lỗi AI ở ảnh {img_file.name}: {e}")
@@ -164,7 +186,7 @@ else:
         time.sleep(0.5)
         progress_bar.empty()
 
-        # BÁO CÁO UI & XUẤT EXCEL
+        # BƯỚC 3: XUẤT BÁO CÁO VÀ FILE EXCEL
         ma_thieu = ds_ma_can_tim - set(ma_da_thay.keys())
         
         st.markdown("### 📊 BẢNG TỔNG KẾT KIỂM KÊ")
