@@ -124,7 +124,7 @@ else:
 
         # BƯỚC 2: AI GEMINI ĐỌC HÌNH ẢNH
         # Chốt sử dụng model chuẩn gemini-1.5-flash
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-1.5-flash-latest')
         
         ma_da_thay = {} 
         hinh_nghi_ngo = [] 
