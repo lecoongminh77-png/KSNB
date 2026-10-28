@@ -74,7 +74,6 @@ if api_key_input:
                         danh_sach_model.append(ten_gọn)
             if danh_sach_model:
                 st.success("✅ Kết nối Google thành công!")
-                # Ưu tiên bản 2.0 mới nhất để né lỗi 404
                 if "gemini-2.0-flash" in danh_sach_model:
                     danh_sach_model.insert(0, danh_sach_model.pop(danh_sach_model.index("gemini-2.0-flash")))
                 selected_model = st.selectbox("🤖 Chọn Model (Nên dùng gemini-2.0-flash cho mượt):", danh_sach_model)
@@ -149,23 +148,19 @@ else:
             tong_anh = len(f_images)
             
             for i, img_file in enumerate(f_images):
-                # Cập nhật thanh tiến trình giao diện
                 phan_tram = int(((i) / tong_anh) * 100)
                 progress_bar.progress(phan_tram, text=f"Đang phân tích {i+1}/{tong_anh}: {img_file.name} ...")
                 
                 img_bytes = img_file.getvalue()
                 img = Image.open(io.BytesIO(img_bytes))
                 
-                # Ảnh gửi AI (Giữ size vừa đủ để AI đọc)
                 img_api = img.copy()
                 img_api.thumbnail((800, 800))
                 
-                # Ảnh lưu giao diện (Thu nhỏ để app không bị lag RAM)
                 img_ui = img.copy()
                 img_ui.thumbnail((300, 300))
                 
                 try:
-                    # Gửi ảnh lên Google
                     response = client.models.generate_content(
                         model=selected_model,
                         contents=["Hãy đọc tất cả chữ và số lô (batch code) trên nhãn mác này. Chỉ trả về nội dung bạn đọc được.", img_api],
@@ -192,7 +187,6 @@ else:
                 if i < tong_anh - 1:
                     time.sleep(4.5)
 
-            # Dọn dẹp RAM sau khi chạy
             gc.collect()
 
             progress_bar.progress(100, text="✅ Hoàn tất toàn bộ hình ảnh!")
