@@ -117,6 +117,7 @@ st.markdown("""
     .badge-green { background: #e3f8e5; color: #1e7e34; }
     .badge-blue { background: #e1f0ff; color: #0071e3; }
     .badge-purple { background: #e9e1ff; color: #5a2cbe; }
+    .badge-orange { background: #fff0e1; color: #e37100; }
     
     .card-title {
         font-size: 22px;
@@ -208,7 +209,7 @@ with col2:
 
 with col3:
     st.markdown("""
-    <div class="app-card">
+    <div class="app-card" style="margin-bottom: 20px;">
         <div>
             <span class="badge badge-blue">Quản Lý Tồn Kho</span>
             <div class="card-title">📦 Kiểm Tra Mẫu</div>
@@ -218,3 +219,15 @@ with col3:
     """, unsafe_allow_html=True)
     if st.button("Mở Kiểm Tra Mẫu ➔", key="btn_2356", use_container_width=True):
         st.switch_page("pages/Kiem_Tra_Mau.py")
+
+    st.markdown("""
+    <div class="app-card">
+        <div>
+            <span class="badge badge-orange">Trí Tuệ Nhân Tạo (AI)</span>
+            <div class="card-title">📸 Kiểm Kê Hình Ảnh</div>
+            <div class="card-desc">Dùng công nghệ OCR quét chữ viết trên ảnh tem thực tế để tự động dò tìm trong file Excel.</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("Mở Kiểm Kê Hình Ảnh ➔", key="btn_ocr", use_container_width=True):
+        st.switch_page("pages/kiem_tra_hinh_anh.py")
