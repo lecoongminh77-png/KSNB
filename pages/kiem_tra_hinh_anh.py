@@ -45,20 +45,14 @@ def parse_and_check_date(val, t_month, t_year):
     return False
 
 def quet_anh_bang_gemini_rest_api(image_bytes, api_key):
-    """Gửi trực tiếp ảnh lên Google AI, tự động nhận diện loại API Key"""
+    """Gửi trực tiếp ảnh lên Google API bằng URL nối thẳng Key (chuẩn xác nhất)"""
     base64_image = base64.b64encode(image_bytes).decode('utf-8')
-    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
-    
     api_key_clean = api_key.strip()
-    headers = {"Content-Type": "application/json"}
     
-    # 🌟 ĐIỂM CHỐT LỖI 401 NẰM Ở ĐÂY: Phân loại chìa khóa 
-    if api_key_clean.startswith("AIza"):
-        # Cắm ổ API Key chuẩn
-        headers["x-goog-api-key"] = api_key_clean
-    else:
-        # Cắm ổ Access Token / Service Account
-        headers["Authorization"] = f"Bearer {api_key_clean}"
+    # 🌟 FIX TẠI ĐÂY: Nối thẳng key vào URL giống hệt cấu trúc gốc của Google
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key_clean}"
+    
+    headers = {"Content-Type": "application/json"}
     
     payload = {
         "contents": [{
@@ -87,7 +81,7 @@ def quet_anh_bang_gemini_rest_api(image_bytes, api_key):
 # KHU VỰC TẢI DỮ LIỆU & NHẬP KEY
 # -------------------------------------------------------------
 st.markdown("### 🔑 Cấu hình Trí Tuệ Nhân Tạo (Gemini)")
-api_key_input = st.text_input("Nhập Google Gemini API Key:", type="password", help="Hỗ trợ cả key dạng AIza... và AQ.Ab8...")
+api_key_input = st.text_input("Nhập Google Gemini API Key:", type="password", help="Chấp nhận mọi định dạng API Key (AIza..., AQ.Ab8...)")
 
 st.markdown("<hr style='border-top: 1px dashed #ccc; margin: 20px 0;'>", unsafe_allow_html=True)
 
@@ -160,7 +154,6 @@ else:
             image_obj = Image.open(io.BytesIO(img_bytes))
             
             try:
-                # GỌI HÀM MỚI ĐỂ XỬ LÝ LỖI 401
                 ocr_text = quet_anh_bang_gemini_rest_api(img_bytes, api_key_input)
                 chuoi_hinh_anh = ocr_text.upper().replace(" ", "").replace("-", "").replace("\n", "")
                 
@@ -176,7 +169,7 @@ else:
                 if not tim_thay_trong_hinh:
                     hinh_nghi_ngo.append({'ten_file': img_file.name, 'hinh_anh': image_obj, 'chu_nhan_dien': ocr_text})
                 
-                time.sleep(3) # Nghỉ 3s chống chặn API vì spam
+                time.sleep(3) # Nghỉ 3s chống chặn API
                 
             except Exception as e:
                 st.error(f"Lỗi kết nối API ở ảnh {img_file.name}: {e}")
