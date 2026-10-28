@@ -61,7 +61,8 @@ def parse_and_check_date(val, t_month, t_year):
 # KHU VỰC NHẬP KEY & TẢI DỮ LIỆU
 # -------------------------------------------------------------
 st.markdown("### 🔑 Cấu hình Trí Tuệ Nhân Tạo (Gemini)")
-api_key_input = st.text_input("Dán Google Gemini API Key vào đây (Bắt đầu bằng AIza...):", type="password", help="Tuyệt đối không lưu Key này vào file code để tránh bị khóa.")
+# Đã sửa lại để chấp nhận mọi loại Key (AQ..., AIza...)
+api_key_input = st.text_input("Dán Google Gemini API Key vào đây:", type="password", help="Chấp nhận mọi chuẩn Key của Google.")
 
 st.markdown("<hr style='border-top: 1px dashed #ccc; margin: 20px 0;'>", unsafe_allow_html=True)
 
@@ -89,8 +90,8 @@ with col_upload2:
 # -------------------------------------------------------------
 if not f_excel or not f_images:
     st.info("👆 Hãy tải lên File Excel và Hình ảnh để AI bắt đầu quét.")
-elif not api_key_input or not api_key_input.startswith("AIza"):
-    st.warning("⚠️ Vui lòng dán chính xác API Key của Google (bắt đầu bằng AIza...) để tiếp tục.")
+elif not api_key_input:
+    st.warning("⚠️ Vui lòng dán API Key của bạn vào ô bên trên để tiếp tục.")
 else:
     progress_bar = st.progress(0, text="Đang bóc tách danh sách mã lô từ File Excel...")
     time.sleep(0.5)
