@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from PIL import Image
+from PIL import Image, ImageEnhance, ImageFilter
 import io
 import time
 import pytesseract
@@ -33,13 +33,13 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Nút quay về
+# Nút quay về Trang chủ
 col_home, _ = st.columns([1.5, 8.5])
 with col_home:
     if st.button('🏠 Trang chủ', type='primary', use_container_width=True):
         st.switch_page('app_ksnb.py')
 
-st.markdown("<h1 class='apple-main-title'>📸 AI Kiểm Kê Bằng Hình Ảnh (Bản Offline)</h1>", unsafe_allow_html=True)
+st.markdown("<h1 class='apple-main-title'>📸 AI Kiểm Kê Bằng Hình Ảnh (Bản Siêu Nét)</h1>", unsafe_allow_html=True)
 st.markdown("<hr style='border-top: 1px solid #e2e8f0; margin-bottom: 20px;'>", unsafe_allow_html=True)
 
 # -------------------------------------------------------------
@@ -76,10 +76,10 @@ with col_upload2:
         f_images = st.file_uploader("Tải hình ảnh", type=['jpg', 'jpeg', 'png'], accept_multiple_files=True, label_visibility="collapsed")
 
 # -------------------------------------------------------------
-# LOGIC XỬ LÝ
+# LOGIC XỬ LÝ (TESSERACT ĐƯỢC TĂNG CƯỜNG THỊ GIÁC)
 # -------------------------------------------------------------
 if not f_excel or not f_images:
-    st.info("👆 Hãy tải lên File Excel và Hình ảnh để AI bắt đầu quét.")
+    st.info("👆 Hãy tải lên File Excel và Hình ảnh để quét mã vạch.")
 else:
     progress_bar = st.progress(0, text="Đang bóc tách danh sách mã lô từ File Excel...")
     time.sleep(0.5)
@@ -110,22 +110,38 @@ else:
             st.error(f"🚨 Không tìm thấy mã lô nào thuộc tháng {thang_chon}/{nam_chon} trong file Excel!")
             st.stop()
 
-        # BƯỚC 2: AI ĐỌC HÌNH ẢNH (BẰNG TESSERACT - KHÔNG DÙNG API)
+        # BƯỚC 2: QUÉT ẢNH VỚI TESSERACT "ĐỘ"
         ma_da_thay = {} 
         hinh_nghi_ngo = [] 
         
         tong_hinh = len(f_images)
         for i, img_file in enumerate(f_images):
             ptram = int(20 + (80 * (i + 1) / tong_hinh))
-            progress_bar.progress(ptram, text=f"🤖 Đang quét tấm ảnh {i+1}/{tong_hinh}: {img_file.name}...")
+            progress_bar.progress(ptram, text=f"🔍 Đang rà soát tấm ảnh {i+1}/{tong_hinh}: {img_file.name}...")
             
-            # Đọc ảnh và chuyển sang hệ màu xám (Grayscale) để AI dễ đọc mã hơn
-            image = Image.open(img_file)
-            gray_image = image.convert('L')
+            # --- BỘ LỌC XỬ LÝ ẢNH TRƯỚC KHI ĐỌC ---
+            image_goc = Image.open(img_file)
+            
+            # 1. Phóng to ảnh x2 (giúp chữ to rõ hơn)
+            w, h = image_goc.size
+            img_to = image_goc.resize((w * 2, h * 2), Image.Resampling.LANCZOS)
+            
+            # 2. Chuyển sang ảnh Trắng Đen
+            img_gray = img_to.convert('L')
+            
+            # 3. Kéo Max Độ tương phản (chữ đen nền trắng)
+            enhancer = ImageEnhance.Contrast(img_gray)
+            img_contrast = enhancer.enhance(2.5) 
+            
+            # 4. Làm nét chữ
+            sharpener = ImageEnhance.Sharpness(img_contrast)
+            img_ready = sharpener.enhance(2.0)
             
             try:
-                # Quét text vèo vèo ngay trên máy chủ, không cần gửi lên mạng
-                ocr_text = pytesseract.image_to_string(gray_image)
+                # Ép Tesseract càn quét mọi khối chữ lộn xộn trên ảnh (--psm 11)
+                custom_config = r'--oem 3 --psm 11'
+                ocr_text = pytesseract.image_to_string(img_ready, config=custom_config)
+                
                 chuoi_hinh_anh = ocr_text.upper().replace(" ", "").replace("-", "").replace("\n", "")
                 
                 tim_thay_trong_hinh = False
@@ -134,14 +150,14 @@ else:
                     if ma_clean in chuoi_hinh_anh:
                         if ma not in ma_da_thay:
                             ma_da_thay[ma] = []
-                        ma_da_thay[ma].append({'ten_file': img_file.name, 'hinh_anh': image})
+                        ma_da_thay[ma].append({'ten_file': img_file.name, 'hinh_anh': image_goc})
                         tim_thay_trong_hinh = True
                 
                 if not tim_thay_trong_hinh:
-                    hinh_nghi_ngo.append({'ten_file': img_file.name, 'hinh_anh': image, 'chu_nhan_dien': ocr_text})
+                    hinh_nghi_ngo.append({'ten_file': img_file.name, 'hinh_anh': image_goc, 'chu_nhan_dien': ocr_text})
                 
             except Exception as e:
-                st.error(f"Lỗi ở ảnh {img_file.name}: Có thể máy chủ chưa cài tesseract-ocr (Thiếu file packages.txt). Chi tiết: {e}")
+                st.error(f"Lỗi phân tích ở ảnh {img_file.name}: {e}")
 
         progress_bar.progress(100, text="✅ Hoàn tất phân tích!")
         time.sleep(0.5)
@@ -186,7 +202,7 @@ else:
                 for item in hinh_nghi_ngo:
                     with st.expander(f"📷 {item['ten_file']}"):
                         st.image(item['hinh_anh'], use_container_width=True)
-                        st.caption("AI đọc được các chữ sau:")
+                        st.caption("🔍 Máy đọc được các chữ sau (nhưng không khớp mã Excel):")
                         st.write(item['chu_nhan_dien'])
             else:
                 st.success("Tất cả hình tải lên đều nhận diện thành công.")
