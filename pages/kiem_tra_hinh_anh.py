@@ -38,7 +38,7 @@ with col_home:
         try: st.switch_page('app_ksnb.py')
         except: pass
 
-st.markdown("<h1 class='apple-main-title'>📸 AI Kiểm Kê Hình Ảnh (Bản Gộp Siêu Tốc)</h1>", unsafe_allow_html=True)
+st.markdown("<h1 class='apple-main-title'>📸 AI Kiểm Kê Hình Ảnh (Bản Chuẩn - Chống Spam)</h1>", unsafe_allow_html=True)
 st.markdown("<hr style='border-top: 1px solid #e2e8f0; margin-bottom: 20px;'>", unsafe_allow_html=True)
 
 def parse_and_check_date(val, t_month, t_year):
@@ -50,7 +50,7 @@ def parse_and_check_date(val, t_month, t_year):
     return False
 
 # -------------------------------------------------------------
-# CẤU HÌNH GOOGLE GEMINI (ĐÚNG CHUẨN SFORUM)
+# CẤU HÌNH GOOGLE GEMINI
 # -------------------------------------------------------------
 st.markdown("### 🔑 Cấu hình Trí Tuệ Nhân Tạo (Google Gemini)")
 secret_key = ""
@@ -74,9 +74,10 @@ if api_key_input:
                         danh_sach_model.append(ten_gọn)
             if danh_sach_model:
                 st.success("✅ Kết nối Google thành công!")
-                if "gemini-1.5-flash" in danh_sach_model:
-                    danh_sach_model.insert(0, danh_sach_model.pop(danh_sach_model.index("gemini-1.5-flash")))
-                selected_model = st.selectbox("🤖 Chọn Model (Nên dùng gemini-1.5-flash cho mượt):", danh_sach_model)
+                # Ưu tiên bản 2.0 mới nhất để né lỗi 404
+                if "gemini-2.0-flash" in danh_sach_model:
+                    danh_sach_model.insert(0, danh_sach_model.pop(danh_sach_model.index("gemini-2.0-flash")))
+                selected_model = st.selectbox("🤖 Chọn Model (Nên dùng gemini-2.0-flash cho mượt):", danh_sach_model)
             else:
                 st.error("🚨 Không lấy được model từ Google.")
     except Exception as e:
@@ -104,14 +105,14 @@ with col_upload2:
         f_images = st.file_uploader("Tải nhiều hình ảnh", type=['jpg', 'jpeg', 'png'], accept_multiple_files=True, label_visibility="collapsed")
 
 # -------------------------------------------------------------
-# LOGIC GỘP 1 LẦN - TRIỆT TIÊU LỖI 503/429
+# LOGIC XỬ LÝ (TỪNG ẢNH + CHỐNG SPAM)
 # -------------------------------------------------------------
 if not f_excel or not f_images:
     st.info("👆 Hãy tải lên File Excel và Hình ảnh để AI bắt đầu quét.")
 elif not api_key_input or not selected_model:
     st.warning("⚠️ Vui lòng cấu hình Key và chọn Model bên trên để bắt đầu.")
 else:
-    btn_quet = st.button("🚀 BẮT ĐẦU QUÉT HÀNG LOẠT (KHÔNG SỢ CHẶN)", use_container_width=True)
+    btn_quet = st.button("🚀 BẮT ĐẦU QUÉT HÀNG LOẠT", use_container_width=True)
     
     if btn_quet:
         progress_bar = st.progress(0, text="Đang bóc tách mã từ Excel...")
@@ -142,93 +143,71 @@ else:
                 st.error("🚨 Không tìm thấy mã lô nào trong Excel!")
                 st.stop()
 
-            # 2. ĐÓNG GÓI TẤT CẢ ẢNH VÀO 1 LỆNH (ONE-SHOT)
-            progress_bar.progress(30, text=f"Đang nén và đóng gói {len(f_images)} bức ảnh thành 1 hộp...")
+            # 2. XỬ LÝ TỪNG ẢNH (CHỐNG SPAM 100%)
+            ma_da_thay = {} 
+            hinh_nghi_ngo = [] 
+            tong_anh = len(f_images)
             
-            contents = [
-                "Hãy đọc chữ và số lô trên các nhãn mác trong các bức ảnh dưới đây. "
-                "Tôi đã ghi chú 'TÊN FILE:' trước mỗi ảnh. Bạn phải trả lời ĐÚNG cấu trúc sau:\n\n"
-                "TÊN FILE: <tên file>\nNỘI DUNG: <các mã đọc được>\n---\n"
-            ]
-            
-            dict_hinh_anh = {}
-            
-            for img_file in f_images:
+            for i, img_file in enumerate(f_images):
+                # Cập nhật thanh tiến trình giao diện
+                phan_tram = int(((i) / tong_anh) * 100)
+                progress_bar.progress(phan_tram, text=f"Đang phân tích {i+1}/{tong_anh}: {img_file.name} ...")
+                
                 img_bytes = img_file.getvalue()
                 img = Image.open(io.BytesIO(img_bytes))
                 
-                # Ảnh nén gửi AI (nhẹ)
+                # Ảnh gửi AI (Giữ size vừa đủ để AI đọc)
                 img_api = img.copy()
                 img_api.thumbnail((800, 800))
                 
-                # Ảnh nén cho giao diện
+                # Ảnh lưu giao diện (Thu nhỏ để app không bị lag RAM)
                 img_ui = img.copy()
                 img_ui.thumbnail((300, 300))
-                dict_hinh_anh[img_file.name] = img_ui
                 
-                # Nhét vào thùng hàng gửi AI
-                contents.append(f"TÊN FILE: {img_file.name}")
-                contents.append(img_api)
+                try:
+                    # Gửi ảnh lên Google
+                    response = client.models.generate_content(
+                        model=selected_model,
+                        contents=["Hãy đọc tất cả chữ và số lô (batch code) trên nhãn mác này. Chỉ trả về nội dung bạn đọc được.", img_api],
+                        config=types.GenerateContentConfig(temperature=0.1)
+                    )
+                    chuoi_hinh_anh = (response.text or "").upper().replace(" ", "").replace("-", "").replace("\n", "")
+                    
+                    tim_thay = False
+                    for ma in ds_ma_can_tim:
+                        ma_clean = ma.replace(" ", "").replace("-", "")
+                        if ma_clean in chuoi_hinh_anh:
+                            if ma not in ma_da_thay:
+                                ma_da_thay[ma] = []
+                            ma_da_thay[ma].append({'ten_file': img_file.name, 'hinh_anh': img_ui})
+                            tim_thay = True
+                    
+                    if not tim_thay:
+                        hinh_nghi_ngo.append({'ten_file': img_file.name, 'hinh_anh': img_ui, 'chu_nhan_dien': chuoi_hinh_anh})
+                
+                except Exception as e:
+                    st.error(f"Lỗi ở ảnh {img_file.name}: {e}")
+                
+                # NGHỈ 4.5 GIÂY CHỐNG SPAM
+                if i < tong_anh - 1:
+                    time.sleep(4.5)
 
-            # 3. GỌI GOOGLE ĐÚNG 1 LẦN (Né 100% lỗi spam/quá tải)
-            progress_bar.progress(60, text="Đang gửi gói hàng khổng lồ lên AI Google phân tích (Chỉ gọi 1 lần duy nhất)...")
-            
-            response = client.models.generate_content(
-                model=selected_model,
-                contents=contents,
-                config=types.GenerateContentConfig(temperature=0.1)
-            )
-            
-            raw_text = response.text if response.text else ""
-            
-            progress_bar.progress(90, text="Đang khớp dữ liệu AI trả về với bảng Excel...")
-            
-            # 4. TÁCH KẾT QUẢ AI TRẢ VỀ
-            ocr_results = {}
-            blocks = raw_text.split("TÊN FILE:")
-            for block in blocks:
-                if "NỘI DUNG:" in block:
-                    parts = block.split("NỘI DUNG:")
-                    fname = parts[0].strip()
-                    content = parts[1].split("---")[0].strip().upper().replace(" ", "").replace("-", "").replace("\n", "")
-                    ocr_results[fname] = content
-
-            ma_da_thay = {} 
-            hinh_nghi_ngo = [] 
-            
-            for img_file in f_images:
-                fname = img_file.name
-                # Lấy text AI đọc được cho file này (nếu AI đọc sót thì chuỗi rỗng)
-                chuoi_hinh_anh = ocr_results.get(fname, "") 
-                
-                tim_thay = False
-                for ma in ds_ma_can_tim:
-                    ma_clean = ma.replace(" ", "").replace("-", "")
-                    if ma_clean in chuoi_hinh_anh:
-                        if ma not in ma_da_thay:
-                            ma_da_thay[ma] = []
-                        ma_da_thay[ma].append({'ten_file': fname, 'hinh_anh': dict_hinh_anh[fname]})
-                        tim_thay = True
-                
-                if not tim_thay:
-                    hinh_nghi_ngo.append({'ten_file': fname, 'hinh_anh': dict_hinh_anh[fname], 'chu_nhan_dien': chuoi_hinh_anh})
-            
-            del contents
+            # Dọn dẹp RAM sau khi chạy
             gc.collect()
 
-            progress_bar.progress(100, text="✅ Hoàn tất!")
-            time.sleep(0.5)
+            progress_bar.progress(100, text="✅ Hoàn tất toàn bộ hình ảnh!")
+            time.sleep(1)
             progress_bar.empty()
 
-            # 5. XUẤT BÁO CÁO NHƯ CŨ
+            # 3. XUẤT BÁO CÁO VÀ GIAO DIỆN
             ma_thieu = ds_ma_can_tim - set(ma_da_thay.keys())
             
             st.markdown("### 📊 BẢNG TỔNG KẾT KIỂM KÊ")
             col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-            col_m1.metric("📋 Tổng Mã", f"{len(ds_ma_can_tim)} Lô")
+            col_m1.metric("📋 Tổng Mã Excel", f"{len(ds_ma_can_tim)} Lô")
             col_m2.metric("✅ Có Hình", f"{len(ma_da_thay)} Lô")
             col_m3.metric("❌ Thiếu Hình", f"{len(ma_thieu)} Lô", delta=f"{len(ma_thieu)} lô thiếu", delta_color="inverse")
-            col_m4.metric("⚠️ Nghi Ngờ", f"{len(hinh_nghi_ngo)} Ảnh", delta=f"{len(hinh_nghi_ngo)} lỗi", delta_color="inverse")
+            col_m4.metric("⚠️ Nghi Ngờ", f"{len(hinh_nghi_ngo)} Ảnh", delta=f"{len(hinh_nghi_ngo)} ảnh", delta_color="inverse")
 
             st.markdown("<br>", unsafe_allow_html=True)
             col_c1, col_c2, col_c3 = st.columns(3, gap="medium")
@@ -254,7 +233,7 @@ else:
                 st.markdown("</div>", unsafe_allow_html=True)
 
             with col_c3:
-                st.markdown("<div class='list-box'><h4 style='color:#e37100; margin-top:0;'>⚠️ HÌNH ẢNH NGHI NGỜ</h4>", unsafe_allow_html=True)
+                st.markdown("<div class='list-box'><h4 style='color:#e37100; margin-top:0;'>⚠️ HÌNH ẢNH NGHI NGỜ (Không khớp mã)</h4>", unsafe_allow_html=True)
                 if len(hinh_nghi_ngo) > 0:
                     for item in hinh_nghi_ngo:
                         with st.expander(f"📷 {item['ten_file']}"):
@@ -282,11 +261,11 @@ else:
                 df_bb.to_excel(writer, index=False, sheet_name='Kiem_Ke')
                 
             st.download_button(
-                label="📥 Tải Xuống Biên Bản Kiểm Kê", 
+                label="📥 Tải Xuống Biên Bản Kiểm Kê (Excel)", 
                 data=output.getvalue(), 
                 file_name=f"Bien_Ban_Kiem_Ke_{chuoi_yymm}.xlsx", 
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
 
         except Exception as e:
-            st.error(f"Lỗi phân tích: {e}")
+            st.error(f"Lỗi phân tích hệ thống: {e}")
