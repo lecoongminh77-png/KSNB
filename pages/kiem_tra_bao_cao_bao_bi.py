@@ -318,14 +318,14 @@ Thời gian: Chọn đúng tháng đang kiểm tra.
             st.markdown("### 📊 DASHBOARD: ĐỐI CHIẾU ERP 105 & NXT NGUYÊN LIỆU")
             
             try:
-                # 1. Chuẩn bị dữ liệu 105 (Gom nhóm theo Lô)
+                # 1. Chuẩn bị dữ liệu 105 (Gom nhóm theo Lô, GIỮ NGUYÊN SỐ ÂM)
                 df_105_raw = pd.read_excel(f_105, header=None, skiprows=11)
                 df_105_raw['Mã Lô 105'] = df_105_raw[5].apply(clean_ma_lo)
-                df_105_raw['Khối Lượng 105'] = pd.to_numeric(df_105_raw[9], errors='coerce').fillna(0).abs()
+                df_105_raw['Khối Lượng 105'] = pd.to_numeric(df_105_raw[9], errors='coerce').fillna(0)
                 
                 df_105_grouped = df_105_raw[df_105_raw['Mã Lô 105'] != ""].groupby('Mã Lô 105', as_index=False)['Khối Lượng 105'].sum()
 
-                # 2. Chuẩn bị dữ liệu NXT NGUYÊN LIỆU
+                # 2. Chuẩn bị dữ liệu NXT NGUYÊN LIỆU (LẤY CỘT H DƯƠNG)
                 nl_sheet_name = next((s for s in bc_sheets if "NXT NGUYEN LIEU" in s.upper()), None)
                 if not nl_sheet_name:
                     st.error("🚨 Không tìm thấy sheet có tên 'NXT NGUYEN LIEU' trong Báo cáo.")
@@ -334,9 +334,12 @@ Thời gian: Chọn đúng tháng đang kiểm tra.
                     dict_nl = {}
                     for idx, row in df_nl.iterrows():
                         ma_lo_nxt = clean_ma_lo(row[1])
-                        kl_nxt = abs(pd.to_numeric(row[16], errors='coerce')) if pd.notna(row[16]) else 0
+                        # Lấy cột H (Index 7)
+                        kl_nxt = pd.to_numeric(row[7], errors='coerce') if pd.notna(row[7]) else 0
+                        
                         if ma_lo_nxt != "":
-                            dict_nl[ma_lo_nxt] = kl_nxt
+                            # Nếu mã lô xuất hiện nhiều dòng bên NXT thì cộng dồn số dương
+                            dict_nl[ma_lo_nxt] = dict_nl.get(ma_lo_nxt, 0) + kl_nxt
 
                     # 3. Đối chiếu và tính Delta
                     ket_qua_105 = []
@@ -345,13 +348,15 @@ Thời gian: Chọn đúng tháng đang kiểm tra.
 
                     for idx, row in df_105_grouped.iterrows():
                         ma_105 = row['Mã Lô 105']
-                        kl_105 = row['Khối Lượng 105']
+                        kl_105 = row['Khối Lượng 105'] # Số âm
                         
                         if ma_105 in dict_nl:
-                            kl_nxt = dict_nl[ma_105]
-                            chenh_lech = kl_105 - kl_nxt
+                            kl_nxt = dict_nl[ma_105] # Số dương
                             
-                            if round(kl_105, 2) == round(kl_nxt, 2):
+                            # Cộng hai số lại, nếu bằng 0 là Đạt
+                            chenh_lech = kl_105 + kl_nxt 
+                            
+                            if round(chenh_lech, 2) == 0:
                                 trang_thai = "Đạt"
                                 so_dat += 1
                             else:
@@ -360,13 +365,13 @@ Thời gian: Chọn đúng tháng đang kiểm tra.
                         else:
                             kl_nxt = 0
                             chenh_lech = kl_105
-                            trang_thai = "Không có thông tin trên ERP"
+                            trang_thai = "Không có thông tin trên ERP (NXT)"
                             so_thieu += 1
                             
                         ket_qua_105.append({
                             'Mã Lô': ma_105,
-                            'Khối Lượng ERP (105)': kl_105,
-                            'Khối Lượng Thực (NXT)': kl_nxt,
+                            'Khối Lượng ERP 105 (Âm)': kl_105,
+                            'Khối Lượng Thực NXT (Dương)': kl_nxt,
                             'Chênh Lệch (kg)': round(chenh_lech, 2),
                             'Trạng Thái': trang_thai
                         })
@@ -409,7 +414,7 @@ Thời gian: Chọn đúng tháng đang kiểm tra.
                                     elif trang_thai_val == "Lệch khối lượng":
                                         cell.fill = fill_yellow
                                         cell.font = font_yellow
-                                    elif trang_thai_val == "Không có thông tin trên ERP":
+                                    elif "Không có thông tin" in str(trang_thai_val):
                                         cell.fill = fill_red
                                         cell.font = font_red
                                         
