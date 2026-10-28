@@ -116,6 +116,7 @@ st.markdown("""
     }
     .badge-green { background: #e3f8e5; color: #1e7e34; }
     .badge-blue { background: #e1f0ff; color: #0071e3; }
+    .badge-purple { background: #e9e1ff; color: #5a2cbe; }
     
     .card-title {
         font-size: 22px;
@@ -157,7 +158,7 @@ _, col1, col2, col3, _ = st.columns([0.2, 3, 3, 3, 0.2], gap="medium")
 
 with col1:
     st.markdown("""
-    <div class="app-card">
+    <div class="app-card" style="margin-bottom: 20px;">
         <div>
             <span class="badge badge-green">Trạm Cân & ERP</span>
             <div class="card-title">🚛 Hàng Ra Cổng</div>
@@ -167,6 +168,18 @@ with col1:
     """, unsafe_allow_html=True)
     if st.button("Mở Đối Soát Cổng ➔", key="btn_cong", use_container_width=True):
         st.switch_page("pages/Kiem_Tra_Ra_Cong.py")
+        
+    st.markdown("""
+    <div class="app-card">
+        <div>
+            <span class="badge badge-purple">Sản Xuất & ERP</span>
+            <div class="card-title">🏭 Báo Cáo Cắt Tấm</div>
+            <div class="card-desc">Kiểm soát âm số tấm, đối chiếu số lô giữa Báo Cáo Bao Bì và ERP OPM 105.</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("Mở Đối Soát Cắt Tấm ➔", key="btn_baobi", use_container_width=True):
+        st.switch_page("pages/kiem_tra_bao_cao_bao_bi.py")
 
 with col2:
     st.markdown("""
