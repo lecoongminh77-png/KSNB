@@ -9,3 +9,4 @@ xlrd
 python-calamine
 pillow
 requests
+google-genai
