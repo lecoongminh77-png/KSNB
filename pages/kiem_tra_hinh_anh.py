@@ -42,11 +42,11 @@ with col_home:
             st.switch_page('app_ksnb.py')
         except: pass
 
-st.markdown("<h1 class='apple-main-title'>📸 AI Kiểm Kê Bằng Hình Ảnh (Groq Llama 4 Scout)</h1>", unsafe_allow_html=True)
+st.markdown("<h1 class='apple-main-title'>📸 AI Kiểm Kê Bằng Hình Ảnh (Groq Qwen 3.8)</h1>", unsafe_allow_html=True)
 st.markdown("<hr style='border-top: 1px solid #e2e8f0; margin-bottom: 20px;'>", unsafe_allow_html=True)
 
 # -------------------------------------------------------------
-# HÀM GỌI AI GROQ (ĐÃ SỬA CHUẨN TÊN MODEL)
+# HÀM GỌI AI GROQ (ĐÃ SỬA CHUẨN TÊN MODEL QUEN)
 # -------------------------------------------------------------
 def parse_and_check_date(val, t_month, t_year):
     if pd.isna(val) or str(val).strip() == "": return False
@@ -57,7 +57,7 @@ def parse_and_check_date(val, t_month, t_year):
     return False
 
 def quet_anh_bang_groq(image_bytes, api_key, max_retries=3):
-    """Gửi ảnh lên siêu máy chủ Groq bằng Llama 4 Scout Vision"""
+    """Gửi ảnh lên siêu máy chủ Groq bằng Qwen 3.8 27B Vision"""
     # 1. Ép dung lượng ảnh nhỏ lại để gửi siêu nhanh
     img_goc = Image.open(io.BytesIO(image_bytes))
     img_goc.thumbnail((1024, 1024))
@@ -72,8 +72,8 @@ def quet_anh_bang_groq(image_bytes, api_key, max_retries=3):
         "Content-Type": "application/json"
     }
     payload = {
-        # Đã vá lỗi thêm tiền tố meta-llama/ vào tên model chuẩn
-        "model": "meta-llama/llama-4-scout-17b-16e-instruct", 
+        # SỬ DỤNG ĐÚNG MODEL VISION ĐANG HOẠT ĐỘNG CỦA GROQ
+        "model": "qwen/qwen3.8-27b", 
         "messages": [
             {
                 "role": "user",
@@ -92,8 +92,8 @@ def quet_anh_bang_groq(image_bytes, api_key, max_retries=3):
             response = requests.post(url, headers=headers, json=payload, timeout=30)
             if response.status_code == 200:
                 return response.json()['choices'][0]['message']['content']
-            elif response.status_code == 429: # Lỗi gọi quá nhanh
-                time.sleep(5) # Nghỉ 5s rồi thử lại
+            elif response.status_code == 429: 
+                time.sleep(5) 
                 continue
             else:
                 return f"LỖI: {response.text}"
@@ -204,7 +204,7 @@ else:
                 if not tim_thay_trong_hinh and "LỖI" not in ocr_text:
                     hinh_nghi_ngo.append({'ten_file': img_file.name, 'hinh_anh': image_hien_thi.copy(), 'chu_nhan_dien': ocr_text})
                 
-                # Dọn RAM & Nghỉ 2.5 giây để KHÔNG BAO GIỜ chạm mốc giới hạn (30 ảnh/phút) của máy chủ
+                # Dọn RAM & Nghỉ 2.5 giây để KHÔNG BAO GIỜ chạm mốc giới hạn của máy chủ
                 del image_hien_thi, img_bytes
                 gc.collect()
                 time.sleep(2.5)
