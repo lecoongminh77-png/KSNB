@@ -1,12 +1,16 @@
 import streamlit as st
 import pandas as pd
-from PIL import Image, ImageEnhance, ImageFilter
+from PIL import Image
 import io
 import time
-import pytesseract
+
+try:
+    import google.generativeai as genai
+except ImportError:
+    st.error("⚠️ Bạn chưa cài thư viện google-generativeai trong file requirements.txt!")
 
 # -------------------------------------------------------------
-# CẤU HÌNH GIAO DIỆN & MÀU SẮC
+# CẤU HÌNH GIAO DIỆN
 # -------------------------------------------------------------
 st.set_page_config(page_title='Kiểm Kê Bằng Hình Ảnh', page_icon='📸', layout='wide')
 
@@ -39,7 +43,7 @@ with col_home:
     if st.button('🏠 Trang chủ', type='primary', use_container_width=True):
         st.switch_page('app_ksnb.py')
 
-st.markdown("<h1 class='apple-main-title'>📸 AI Kiểm Kê Bằng Hình Ảnh (Bản Siêu Nét)</h1>", unsafe_allow_html=True)
+st.markdown("<h1 class='apple-main-title'>📸 AI Kiểm Kê Bằng Hình Ảnh</h1>", unsafe_allow_html=True)
 st.markdown("<hr style='border-top: 1px solid #e2e8f0; margin-bottom: 20px;'>", unsafe_allow_html=True)
 
 # -------------------------------------------------------------
@@ -54,8 +58,13 @@ def parse_and_check_date(val, t_month, t_year):
     return False
 
 # -------------------------------------------------------------
-# KHU VỰC TẢI DỮ LIỆU
+# KHU VỰC NHẬP KEY & TẢI DỮ LIỆU
 # -------------------------------------------------------------
+st.markdown("### 🔑 Cấu hình Trí Tuệ Nhân Tạo (Gemini)")
+api_key_input = st.text_input("Dán Google Gemini API Key vào đây (Bắt đầu bằng AIza...):", type="password", help="Tuyệt đối không lưu Key này vào file code để tránh bị khóa.")
+
+st.markdown("<hr style='border-top: 1px dashed #ccc; margin: 20px 0;'>", unsafe_allow_html=True)
+
 st.markdown("### 📥 1. Thiết Lập Mốc Thời Gian Kiểm Kê")
 col_t1, col_t2, _ = st.columns([2, 2, 6])
 with col_t1: thang_chon = st.selectbox('Chọn Tháng', list(range(1, 13)), index=9)
@@ -76,16 +85,18 @@ with col_upload2:
         f_images = st.file_uploader("Tải hình ảnh", type=['jpg', 'jpeg', 'png'], accept_multiple_files=True, label_visibility="collapsed")
 
 # -------------------------------------------------------------
-# LOGIC XỬ LÝ (TESSERACT ĐƯỢC TĂNG CƯỜNG THỊ GIÁC)
+# LOGIC XỬ LÝ AI
 # -------------------------------------------------------------
 if not f_excel or not f_images:
-    st.info("👆 Hãy tải lên File Excel và Hình ảnh để quét mã vạch.")
+    st.info("👆 Hãy tải lên File Excel và Hình ảnh để AI bắt đầu quét.")
+elif not api_key_input or not api_key_input.startswith("AIza"):
+    st.warning("⚠️ Vui lòng dán chính xác API Key của Google (bắt đầu bằng AIza...) để tiếp tục.")
 else:
     progress_bar = st.progress(0, text="Đang bóc tách danh sách mã lô từ File Excel...")
     time.sleep(0.5)
 
     try:
-        # BƯỚC 1: LỌC DANH SÁCH MÃ TỪ EXCEL
+        # LỌC MÃ EXCEL
         ds_ma_can_tim = set()
         xls = pd.ExcelFile(f_excel)
         sheet_names = xls.sheet_names
@@ -106,42 +117,29 @@ else:
                     if ma and ma != 'NAN' and len(ma) > 3: ds_ma_can_tim.add(ma)
 
         if len(ds_ma_can_tim) == 0:
-            progress_bar.empty()
-            st.error(f"🚨 Không tìm thấy mã lô nào thuộc tháng {thang_chon}/{nam_chon} trong file Excel!")
+            st.error("🚨 Không tìm thấy mã lô nào trong Excel!")
             st.stop()
 
-        # BƯỚC 2: QUÉT ẢNH VỚI TESSERACT "ĐỘ"
+        # KẾT NỐI GEMINI AI
+        genai.configure(api_key=api_key_input.strip())
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        
         ma_da_thay = {} 
         hinh_nghi_ngo = [] 
         
         tong_hinh = len(f_images)
         for i, img_file in enumerate(f_images):
             ptram = int(20 + (80 * (i + 1) / tong_hinh))
-            progress_bar.progress(ptram, text=f"🔍 Đang rà soát tấm ảnh {i+1}/{tong_hinh}: {img_file.name}...")
+            progress_bar.progress(ptram, text=f"🤖 Trí tuệ nhân tạo đang soi tấm ảnh {i+1}/{tong_hinh}: {img_file.name}...")
             
-            # --- BỘ LỌC XỬ LÝ ẢNH TRƯỚC KHI ĐỌC ---
-            image_goc = Image.open(img_file)
-            
-            # 1. Phóng to ảnh x2 (giúp chữ to rõ hơn)
-            w, h = image_goc.size
-            img_to = image_goc.resize((w * 2, h * 2), Image.Resampling.LANCZOS)
-            
-            # 2. Chuyển sang ảnh Trắng Đen
-            img_gray = img_to.convert('L')
-            
-            # 3. Kéo Max Độ tương phản (chữ đen nền trắng)
-            enhancer = ImageEnhance.Contrast(img_gray)
-            img_contrast = enhancer.enhance(2.5) 
-            
-            # 4. Làm nét chữ
-            sharpener = ImageEnhance.Sharpness(img_contrast)
-            img_ready = sharpener.enhance(2.0)
+            image = Image.open(img_file)
             
             try:
-                # Ép Tesseract càn quét mọi khối chữ lộn xộn trên ảnh (--psm 11)
-                custom_config = r'--oem 3 --psm 11'
-                ocr_text = pytesseract.image_to_string(img_ready, config=custom_config)
+                # Prompt ép AI chỉ đọc số và mã
+                prompt = "Bạn là chuyên gia kiểm kê. Hãy đọc toàn bộ chữ, số, mã vạch có trên nhãn sản phẩm trong ảnh này. Chỉ liệt kê các đoạn ký tự tìm được, không cần giải thích."
+                response = model.generate_content([prompt, image])
                 
+                ocr_text = response.text if response.text else ""
                 chuoi_hinh_anh = ocr_text.upper().replace(" ", "").replace("-", "").replace("\n", "")
                 
                 tim_thay_trong_hinh = False
@@ -150,20 +148,22 @@ else:
                     if ma_clean in chuoi_hinh_anh:
                         if ma not in ma_da_thay:
                             ma_da_thay[ma] = []
-                        ma_da_thay[ma].append({'ten_file': img_file.name, 'hinh_anh': image_goc})
+                        ma_da_thay[ma].append({'ten_file': img_file.name, 'hinh_anh': image})
                         tim_thay_trong_hinh = True
                 
                 if not tim_thay_trong_hinh:
-                    hinh_nghi_ngo.append({'ten_file': img_file.name, 'hinh_anh': image_goc, 'chu_nhan_dien': ocr_text})
+                    hinh_nghi_ngo.append({'ten_file': img_file.name, 'hinh_anh': image, 'chu_nhan_dien': ocr_text})
+                
+                time.sleep(3) # Nghỉ 3 giây để Google không quét spam
                 
             except Exception as e:
-                st.error(f"Lỗi phân tích ở ảnh {img_file.name}: {e}")
+                st.error(f"Lỗi AI ở ảnh {img_file.name}: {e}")
 
-        progress_bar.progress(100, text="✅ Hoàn tất phân tích!")
+        progress_bar.progress(100, text="✅ Hoàn tất phân tích bằng AI!")
         time.sleep(0.5)
         progress_bar.empty()
 
-        # BƯỚC 3: BÁO CÁO UI & XUẤT EXCEL
+        # BÁO CÁO UI & XUẤT EXCEL
         ma_thieu = ds_ma_can_tim - set(ma_da_thay.keys())
         
         st.markdown("### 📊 BẢNG TỔNG KẾT KIỂM KÊ")
@@ -202,7 +202,7 @@ else:
                 for item in hinh_nghi_ngo:
                     with st.expander(f"📷 {item['ten_file']}"):
                         st.image(item['hinh_anh'], use_container_width=True)
-                        st.caption("🔍 Máy đọc được các chữ sau (nhưng không khớp mã Excel):")
+                        st.caption("AI đọc được các chữ sau:")
                         st.write(item['chu_nhan_dien'])
             else:
                 st.success("Tất cả hình tải lên đều nhận diện thành công.")
