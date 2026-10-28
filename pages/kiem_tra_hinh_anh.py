@@ -3,8 +3,10 @@ import pandas as pd
 from PIL import Image
 import io
 import time
-import requests
 import gc
+import re
+from google import genai
+from google.genai import types
 
 # -------------------------------------------------------------
 # CẤU HÌNH GIAO DIỆN
@@ -27,26 +29,18 @@ st.markdown("""
         color: white !important;
         border-color: #007aff !important;
     }
-    button[kind="primary"]:hover {
-        background-color: #0056b3 !important;
-        border-color: #0056b3 !important;
-    }
 </style>
 """, unsafe_allow_html=True)
 
 col_home, _ = st.columns([1.5, 8.5])
 with col_home:
     if st.button('🏠 Trang chủ', type='primary', use_container_width=True):
-        try:
-            st.switch_page('app_ksnb.py')
+        try: st.switch_page('app_ksnb.py')
         except: pass
 
-st.markdown("<h1 class='apple-main-title'>📸 Quét Hình Ảnh (OCR.Space Engine)</h1>", unsafe_allow_html=True)
+st.markdown("<h1 class='apple-main-title'>📸 AI Kiểm Kê Hình Ảnh (Bản Gộp Siêu Tốc)</h1>", unsafe_allow_html=True)
 st.markdown("<hr style='border-top: 1px solid #e2e8f0; margin-bottom: 20px;'>", unsafe_allow_html=True)
 
-# -------------------------------------------------------------
-# HÀM HỖ TRỢ & KẾT NỐI OCR CHUYÊN DỤNG
-# -------------------------------------------------------------
 def parse_and_check_date(val, t_month, t_year):
     if pd.isna(val) or str(val).strip() == "": return False
     try:
@@ -55,44 +49,38 @@ def parse_and_check_date(val, t_month, t_year):
     except: pass
     return False
 
-def quet_anh_bang_ocr_space(image_bytes, api_key):
-    """Máy chủ OCR chuyên dụng: Quét siêu chuẩn bằng Engine 2"""
-    # Ép ảnh dưới 1MB (Giới hạn của OCR.Space Free)
-    img = Image.open(io.BytesIO(image_bytes))
-    img.thumbnail((1200, 1200)) 
-    buffered = io.BytesIO()
-    img.save(buffered, format="JPEG", quality=85)
-    compressed_bytes = buffered.getvalue()
-
-    url = 'https://api.ocr.space/parse/image'
-    payload = {
-        'apikey': api_key.strip(),
-        'language': 'eng', # Tối ưu quét số và mã ký tự
-        'isOverlayRequired': False,
-        'OCREngine': 2, # Engine 2 chuyên quét nhãn mác lộn xộn, số lô
-        'scale': True # Tự động phóng to ảnh để đọc chữ nhỏ
-    }
-    files = {'file': ('image.jpg', compressed_bytes, 'image/jpeg')}
-    
-    response = requests.post(url, data=payload, files=files)
-    
-    if response.status_code == 200:
-        result = response.json()
-        if result.get('IsErroredOnProcessing'):
-            return f"LỖI: {result.get('ErrorMessage', [''])[0]}"
-            
-        parsed_text = ""
-        for item in result.get('ParsedResults', []):
-            parsed_text += item.get('ParsedText', '') + "\n"
-        return parsed_text
-    else:
-        return f"LỖI MẠNG: {response.status_code}"
-
 # -------------------------------------------------------------
-# KHU VỰC GIAO DIỆN CHÍNH
+# CẤU HÌNH GOOGLE GEMINI (ĐÚNG CHUẨN SFORUM)
 # -------------------------------------------------------------
-st.markdown("### 🔑 Cấu hình Máy Quét OCR")
-api_key_input = st.text_input("Dán mã API Key của OCR.Space vào đây (Bắt đầu bằng K...):", type="password")
+st.markdown("### 🔑 Cấu hình Trí Tuệ Nhân Tạo (Google Gemini)")
+secret_key = ""
+try: secret_key = st.secrets.get("GEMINI_API_KEY", "")
+except: pass
+
+api_key_input = st.text_input("Dán Google Gemini API Key vào đây:", value=secret_key, type="password")
+
+selected_model = None
+client = None
+
+if api_key_input:
+    try:
+        client = genai.Client(api_key=api_key_input.strip())
+        with st.spinner("Đang kết nối lấy danh sách AI..."):
+            danh_sach_model = []
+            for m in client.models.list():
+                if "gemini" in m.name:
+                    ten_gọn = m.name.replace("models/", "")
+                    if ten_gọn not in danh_sach_model:
+                        danh_sach_model.append(ten_gọn)
+            if danh_sach_model:
+                st.success("✅ Kết nối Google thành công!")
+                if "gemini-1.5-flash" in danh_sach_model:
+                    danh_sach_model.insert(0, danh_sach_model.pop(danh_sach_model.index("gemini-1.5-flash")))
+                selected_model = st.selectbox("🤖 Chọn Model (Nên dùng gemini-1.5-flash cho mượt):", danh_sach_model)
+            else:
+                st.error("🚨 Không lấy được model từ Google.")
+    except Exception as e:
+        st.error(f"❌ Lỗi kết nối Key: {e}")
 
 st.markdown("<hr style='border-top: 1px dashed #ccc; margin: 20px 0;'>", unsafe_allow_html=True)
 
@@ -116,17 +104,17 @@ with col_upload2:
         f_images = st.file_uploader("Tải nhiều hình ảnh", type=['jpg', 'jpeg', 'png'], accept_multiple_files=True, label_visibility="collapsed")
 
 # -------------------------------------------------------------
-# LOGIC XỬ LÝ ẢNH
+# LOGIC GỘP 1 LẦN - TRIỆT TIÊU LỖI 503/429
 # -------------------------------------------------------------
 if not f_excel or not f_images:
-    st.info("👆 Hãy tải lên File Excel và Hình ảnh để bắt đầu quét.")
-elif not api_key_input:
-    st.warning("⚠️ Vui lòng dán Key API OCR.Space vào ô bên trên.")
+    st.info("👆 Hãy tải lên File Excel và Hình ảnh để AI bắt đầu quét.")
+elif not api_key_input or not selected_model:
+    st.warning("⚠️ Vui lòng cấu hình Key và chọn Model bên trên để bắt đầu.")
 else:
-    btn_quet = st.button("🚀 BẮT ĐẦU QUÉT KIỂM KÊ", use_container_width=True)
+    btn_quet = st.button("🚀 BẮT ĐẦU QUÉT HÀNG LOẠT (KHÔNG SỢ CHẶN)", use_container_width=True)
     
     if btn_quet:
-        progress_bar = st.progress(0, text="Đang bóc tách danh sách mã lô từ File Excel...")
+        progress_bar = st.progress(0, text="Đang bóc tách mã từ Excel...")
         time.sleep(0.5)
 
         try:
@@ -154,49 +142,85 @@ else:
                 st.error("🚨 Không tìm thấy mã lô nào trong Excel!")
                 st.stop()
 
-            # 2. QUÉT ẢNH CHỐNG TRÀN RAM
+            # 2. ĐÓNG GÓI TẤT CẢ ẢNH VÀO 1 LỆNH (ONE-SHOT)
+            progress_bar.progress(30, text=f"Đang nén và đóng gói {len(f_images)} bức ảnh thành 1 hộp...")
+            
+            contents = [
+                "Hãy đọc chữ và số lô trên các nhãn mác trong các bức ảnh dưới đây. "
+                "Tôi đã ghi chú 'TÊN FILE:' trước mỗi ảnh. Bạn phải trả lời ĐÚNG cấu trúc sau:\n\n"
+                "TÊN FILE: <tên file>\nNỘI DUNG: <các mã đọc được>\n---\n"
+            ]
+            
+            dict_hinh_anh = {}
+            
+            for img_file in f_images:
+                img_bytes = img_file.getvalue()
+                img = Image.open(io.BytesIO(img_bytes))
+                
+                # Ảnh nén gửi AI (nhẹ)
+                img_api = img.copy()
+                img_api.thumbnail((800, 800))
+                
+                # Ảnh nén cho giao diện
+                img_ui = img.copy()
+                img_ui.thumbnail((300, 300))
+                dict_hinh_anh[img_file.name] = img_ui
+                
+                # Nhét vào thùng hàng gửi AI
+                contents.append(f"TÊN FILE: {img_file.name}")
+                contents.append(img_api)
+
+            # 3. GỌI GOOGLE ĐÚNG 1 LẦN (Né 100% lỗi spam/quá tải)
+            progress_bar.progress(60, text="Đang gửi gói hàng khổng lồ lên AI Google phân tích (Chỉ gọi 1 lần duy nhất)...")
+            
+            response = client.models.generate_content(
+                model=selected_model,
+                contents=contents,
+                config=types.GenerateContentConfig(temperature=0.1)
+            )
+            
+            raw_text = response.text if response.text else ""
+            
+            progress_bar.progress(90, text="Đang khớp dữ liệu AI trả về với bảng Excel...")
+            
+            # 4. TÁCH KẾT QUẢ AI TRẢ VỀ
+            ocr_results = {}
+            blocks = raw_text.split("TÊN FILE:")
+            for block in blocks:
+                if "NỘI DUNG:" in block:
+                    parts = block.split("NỘI DUNG:")
+                    fname = parts[0].strip()
+                    content = parts[1].split("---")[0].strip().upper().replace(" ", "").replace("-", "").replace("\n", "")
+                    ocr_results[fname] = content
+
             ma_da_thay = {} 
             hinh_nghi_ngo = [] 
-            tong_hinh = len(f_images)
             
-            for i, img_file in enumerate(f_images):
-                ptram = int(20 + (80 * (i + 1) / tong_hinh))
-                progress_bar.progress(ptram, text=f"🔍 Máy quét đang soi ảnh {i+1}/{tong_hinh}: {img_file.name}...")
+            for img_file in f_images:
+                fname = img_file.name
+                # Lấy text AI đọc được cho file này (nếu AI đọc sót thì chuỗi rỗng)
+                chuoi_hinh_anh = ocr_results.get(fname, "") 
                 
-                img_bytes = img_file.getvalue()
-                
-                ocr_text = quet_anh_bang_ocr_space(img_bytes, api_key_input)
-                
-                if "LỖI" in ocr_text:
-                    st.error(f"Lỗi ở ảnh {img_file.name}: {ocr_text}")
-                    chuoi_hinh_anh = ""
-                else:
-                    chuoi_hinh_anh = ocr_text.upper().replace(" ", "").replace("-", "").replace("\n", "")
-                
-                image_hien_thi = Image.open(io.BytesIO(img_bytes))
-                image_hien_thi.thumbnail((300, 300))
-                
-                tim_thay_trong_hinh = False
+                tim_thay = False
                 for ma in ds_ma_can_tim:
                     ma_clean = ma.replace(" ", "").replace("-", "")
                     if ma_clean in chuoi_hinh_anh:
                         if ma not in ma_da_thay:
                             ma_da_thay[ma] = []
-                        ma_da_thay[ma].append({'ten_file': img_file.name, 'hinh_anh': image_hien_thi.copy()})
-                        tim_thay_trong_hinh = True
+                        ma_da_thay[ma].append({'ten_file': fname, 'hinh_anh': dict_hinh_anh[fname]})
+                        tim_thay = True
                 
-                if not tim_thay_trong_hinh and "LỖI" not in ocr_text:
-                    hinh_nghi_ngo.append({'ten_file': img_file.name, 'hinh_anh': image_hien_thi.copy(), 'chu_nhan_dien': ocr_text})
-                
-                del image_hien_thi, img_bytes
-                gc.collect()
-                time.sleep(1) # Nghỉ 1s cho mượt máy chủ OCR
+                if not tim_thay:
+                    hinh_nghi_ngo.append({'ten_file': fname, 'hinh_anh': dict_hinh_anh[fname], 'chu_nhan_dien': chuoi_hinh_anh})
+            
+            del contents
+            gc.collect()
 
-            progress_bar.progress(100, text="✅ Hoàn tất phân tích!")
+            progress_bar.progress(100, text="✅ Hoàn tất!")
             time.sleep(0.5)
             progress_bar.empty()
 
-            # 3. XUẤT BÁO CÁO
+            # 5. XUẤT BÁO CÁO NHƯ CŨ
             ma_thieu = ds_ma_can_tim - set(ma_da_thay.keys())
             
             st.markdown("### 📊 BẢNG TỔNG KẾT KIỂM KÊ")
@@ -235,7 +259,7 @@ else:
                     for item in hinh_nghi_ngo:
                         with st.expander(f"📷 {item['ten_file']}"):
                             st.image(item['hinh_anh'], use_container_width=True)
-                            st.caption("Máy quét đọc được:")
+                            st.caption("AI đọc được:")
                             st.write(item['chu_nhan_dien'])
                 else:
                     st.success("Tất cả hình tải lên đều nhận diện thành công.")
