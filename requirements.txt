@@ -10,3 +10,4 @@ streamlit-option-menu
 xlrd
 easyocr
 opencv-python-headless
+python-calamine
