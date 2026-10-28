@@ -4,7 +4,6 @@ from PIL import Image
 import io
 import time
 import gc
-import re
 from google import genai
 from google.genai import types
 
@@ -38,7 +37,7 @@ with col_home:
         try: st.switch_page('app_ksnb.py')
         except: pass
 
-st.markdown("<h1 class='apple-main-title'>📸 AI Kiểm Kê Hình Ảnh (Bản Chuẩn - Chống Spam)</h1>", unsafe_allow_html=True)
+st.markdown("<h1 class='apple-main-title'>📸 AI Kiểm Kê Hình Ảnh (Bản Chọn Model & Chống Spam)</h1>", unsafe_allow_html=True)
 st.markdown("<hr style='border-top: 1px solid #e2e8f0; margin-bottom: 20px;'>", unsafe_allow_html=True)
 
 def parse_and_check_date(val, t_month, t_year):
@@ -50,7 +49,7 @@ def parse_and_check_date(val, t_month, t_year):
     return False
 
 # -------------------------------------------------------------
-# CẤU HÌNH GOOGLE GEMINI
+# CẤU HÌNH GOOGLE GEMINI (CÓ Ô CHỌN MODEL TÙY Ý)
 # -------------------------------------------------------------
 st.markdown("### 🔑 Cấu hình Trí Tuệ Nhân Tạo (Google Gemini)")
 secret_key = ""
@@ -65,7 +64,7 @@ client = None
 if api_key_input:
     try:
         client = genai.Client(api_key=api_key_input.strip())
-        with st.spinner("Đang kết nối lấy danh sách AI..."):
+        with st.spinner("Đang kết nối lấy danh sách AI từ Google..."):
             danh_sach_model = []
             for m in client.models.list():
                 if "gemini" in m.name:
@@ -74,9 +73,14 @@ if api_key_input:
                         danh_sach_model.append(ten_gọn)
             if danh_sach_model:
                 st.success("✅ Kết nối Google thành công!")
+                # Ưu tiên đưa bản 2.0-flash lên đầu cho mượt
                 if "gemini-2.0-flash" in danh_sach_model:
                     danh_sach_model.insert(0, danh_sach_model.pop(danh_sach_model.index("gemini-2.0-flash")))
-                selected_model = st.selectbox("🤖 Chọn Model (Nên dùng gemini-2.0-flash cho mượt):", danh_sach_model)
+                elif "gemini-1.5-flash" in danh_sach_model:
+                    danh_sach_model.insert(0, danh_sach_model.pop(danh_sach_model.index("gemini-1.5-flash")))
+                
+                # HIỆN Ô CHO PHÉP TỰ CHỌN MODEL TÙY Ý
+                selected_model = st.selectbox("🤖 Chọn Model Gemini để quét:", danh_sach_model)
             else:
                 st.error("🚨 Không lấy được model từ Google.")
     except Exception as e:
@@ -163,7 +167,7 @@ else:
                 try:
                     response = client.models.generate_content(
                         model=selected_model,
-                        contents=["Hãy đọc tất cả chữ và số lô (batch code) trên nhãn mác này. Chỉ trả về nội dung bạn đọc được.", img_api],
+                        contents=["Hãy đọc tất cả chữ và số lô trên nhãn mác này. Chỉ trả về nội dung bạn đọc được.", img_api],
                         config=types.GenerateContentConfig(temperature=0.1)
                     )
                     chuoi_hinh_anh = (response.text or "").upper().replace(" ", "").replace("-", "").replace("\n", "")
