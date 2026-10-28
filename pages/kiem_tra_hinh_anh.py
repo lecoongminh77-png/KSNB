@@ -6,14 +6,21 @@ import io
 import time
 
 try:
-    import easyocr
+    import google.generativeai as genai
 except ImportError:
-    st.error("⚠️ Bạn chưa cài thư viện EasyOCR. Hãy mở Terminal và gõ: pip install easyocr opencv-python-headless")
+    st.error("⚠️ Bạn chưa cài thư viện google-generativeai. Hãy thêm nó vào file requirements.txt nhé!")
 
 # -------------------------------------------------------------
-# CẤU HÌNH GIAO DIỆN
+# CẤU HÌNH GIAO DIỆN & API KEY GEMINI
 # -------------------------------------------------------------
 st.set_page_config(page_title='Kiểm Kê Bằng Hình Ảnh', page_icon='📸', layout='wide')
+
+# Tích hợp trực tiếp API Key của bạn
+GEMINI_API_KEY = "AQ.Ab8RN6KLl0d7ROMPaEhiTTUTzqTBmkqLOfdbuLHcSxvGJosZ5Q"
+try:
+    genai.configure(api_key=GEMINI_API_KEY)
+except:
+    pass
 
 st.markdown("""
 <style>
@@ -34,17 +41,12 @@ with col_home:
     if st.button('🏠 Trang chủ', use_container_width=True):
         st.switch_page('app_ksnb.py')
 
-st.markdown("<h1 class='apple-main-title'>📸 AI Kiểm Kê Bằng Hình Ảnh</h1>", unsafe_allow_html=True)
+st.markdown("<h1 class='apple-main-title'>📸 AI Kiểm Kê Bằng Hình Ảnh (Bản Siêu Nhẹ)</h1>", unsafe_allow_html=True)
 st.markdown("<hr style='border-top: 1px solid #e2e8f0; margin-bottom: 30px;'>", unsafe_allow_html=True)
 
 # -------------------------------------------------------------
-# HÀM HỖ TRỢ & AI
+# HÀM HỖ TRỢ
 # -------------------------------------------------------------
-@st.cache_resource
-def load_ocr_reader():
-    """Tải model AI vào RAM để tăng tốc đọc ảnh"""
-    return easyocr.Reader(['vi', 'en'], gpu=False)
-
 def parse_and_check_date(val, t_month, t_year):
     if pd.isna(val) or str(val).strip() == "": return False
     try:
@@ -61,6 +63,7 @@ col_t1, col_t2, _ = st.columns([2, 2, 6])
 with col_t1: thang_chon = st.selectbox('Chọn Tháng', list(range(1, 13)), index=9)
 with col_t2: nam_chon = st.selectbox('Chọn Năm', [2024, 2025, 2026, 2027], index=2)
 
+chuoi_yymm = f"{str(nam_chon)[-2:]}{thang_chon:02d}"
 st.markdown("<br>", unsafe_allow_html=True)
 
 col_upload1, col_upload2 = st.columns(2, gap="large")
@@ -80,7 +83,7 @@ with col_upload2:
 # LOGIC XỬ LÝ (TỰ ĐỘNG CHẠY KHI ĐỦ 2 ĐIỀU KIỆN)
 # -------------------------------------------------------------
 if not f_excel or not f_images:
-    st.info("👆 Hãy tải lên File Excel và Hình ảnh. Hệ thống AI sẽ **tự động kiểm kê** ngay khi nhận đủ dữ liệu!")
+    st.info("👆 Hãy tải lên File Excel và Hình ảnh. Máy chủ AI Gemini sẽ **tự động phân tích** ngay khi nhận đủ dữ liệu!")
 else:
     progress_bar = st.progress(0, text="Đang bóc tách danh sách mã lô từ File Excel...")
     time.sleep(0.5)
@@ -93,7 +96,7 @@ else:
         xls = pd.ExcelFile(f_excel)
         sheet_names = xls.sheet_names
         
-        # Nguồn 1: GIAO NHAN TP GCBB (Cột B, Cột J)
+        # Nguồn 1: GIAO NHAN TP GCBB
         if 'GIAO NHAN TP GCBB' in sheet_names:
             df1 = pd.read_excel(xls, sheet_name='GIAO NHAN TP GCBB', header=None, dtype=str)
             for idx, row in df1.iterrows():
@@ -101,7 +104,7 @@ else:
                     ma = str(row[9]).strip().upper()
                     if ma and ma != 'NAN' and len(ma) > 3: ds_ma_can_tim.add(ma)
 
-        # Nguồn 2: NXT NGUYEN LIEU (Cột N, Cột B)
+        # Nguồn 2: NXT NGUYEN LIEU
         sheet2 = next((s for s in sheet_names if 'NXT NGUYEN LIEU' in s.upper()), None)
         if sheet2:
             df2 = pd.read_excel(xls, sheet_name=sheet2, header=None, dtype=str)
@@ -116,35 +119,49 @@ else:
             st.stop()
 
         # ==========================================
-        # BƯỚC 2: AI ĐỌC HÌNH ẢNH HÀNG LOẠT
+        # BƯỚC 2: AI GEMINI ĐỌC HÌNH ẢNH HÀNG LOẠT
         # ==========================================
-        reader = load_ocr_reader()
+        # Khởi tạo mô hình siêu nhẹ và thông minh
+        model = genai.GenerativeModel('gemini-1.5-flash')
         
-        ma_da_thay = {} # Lưu dưới dạng Dictionary { 'Mã Lô' : [danh_sach_hinh_anh] }
+        ma_da_thay = {} 
         hinh_nghi_ngo = [] 
         
         tong_hinh = len(f_images)
         for i, img_file in enumerate(f_images):
             ptram = int(20 + (80 * (i + 1) / tong_hinh))
-            progress_bar.progress(ptram, text=f"🤖 AI đang quét tấm ảnh thứ {i+1}/{tong_hinh}: {img_file.name}...")
+            progress_bar.progress(ptram, text=f"🤖 AI Gemini đang soi tấm ảnh thứ {i+1}/{tong_hinh}: {img_file.name}...")
             
             image = Image.open(img_file)
-            image_np = np.array(image)
-            ocr_results = reader.readtext(image_np, detail=0)
-            chuoi_hinh_anh = "".join(ocr_results).upper().replace(" ", "").replace("-", "")
             
-            tim_thay_trong_hinh = False
-            for ma in ds_ma_can_tim:
-                ma_clean = ma.replace(" ", "").replace("-", "")
-                if ma_clean in chuoi_hinh_anh:
-                    if ma not in ma_da_thay:
-                        ma_da_thay[ma] = []
-                    # Lưu lại thông tin ảnh để lát hiển thị lên màn hình
-                    ma_da_thay[ma].append({'ten_file': img_file.name, 'hinh_anh': image})
-                    tim_thay_trong_hinh = True
-            
-            if not tim_thay_trong_hinh:
-                hinh_nghi_ngo.append({'ten_file': img_file.name, 'hinh_anh': image, 'chu_nhan_dien': ocr_results})
+            try:
+                # Giao tiếp với Gemini
+                prompt = "Bạn là chuyên gia kiểm kê kho. Hãy đọc và viết ra toàn bộ các dãy số, mã chữ có trên nhãn mác trong bức ảnh này. Không cần giải thích, chỉ xuất ra các mã chữ/số bạn thấy."
+                response = model.generate_content([prompt, image])
+                
+                # Trích xuất và làm sạch chuỗi kết quả AI trả về
+                ocr_text = response.text if response.text else ""
+                chuoi_hinh_anh = ocr_text.upper().replace(" ", "").replace("-", "").replace("\n", "")
+                
+                # So khớp với danh sách mã Excel
+                tim_thay_trong_hinh = False
+                for ma in ds_ma_can_tim:
+                    ma_clean = ma.replace(" ", "").replace("-", "")
+                    if ma_clean in chuoi_hinh_anh:
+                        if ma not in ma_da_thay:
+                            ma_da_thay[ma] = []
+                        ma_da_thay[ma].append({'ten_file': img_file.name, 'hinh_anh': image})
+                        tim_thay_trong_hinh = True
+                
+                # Phân loại ảnh lỗi/nghi ngờ
+                if not tim_thay_trong_hinh:
+                    hinh_nghi_ngo.append({'ten_file': img_file.name, 'hinh_anh': image, 'chu_nhan_dien': ocr_text})
+                
+                # Cho hệ thống nghỉ ngơi 3 giây để tránh bị Google khóa API vì request quá nhanh (Rate Limit)
+                time.sleep(3)
+                
+            except Exception as e:
+                st.error(f"Lỗi kết nối Gemini ở ảnh {img_file.name}: {e}")
 
         progress_bar.progress(100, text="✅ Hoàn tất phân tích!")
         time.sleep(0.5)
@@ -165,12 +182,11 @@ else:
         st.markdown("<br>", unsafe_allow_html=True)
         col_c1, col_c2, col_c3 = st.columns(3, gap="medium")
         
-        # --- CỘT 1: CÁC MÃ ĐÃ CÓ HÌNH (GẮN ẢNH VÀO TỪNG MÃ) ---
+        # CỘT 1
         with col_c1:
             st.markdown("<div class='list-box'><h4 style='color:#1e7e34; margin-top:0;'>✅ CÁC MÃ ĐÃ CÓ HÌNH</h4>", unsafe_allow_html=True)
             if len(ma_da_thay) > 0:
                 for ma in sorted(ma_da_thay.keys()):
-                    # Tạo hộp expander để xem ảnh
                     with st.expander(f"📦 {ma}"):
                         for img_item in ma_da_thay[ma]:
                             st.image(img_item['hinh_anh'], caption=f"📄 {img_item['ten_file']}", use_container_width=True)
@@ -178,7 +194,7 @@ else:
                 st.info("Chưa tìm thấy mã nào.")
             st.markdown("</div>", unsafe_allow_html=True)
 
-        # --- CỘT 2: CÁC MÃ BỊ THIẾU ---
+        # CỘT 2
         with col_c2:
             st.markdown("<div class='list-box'><h4 style='color:#dc3545; margin-top:0;'>❌ CÁC MÃ BỊ THIẾU</h4>", unsafe_allow_html=True)
             if len(ma_thieu) > 0:
@@ -188,7 +204,7 @@ else:
                 st.success("Tuyệt vời! Đã chụp đủ 100% hàng.")
             st.markdown("</div>", unsafe_allow_html=True)
 
-        # --- CỘT 3: ẢNH NGHI NGỜ ---
+        # CỘT 3
         with col_c3:
             st.markdown("<div class='list-box'><h4 style='color:#e37100; margin-top:0;'>⚠️ HÌNH ẢNH NGHI NGỜ</h4>", unsafe_allow_html=True)
             if len(hinh_nghi_ngo) > 0:
