@@ -2,11 +2,10 @@ streamlit
 pandas
 openpyxl
 plotly
-google-generativeai
 beautifulsoup4
 streamlit-lottie
-requests
 streamlit-option-menu
 xlrd
 python-calamine
 pillow
+requests
