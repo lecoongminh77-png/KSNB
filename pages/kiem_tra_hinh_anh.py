@@ -46,7 +46,7 @@ st.markdown("<h1 class='apple-main-title'>📸 AI Kiểm Kê Bằng Hình Ảnh 
 st.markdown("<hr style='border-top: 1px solid #e2e8f0; margin-bottom: 20px;'>", unsafe_allow_html=True)
 
 # -------------------------------------------------------------
-# HÀM GỌI AI GROQ (ĐÃ CẬP NHẬT MODEL MỚI NHẤT)
+# HÀM GỌI AI GROQ (ĐÃ SỬA CHUẨN TÊN MODEL)
 # -------------------------------------------------------------
 def parse_and_check_date(val, t_month, t_year):
     if pd.isna(val) or str(val).strip() == "": return False
@@ -72,7 +72,8 @@ def quet_anh_bang_groq(image_bytes, api_key, max_retries=3):
         "Content-Type": "application/json"
     }
     payload = {
-        "model": "llama-4-scout-17b-16e-instruct", # Đã nâng cấp lên Model Llama 4 mới nhất
+        # Đã vá lỗi thêm tiền tố meta-llama/ vào tên model chuẩn
+        "model": "meta-llama/llama-4-scout-17b-16e-instruct", 
         "messages": [
             {
                 "role": "user",
