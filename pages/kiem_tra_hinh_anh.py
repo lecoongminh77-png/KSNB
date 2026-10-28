@@ -3,10 +3,9 @@ import pandas as pd
 from PIL import Image
 import io
 import time
+import base64
+import requests
 import gc
-# DÙNG BỘ SDK MỚI NHẤT CHỐNG LỖI CỦA GOOGLE
-from google import genai
-from google.genai import types
 
 # -------------------------------------------------------------
 # CẤU HÌNH GIAO DIỆN
@@ -39,11 +38,16 @@ st.markdown("""
 col_home, _ = st.columns([1.5, 8.5])
 with col_home:
     if st.button('🏠 Trang chủ', type='primary', use_container_width=True):
-        st.switch_page('app_ksnb.py')
+        try:
+            st.switch_page('app_ksnb.py')
+        except: pass
 
-st.markdown("<h1 class='apple-main-title'>📸 AI Kiểm Kê Bằng Hình Ảnh</h1>", unsafe_allow_html=True)
+st.markdown("<h1 class='apple-main-title'>📸 AI Kiểm Kê Bằng Hình Ảnh (Groq Llama 3.2)</h1>", unsafe_allow_html=True)
 st.markdown("<hr style='border-top: 1px solid #e2e8f0; margin-bottom: 20px;'>", unsafe_allow_html=True)
 
+# -------------------------------------------------------------
+# HÀM GỌI AI GROQ (THAY THẾ HOÀN TOÀN GOOGLE)
+# -------------------------------------------------------------
 def parse_and_check_date(val, t_month, t_year):
     if pd.isna(val) or str(val).strip() == "": return False
     try:
@@ -52,44 +56,56 @@ def parse_and_check_date(val, t_month, t_year):
     except: pass
     return False
 
-# -------------------------------------------------------------
-# KHU VỰC NHẬP KEY & TỰ ĐỘNG LẤY MODEL CHỐNG LỖI 404
-# -------------------------------------------------------------
-st.markdown("### 🔑 Cấu hình Trí Tuệ Nhân Tạo")
-
-secret_key = ""
-try:
-    secret_key = st.secrets.get("GEMINI_API_KEY", "")
-except:
-    pass
-
-api_key_input = st.text_input("Dán Google Gemini API Key vào đây (Sẽ tự động lấy nếu bạn đã cài trong secrets):", value=secret_key, type="password")
-
-selected_model = None
-client = None
-
-if api_key_input:
-    try:
-        client = genai.Client(api_key=api_key_input.strip())
-        
-        with st.spinner("Đang quét danh sách AI Model khả dụng với Key của bạn..."):
-            danh_sach_model = []
-            for m in client.models.list():
-                if "gemini" in m.name:
-                    ten_gọn = m.name.replace("models/", "")
-                    if ten_gọn not in danh_sach_model:
-                        danh_sach_model.append(ten_gọn)
-            
-            if danh_sach_model:
-                if "gemini-1.5-flash" in danh_sach_model:
-                    danh_sach_model.insert(0, danh_sach_model.pop(danh_sach_model.index("gemini-1.5-flash")))
-                
-                st.success("✅ Đã kết nối thành công với Google!")
-                selected_model = st.selectbox("🤖 Vui lòng chọn Model (Danh sách tự động ép chống lỗi 404):", danh_sach_model)
+def quet_anh_bang_groq(image_bytes, api_key, max_retries=3):
+    """Gửi ảnh lên siêu máy chủ Groq bằng Llama 3.2 Vision"""
+    # 1. Ép dung lượng ảnh nhỏ lại để gửi siêu nhanh
+    img_goc = Image.open(io.BytesIO(image_bytes))
+    img_goc.thumbnail((1024, 1024))
+    buffered = io.BytesIO()
+    img_goc.save(buffered, format="JPEG", quality=85)
+    base64_image = base64.b64encode(buffered.getvalue()).decode('utf-8')
+    
+    # 2. Cấu hình gửi API chuẩn OpenAI qua máy chủ Groq
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {api_key.strip()}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": "llama-3.2-11b-vision-preview", # Bản AI thị giác mới nhất
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Bạn là chuyên gia kiểm kê. Hãy đọc toàn bộ chữ, số, mã vạch có trên nhãn mác trong ảnh. Chỉ liệt kê các đoạn ký tự tìm được, không cần giải thích."},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
+                ]
+            }
+        ],
+        "temperature": 0.1
+    }
+    
+    # 3. Gửi và thử lại nếu nghẽn mạng nhẹ
+    for lan_thu in range(max_retries):
+        try:
+            response = requests.post(url, headers=headers, json=payload, timeout=30)
+            if response.status_code == 200:
+                return response.json()['choices'][0]['message']['content']
+            elif response.status_code == 429: # Lỗi gọi quá nhanh
+                time.sleep(5) # Nghỉ 5s rồi thử lại
+                continue
             else:
-                st.error("🚨 Key hợp lệ nhưng Google không cấp quyền dùng model AI nào cho Key này!")
-    except Exception as e:
-        st.error(f"❌ Lỗi kết nối Key: {e}")
+                return f"LỖI: {response.text}"
+        except Exception as e:
+            if lan_thu == max_retries - 1: return f"LỖI MẠNG: {e}"
+            time.sleep(3)
+    return "LỖI: Máy chủ không phản hồi."
+
+# -------------------------------------------------------------
+# KHU VỰC GIAO DIỆN CHÍNH
+# -------------------------------------------------------------
+st.markdown("### 🔑 Cấu hình Trí Tuệ Nhân Tạo (Groq)")
+api_key_input = st.text_input("Dán Groq API Key (bắt đầu bằng gsk_...) vào đây:", type="password")
 
 st.markdown("<hr style='border-top: 1px dashed #ccc; margin: 20px 0;'>", unsafe_allow_html=True)
 
@@ -113,21 +129,21 @@ with col_upload2:
         f_images = st.file_uploader("Tải nhiều hình ảnh", type=['jpg', 'jpeg', 'png'], accept_multiple_files=True, label_visibility="collapsed")
 
 # -------------------------------------------------------------
-# LOGIC XỬ LÝ (LÌ ĐÒN CHỐNG 503 & CHỐNG ĐỨNG MÁY)
+# LOGIC XỬ LÝ ẢNH
 # -------------------------------------------------------------
 if not f_excel or not f_images:
     st.info("👆 Hãy tải lên File Excel và Hình ảnh để AI bắt đầu quét.")
-elif not api_key_input or not selected_model:
-    st.warning("⚠️ Vui lòng hoàn tất cấu hình Key và chọn Model bên trên để tiếp tục.")
+elif not api_key_input:
+    st.warning("⚠️ Vui lòng lấy Key Groq dán vào ô bên trên.")
 else:
-    btn_quet = st.button("🚀 BẮT ĐẦU QUÉT KIỂM KÊ TỰ ĐỘNG", use_container_width=True)
+    btn_quet = st.button("🚀 BẮT ĐẦU QUÉT KIỂM KÊ (DÙNG GROQ)", use_container_width=True)
     
     if btn_quet:
         progress_bar = st.progress(0, text="Đang bóc tách danh sách mã lô từ File Excel...")
         time.sleep(0.5)
 
         try:
-            # BƯỚC 1: LỌC MÃ EXCEL
+            # 1. LỌC MÃ EXCEL
             ds_ma_can_tim = set()
             xls = pd.ExcelFile(f_excel)
             sheet_names = xls.sheet_names
@@ -151,57 +167,28 @@ else:
                 st.error("🚨 Không tìm thấy mã lô nào trong Excel!")
                 st.stop()
 
-            # BƯỚC 2: QUÉT ẢNH (VỚI CƠ CHẾ LÌ ĐÒN)
+            # 2. QUÉT ẢNH BẰNG GROQ
             ma_da_thay = {} 
             hinh_nghi_ngo = [] 
-            
             tong_hinh = len(f_images)
+            
             for i, img_file in enumerate(f_images):
                 ptram = int(20 + (80 * (i + 1) / tong_hinh))
-                progress_bar.progress(ptram, text=f"🤖 AI đang soi tấm ảnh {i+1}/{tong_hinh}: {img_file.name}...")
+                progress_bar.progress(ptram, text=f"🤖 Groq AI đang soi ảnh {i+1}/{tong_hinh}: {img_file.name}...")
                 
                 img_bytes = img_file.getvalue()
-                image = Image.open(io.BytesIO(img_bytes))
-                image_goc = image.copy()
-                image_goc.thumbnail((1024, 1024))
                 
-                # --- BẮT ĐẦU VÒNG LẶP LÌ ĐÒN ---
-                so_lan_thu = 0
-                thanh_cong = False
-                ocr_text = ""
+                # Gọi thẳng hàm AI tự tạo
+                ocr_text = quet_anh_bang_groq(img_bytes, api_key_input)
                 
-                while so_lan_thu < 4 and not thanh_cong:
-                    try:
-                        response = client.models.generate_content(
-                            model=selected_model,
-                            contents=["Bạn là chuyên gia kiểm kê. Hãy đọc toàn bộ chữ, số, mã vạch có trên nhãn sản phẩm trong ảnh này. Chỉ liệt kê các đoạn ký tự tìm được, không cần giải thích.", image_goc]
-                        )
-                        ocr_text = response.text if response.text else ""
-                        thanh_cong = True # Đã đọc thành công, thoát vòng lặp lì đòn
-                        
-                    except Exception as e:
-                        loi_txt = str(e)
-                        # Nếu gặp 503 (Quá tải) hoặc 429 (Quá nhanh)
-                        if "503" in loi_txt or "UNAVAILABLE" in loi_txt or "429" in loi_txt:
-                            so_lan_thu += 1
-                            if so_lan_thu < 4:
-                                st.toast(f"⚠️ Google đang kẹt xe (Lỗi 503). Chờ 15s để đập cửa lại ảnh: {img_file.name} (Lần {so_lan_thu}/3)...")
-                                time.sleep(15) # Nghỉ 15 giây cho Google thở rồi gọi lại
-                            else:
-                                st.error(f"❌ Đã đập cửa 3 lần nhưng máy chủ Google vẫn sập. Bó tay ảnh: {img_file.name}")
-                        else:
-                            st.error(f"❌ Lỗi lạ ở ảnh {img_file.name}: {loi_txt}")
-                            break # Lỗi khác thì nghỉ luôn không đập cửa nữa
+                if "LỖI" in ocr_text:
+                    st.error(f"Lỗi ở ảnh {img_file.name}: {ocr_text}")
+                    chuoi_hinh_anh = ""
+                else:
+                    chuoi_hinh_anh = ocr_text.upper().replace(" ", "").replace("-", "").replace("\n", "")
                 
-                if not thanh_cong:
-                    # Chuyển sang ảnh tiếp theo nếu đập cửa 3 lần vẫn thất bại
-                    continue 
-                # --- KẾT THÚC VÒNG LẶP LÌ ĐÒN ---
-
-                chuoi_hinh_anh = ocr_text.upper().replace(" ", "").replace("-", "").replace("\n", "")
-                
-                # Bóp nhỏ cực độ ảnh hiển thị (chống sập RAM app Oh no!)
-                image_hien_thi = image.copy()
+                # Bóp ảnh siêu nhỏ lưu RAM chống sập app
+                image_hien_thi = Image.open(io.BytesIO(img_bytes))
                 image_hien_thi.thumbnail((300, 300))
                 
                 tim_thay_trong_hinh = False
@@ -213,27 +200,27 @@ else:
                         ma_da_thay[ma].append({'ten_file': img_file.name, 'hinh_anh': image_hien_thi.copy()})
                         tim_thay_trong_hinh = True
                 
-                if not tim_thay_trong_hinh:
+                if not tim_thay_trong_hinh and "LỖI" not in ocr_text:
                     hinh_nghi_ngo.append({'ten_file': img_file.name, 'hinh_anh': image_hien_thi.copy(), 'chu_nhan_dien': ocr_text})
                 
-                # Dọn sạch RAM lập tức
-                del image, image_goc, image_hien_thi, img_bytes
+                # Dọn RAM & Nghỉ 2.5 giây để KHÔNG BAO GIỜ chạm mốc giới hạn (30 ảnh/phút) của máy chủ
+                del image_hien_thi, img_bytes
                 gc.collect()
-                time.sleep(3) # Nghỉ cơ bản giữa các ảnh thành công
+                time.sleep(2.5)
 
-            progress_bar.progress(100, text="✅ Hoàn tất phân tích bằng AI!")
+            progress_bar.progress(100, text="✅ Hoàn tất phân tích bằng Groq AI!")
             time.sleep(0.5)
             progress_bar.empty()
 
-            # BƯỚC 3: XUẤT BÁO CÁO & EXCEL
+            # 3. XUẤT BÁO CÁO
             ma_thieu = ds_ma_can_tim - set(ma_da_thay.keys())
             
             st.markdown("### 📊 BẢNG TỔNG KẾT KIỂM KÊ")
             col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-            col_m1.metric("📋 Tổng Mã Cần Kiểm", f"{len(ds_ma_can_tim)} Lô")
-            col_m2.metric("✅ Đã Có Hình", f"{len(ma_da_thay)} Lô")
+            col_m1.metric("📋 Tổng Mã", f"{len(ds_ma_can_tim)} Lô")
+            col_m2.metric("✅ Có Hình", f"{len(ma_da_thay)} Lô")
             col_m3.metric("❌ Thiếu Hình", f"{len(ma_thieu)} Lô", delta=f"{len(ma_thieu)} lô thiếu", delta_color="inverse")
-            col_m4.metric("⚠️ Ảnh Nghi Ngờ / Lỗi", f"{len(hinh_nghi_ngo)} Ảnh", delta=f"{len(hinh_nghi_ngo)} lỗi", delta_color="inverse")
+            col_m4.metric("⚠️ Nghi Ngờ", f"{len(hinh_nghi_ngo)} Ảnh", delta=f"{len(hinh_nghi_ngo)} lỗi", delta_color="inverse")
 
             st.markdown("<br>", unsafe_allow_html=True)
             col_c1, col_c2, col_c3 = st.columns(3, gap="medium")
@@ -264,7 +251,7 @@ else:
                     for item in hinh_nghi_ngo:
                         with st.expander(f"📷 {item['ten_file']}"):
                             st.image(item['hinh_anh'], use_container_width=True)
-                            st.caption("AI đọc được các chữ sau:")
+                            st.caption("AI đọc được:")
                             st.write(item['chu_nhan_dien'])
                 else:
                     st.success("Tất cả hình tải lên đều nhận diện thành công.")
@@ -277,22 +264,21 @@ else:
             for ma in sorted(ds_ma_can_tim):
                 if ma in ma_da_thay:
                     file_names = ", ".join([img['ten_file'] for img in ma_da_thay[ma]])
-                    bien_ban_data.append({'Mã Lô Cần Kiểm Kê': ma, 'Trạng Thái': '✅ Đã kiểm kê (Có hình)', 'Ghi Chú': f"Nằm trong ảnh: {file_names}"})
+                    bien_ban_data.append({'Mã Lô': ma, 'Trạng Thái': '✅ Đã kiểm kê', 'Ghi Chú': f"Ảnh: {file_names}"})
                 else:
-                    bien_ban_data.append({'Mã Lô Cần Kiểm Kê': ma, 'Trạng Thái': '❌ THIẾU', 'Ghi Chú': "Không tìm thấy hình ảnh minh chứng"})
+                    bien_ban_data.append({'Mã Lô': ma, 'Trạng Thái': '❌ THIẾU', 'Ghi Chú': "Không tìm thấy hình"})
 
             df_bb = pd.DataFrame(bien_ban_data)
-            
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                df_bb.to_excel(writer, index=False, sheet_name='Kiem_Ke_Hinh_Anh')
+                df_bb.to_excel(writer, index=False, sheet_name='Kiem_Ke')
                 
             st.download_button(
-                label="📥 Tải Xuống Biên Bản Kiểm Kê Tháng", 
+                label="📥 Tải Xuống Biên Bản Kiểm Kê", 
                 data=output.getvalue(), 
-                file_name=f"Bien_Ban_Kiem_Ke_Hinh_Anh_{chuoi_yymm}.xlsx", 
+                file_name=f"Bien_Ban_Kiem_Ke_{chuoi_yymm}.xlsx", 
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
 
         except Exception as e:
-            st.error(f"Đã xảy ra lỗi trong quá trình phân tích: {e}")
+            st.error(f"Lỗi phân tích: {e}")
