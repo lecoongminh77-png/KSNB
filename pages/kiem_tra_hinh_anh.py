@@ -26,7 +26,7 @@ st.markdown("""
     .upload-title { font-size: 18px; font-weight: 700; margin-bottom: 10px; color: #0071e3;}
     .list-box { background: #fff; padding: 15px; border-radius: 10px; border: 1px solid #e2e8f0; height: 100%; }
     
-    /* Làm cho nút Trang Chủ có màu xanh dương */
+    /* Nút Trang Chủ màu xanh dương */
     button[kind="primary"] {
         background-color: #007aff !important;
         color: white !important;
@@ -38,12 +38,6 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
-
-# -------------------------------------------------------------
-# NHÚNG TRỰC TIẾP API KEY (Không cần nhập tay nữa)
-# -------------------------------------------------------------
-GEMINI_API_KEY = "AIzaSyDyWRpLAc8AgAaumfo5lDhCfqEFO6zWe50"
-genai.configure(api_key=GEMINI_API_KEY)
 
 # Nút quay về Trang chủ (Màu xanh dương)
 col_home, _ = st.columns([1.5, 8.5])
@@ -66,8 +60,16 @@ def parse_and_check_date(val, t_month, t_year):
     return False
 
 # -------------------------------------------------------------
-# KHU VỰC TẢI DỮ LIỆU
+# KHU VỰC NHẬP KEY & TẢI DỮ LIỆU
 # -------------------------------------------------------------
+st.markdown("### 🔑 Cấu hình Trí Tuệ Nhân Tạo (Gemini)")
+api_key_input = st.text_input("Nhập Google Gemini API Key (Bắt đầu bằng AIza...):", type="password")
+
+if api_key_input:
+    genai.configure(api_key=api_key_input.strip())
+
+st.markdown("<hr style='border-top: 1px dashed #ccc; margin: 20px 0;'>", unsafe_allow_html=True)
+
 st.markdown("### 📥 1. Thiết Lập Mốc Thời Gian Kiểm Kê")
 col_t1, col_t2, _ = st.columns([2, 2, 6])
 with col_t1: thang_chon = st.selectbox('Chọn Tháng', list(range(1, 13)), index=9)
@@ -92,6 +94,8 @@ with col_upload2:
 # -------------------------------------------------------------
 if not f_excel or not f_images:
     st.info("👆 Hãy tải lên File Excel và Hình ảnh để AI bắt đầu quét.")
+elif not api_key_input:
+    st.warning("⚠️ Vui lòng nhập API Key để tiếp tục.")
 else:
     progress_bar = st.progress(0, text="Đang bóc tách danh sách mã lô từ File Excel...")
     time.sleep(0.5)
@@ -122,9 +126,21 @@ else:
             st.error(f"🚨 Không tìm thấy mã lô nào thuộc tháng {thang_chon}/{nam_chon} trong file Excel!")
             st.stop()
 
-        # BƯỚC 2: AI GEMINI ĐỌC HÌNH ẢNH
-        # Chốt sử dụng model chuẩn gemini-1.5-flash
-        model = genai.GenerativeModel('gemini-1.5-flash-latest')
+        # BƯỚC 2: AI ĐỌC HÌNH ẢNH (TỰ ĐỘNG DÒ TÌM TÊN MODEL)
+        progress_bar.progress(10, text="Đang kết nối máy chủ Google để lấy model...")
+        
+        model_name = "gemini-1.5-flash" # Fallback mặc định
+        try:
+            # Tự động ping để lấy đúng tên model hỗ trợ
+            for m in genai.list_models():
+                if 'generateContent' in m.supported_generation_methods:
+                    if '1.5-flash' in m.name:
+                        model_name = m.name
+                        break
+        except Exception:
+            pass
+
+        model = genai.GenerativeModel(model_name)
         
         ma_da_thay = {} 
         hinh_nghi_ngo = [] 
@@ -132,7 +148,10 @@ else:
         tong_hinh = len(f_images)
         for i, img_file in enumerate(f_images):
             ptram = int(20 + (80 * (i + 1) / tong_hinh))
-            progress_bar.progress(ptram, text=f"🤖 AI đang soi tấm ảnh thứ {i+1}/{tong_hinh}: {img_file.name}...")
+            
+            # Hiển thị trực tiếp tên AI đang soi ảnh để dễ theo dõi
+            ten_ai = model_name.split("/")[-1] 
+            progress_bar.progress(ptram, text=f"🤖 AI ({ten_ai}) đang soi tấm ảnh {i+1}/{tong_hinh}: {img_file.name}...")
             
             image = Image.open(img_file)
             
@@ -155,8 +174,7 @@ else:
                 if not tim_thay_trong_hinh:
                     hinh_nghi_ngo.append({'ten_file': img_file.name, 'hinh_anh': image, 'chu_nhan_dien': ocr_text})
                 
-                # Nghỉ 3 giây để Google không báo lỗi quá tải (Rate limit)
-                time.sleep(3) 
+                time.sleep(3) # Nghỉ 3 giây chống quá tải API
                 
             except Exception as e:
                 st.error(f"Lỗi kết nối AI ở ảnh {img_file.name}: {e}")
