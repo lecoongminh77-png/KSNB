@@ -7,3 +7,6 @@ beautifulsoup4
 streamlit-lottie
 requests
 streamlit-option-menu
+xlrd
+easyocr
+opencv-python-headless
