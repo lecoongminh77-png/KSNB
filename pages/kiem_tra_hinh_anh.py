@@ -57,7 +57,7 @@ def parse_and_check_date(val, t_month, t_year):
 def quet_anh_bang_gemini_api(image_bytes, api_key):
     """Gửi trực tiếp ảnh lên Google API bỏ qua thư viện để tránh lỗi 404"""
     base64_image = base64.b64encode(image_bytes).decode('utf-8')
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key.strip()}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={api_key.strip()}"
     
     headers = {"Content-Type": "application/json"}
     
