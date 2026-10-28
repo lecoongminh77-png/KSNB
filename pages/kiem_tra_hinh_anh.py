@@ -1,14 +1,10 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 from PIL import Image
 import io
 import time
-
-try:
-    import google.generativeai as genai
-except ImportError:
-    st.error("⚠️ Bạn chưa cài thư viện google-generativeai. Hãy thêm nó vào file requirements.txt nhé!")
+import base64
+import requests
 
 # -------------------------------------------------------------
 # CẤU HÌNH GIAO DIỆN & MÀU SẮC
@@ -26,7 +22,6 @@ st.markdown("""
     .upload-title { font-size: 18px; font-weight: 700; margin-bottom: 10px; color: #0071e3;}
     .list-box { background: #fff; padding: 15px; border-radius: 10px; border: 1px solid #e2e8f0; height: 100%; }
     
-    /* Nút Trang Chủ màu xanh dương */
     button[kind="primary"] {
         background-color: #007aff !important;
         color: white !important;
@@ -39,7 +34,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Nút quay về Trang chủ (Màu xanh dương)
+# Nút quay về
 col_home, _ = st.columns([1.5, 8.5])
 with col_home:
     if st.button('🏠 Trang chủ', type='primary', use_container_width=True):
@@ -59,14 +54,40 @@ def parse_and_check_date(val, t_month, t_year):
     except: pass
     return False
 
+def quet_anh_bang_gemini_api(image_bytes, api_key):
+    """Gửi trực tiếp ảnh lên Google API bỏ qua thư viện để tránh lỗi 404"""
+    base64_image = base64.b64encode(image_bytes).decode('utf-8')
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key.strip()}"
+    
+    headers = {"Content-Type": "application/json"}
+    
+    payload = {
+        "contents": [{
+            "parts": [
+                {"text": "Hãy đọc toàn bộ dãy số và mã chữ trên nhãn mác trong ảnh. Chỉ xuất ra các dãy ký tự tìm được."},
+                {"inlineData": {
+                    "mimeType": "image/jpeg",
+                    "data": base64_image
+                }}
+            ]
+        }]
+    }
+    
+    response = requests.post(url, headers=headers, json=payload)
+    
+    if response.status_code == 200:
+        try:
+            return response.json()['candidates'][0]['content']['parts'][0]['text']
+        except KeyError:
+            return ""
+    else:
+        raise Exception(f"Mã lỗi {response.status_code}: {response.text}")
+
 # -------------------------------------------------------------
 # KHU VỰC NHẬP KEY & TẢI DỮ LIỆU
 # -------------------------------------------------------------
 st.markdown("### 🔑 Cấu hình Trí Tuệ Nhân Tạo (Gemini)")
 api_key_input = st.text_input("Nhập Google Gemini API Key (Bắt đầu bằng AIza...):", type="password")
-
-if api_key_input:
-    genai.configure(api_key=api_key_input.strip())
 
 st.markdown("<hr style='border-top: 1px dashed #ccc; margin: 20px 0;'>", unsafe_allow_html=True)
 
@@ -90,7 +111,7 @@ with col_upload2:
         f_images = st.file_uploader("Tải hình ảnh", type=['jpg', 'jpeg', 'png'], accept_multiple_files=True, label_visibility="collapsed")
 
 # -------------------------------------------------------------
-# LOGIC XỬ LÝ (TỰ ĐỘNG CHẠY KHI TẢI ĐỦ FILE)
+# LOGIC XỬ LÝ
 # -------------------------------------------------------------
 if not f_excel or not f_images:
     st.info("👆 Hãy tải lên File Excel và Hình ảnh để AI bắt đầu quét.")
@@ -126,40 +147,21 @@ else:
             st.error(f"🚨 Không tìm thấy mã lô nào thuộc tháng {thang_chon}/{nam_chon} trong file Excel!")
             st.stop()
 
-        # BƯỚC 2: AI ĐỌC HÌNH ẢNH (TỰ ĐỘNG DÒ TÌM TÊN MODEL)
-        progress_bar.progress(10, text="Đang kết nối máy chủ Google để lấy model...")
-        
-        model_name = "gemini-1.5-flash" # Fallback mặc định
-        try:
-            # Tự động ping để lấy đúng tên model hỗ trợ
-            for m in genai.list_models():
-                if 'generateContent' in m.supported_generation_methods:
-                    if '1.5-flash' in m.name:
-                        model_name = m.name
-                        break
-        except Exception:
-            pass
-
-        model = genai.GenerativeModel(model_name)
-        
+        # BƯỚC 2: AI ĐỌC HÌNH ẢNH (BẰNG REQUESTS TRỰC TIẾP)
         ma_da_thay = {} 
         hinh_nghi_ngo = [] 
         
         tong_hinh = len(f_images)
         for i, img_file in enumerate(f_images):
             ptram = int(20 + (80 * (i + 1) / tong_hinh))
+            progress_bar.progress(ptram, text=f"🤖 AI đang soi tấm ảnh {i+1}/{tong_hinh}: {img_file.name}...")
             
-            # Hiển thị trực tiếp tên AI đang soi ảnh để dễ theo dõi
-            ten_ai = model_name.split("/")[-1] 
-            progress_bar.progress(ptram, text=f"🤖 AI ({ten_ai}) đang soi tấm ảnh {i+1}/{tong_hinh}: {img_file.name}...")
-            
-            image = Image.open(img_file)
+            img_bytes = img_file.getvalue()
+            image_obj = Image.open(io.BytesIO(img_bytes))
             
             try:
-                prompt = "Hãy đọc toàn bộ dãy số và mã chữ trên nhãn mác trong ảnh. Chỉ xuất ra các dãy ký tự tìm được."
-                response = model.generate_content([prompt, image])
-                
-                ocr_text = response.text if response.text else ""
+                # Gọi thẳng URL để không bao giờ dính lỗi thư viện 404
+                ocr_text = quet_anh_bang_gemini_api(img_bytes, api_key_input)
                 chuoi_hinh_anh = ocr_text.upper().replace(" ", "").replace("-", "").replace("\n", "")
                 
                 tim_thay_trong_hinh = False
@@ -168,16 +170,16 @@ else:
                     if ma_clean in chuoi_hinh_anh:
                         if ma not in ma_da_thay:
                             ma_da_thay[ma] = []
-                        ma_da_thay[ma].append({'ten_file': img_file.name, 'hinh_anh': image})
+                        ma_da_thay[ma].append({'ten_file': img_file.name, 'hinh_anh': image_obj})
                         tim_thay_trong_hinh = True
                 
                 if not tim_thay_trong_hinh:
-                    hinh_nghi_ngo.append({'ten_file': img_file.name, 'hinh_anh': image, 'chu_nhan_dien': ocr_text})
+                    hinh_nghi_ngo.append({'ten_file': img_file.name, 'hinh_anh': image_obj, 'chu_nhan_dien': ocr_text})
                 
-                time.sleep(3) # Nghỉ 3 giây chống quá tải API
+                time.sleep(3) # Nghỉ 3 giây chống nghẽn
                 
             except Exception as e:
-                st.error(f"Lỗi kết nối AI ở ảnh {img_file.name}: {e}")
+                st.error(f"Lỗi ở ảnh {img_file.name}: {e}")
 
         progress_bar.progress(100, text="✅ Hoàn tất phân tích!")
         time.sleep(0.5)
