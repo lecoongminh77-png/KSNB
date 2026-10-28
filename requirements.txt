@@ -8,5 +8,4 @@ streamlit-lottie
 requests
 streamlit-option-menu
 xlrd
-google-generativeai
 python-calamine
