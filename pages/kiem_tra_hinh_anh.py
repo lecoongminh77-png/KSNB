@@ -37,7 +37,7 @@ with col_home:
         try: st.switch_page('app_ksnb.py')
         except: pass
 
-st.markdown("<h1 class='apple-main-title'>📸 AI Kiểm Kê Hình Ảnh (Bản Chọn Model & Chống Spam)</h1>", unsafe_allow_html=True)
+st.markdown("<h1 class='apple-main-title'>📸 AI Kiểm Kê Hình Ảnh (Bản Gộp Nhóm Siêu Tốc)</h1>", unsafe_allow_html=True)
 st.markdown("<hr style='border-top: 1px solid #e2e8f0; margin-bottom: 20px;'>", unsafe_allow_html=True)
 
 def parse_and_check_date(val, t_month, t_year):
@@ -73,13 +73,11 @@ if api_key_input:
                         danh_sach_model.append(ten_gọn)
             if danh_sach_model:
                 st.success("✅ Kết nối Google thành công!")
-                # Ưu tiên đưa bản 2.0-flash lên đầu cho mượt
                 if "gemini-2.0-flash" in danh_sach_model:
                     danh_sach_model.insert(0, danh_sach_model.pop(danh_sach_model.index("gemini-2.0-flash")))
                 elif "gemini-1.5-flash" in danh_sach_model:
                     danh_sach_model.insert(0, danh_sach_model.pop(danh_sach_model.index("gemini-1.5-flash")))
                 
-                # HIỆN Ô CHO PHÉP TỰ CHỌN MODEL TÙY Ý
                 selected_model = st.selectbox("🤖 Chọn Model Gemini để quét:", danh_sach_model)
             else:
                 st.error("🚨 Không lấy được model từ Google.")
@@ -108,14 +106,14 @@ with col_upload2:
         f_images = st.file_uploader("Tải nhiều hình ảnh", type=['jpg', 'jpeg', 'png'], accept_multiple_files=True, label_visibility="collapsed")
 
 # -------------------------------------------------------------
-# LOGIC XỬ LÝ (TỪNG ẢNH + CHỐNG SPAM)
+# LOGIC GỘP NHÓM THÔNG MINH (MULTI-IMAGE BATCHING)
 # -------------------------------------------------------------
 if not f_excel or not f_images:
     st.info("👆 Hãy tải lên File Excel và Hình ảnh để AI bắt đầu quét.")
 elif not api_key_input or not selected_model:
     st.warning("⚠️ Vui lòng cấu hình Key và chọn Model bên trên để bắt đầu.")
 else:
-    btn_quet = st.button("🚀 BẮT ĐẦU QUÉT HÀNG LOẠT", use_container_width=True)
+    btn_quet = st.button("🚀 BẮT ĐẦU QUÉT HÀNG LOẠT (GỘP NHÓM)", use_container_width=True)
     
     if btn_quet:
         progress_bar = st.progress(0, text="Đang bóc tách mã từ Excel...")
@@ -146,58 +144,88 @@ else:
                 st.error("🚨 Không tìm thấy mã lô nào trong Excel!")
                 st.stop()
 
-            # 2. XỬ LÝ TỪNG ẢNH (CHỐNG SPAM 100%)
-            ma_da_thay = {} 
-            hinh_nghi_ngo = [] 
-            tong_anh = len(f_images)
+            # 2. CHIA NHÓM VÀ GỬI GỘP (BATCHING 10 ẢNH/LẦN ĐỂ TỐC ĐỘ CAO & AN TOÀN)
+            chunk_size = 10
+            image_chunks = [f_images[i:i + chunk_size] for i in range(0, len(f_images), chunk_size)]
             
-            for i, img_file in enumerate(f_images):
-                phan_tram = int(((i) / tong_anh) * 100)
-                progress_bar.progress(phan_tram, text=f"Đang phân tích {i+1}/{tong_anh}: {img_file.name} ...")
+            ocr_results = {}
+            dict_hinh_anh = {}
+            total_chunks = len(image_chunks)
+            
+            for chunk_idx, chunk in enumerate(image_chunks):
+                progress_val = int((chunk_idx / total_chunks) * 80)
+                progress_bar.progress(progress_val, text=f"Đang gửi nhóm ảnh {chunk_idx + 1}/{total_chunks} lên AI...")
                 
-                img_bytes = img_file.getvalue()
-                img = Image.open(io.BytesIO(img_bytes))
+                contents = [
+                    "Hãy đọc tất cả chữ và số lô trên nhãn mác trong các bức ảnh dưới đây. "
+                    "Mỗi ảnh bắt đầu bằng 'TÊN FILE:'. Bạn phải trả lời ĐÚNG cấu trúc:\n\n"
+                    "TÊN FILE: <tên file>\nNỘI DUNG: <mã đọc được>\n---\n"
+                ]
                 
-                img_api = img.copy()
-                img_api.thumbnail((800, 800))
-                
-                img_ui = img.copy()
-                img_ui.thumbnail((300, 300))
+                for img_file in chunk:
+                    img_bytes = img_file.getvalue()
+                    img = Image.open(io.BytesIO(img_bytes))
+                    
+                    img_api = img.copy()
+                    img_api.thumbnail((800, 800))
+                    
+                    img_ui = img.copy()
+                    img_ui.thumbnail((300, 300))
+                    dict_hinh_anh[img_file.name] = img_ui
+                    
+                    contents.append(f"TÊN FILE: {img_file.name}")
+                    contents.append(img_api)
                 
                 try:
                     response = client.models.generate_content(
                         model=selected_model,
-                        contents=["Hãy đọc tất cả chữ và số lô trên nhãn mác này. Chỉ trả về nội dung bạn đọc được.", img_api],
+                        contents=contents,
                         config=types.GenerateContentConfig(temperature=0.1)
                     )
-                    chuoi_hinh_anh = (response.text or "").upper().replace(" ", "").replace("-", "").replace("\n", "")
+                    raw_text = response.text if response.text else ""
                     
-                    tim_thay = False
-                    for ma in ds_ma_can_tim:
-                        ma_clean = ma.replace(" ", "").replace("-", "")
-                        if ma_clean in chuoi_hinh_anh:
-                            if ma not in ma_da_thay:
-                                ma_da_thay[ma] = []
-                            ma_da_thay[ma].append({'ten_file': img_file.name, 'hinh_anh': img_ui})
-                            tim_thay = True
-                    
-                    if not tim_thay:
-                        hinh_nghi_ngo.append({'ten_file': img_file.name, 'hinh_anh': img_ui, 'chu_nhan_dien': chuoi_hinh_anh})
-                
+                    blocks = raw_text.split("TÊN FILE:")
+                    for block in blocks:
+                        if "NỘI DUNG:" in block:
+                            parts = block.split("NỘI DUNG:")
+                            fname = parts[0].strip()
+                            content = parts[1].split("---")[0].strip().upper().replace(" ", "").replace("-", "").replace("\n", "")
+                            ocr_results[fname] = content
                 except Exception as e:
-                    st.error(f"Lỗi ở ảnh {img_file.name}: {e}")
+                    st.error(f"Lỗi ở nhóm ảnh {chunk_idx + 1}: {e}")
                 
-                # NGHỈ 4.5 GIÂY CHỐNG SPAM
-                if i < tong_anh - 1:
-                    time.sleep(4.5)
+                if chunk_idx < total_chunks - 1:
+                    time.sleep(1.5)
+
+            progress_bar.progress(90, text="Đang khớp dữ liệu AI trả về với bảng Excel...")
+
+            # 3. ĐỐI SOÁT DỮ LIỆU
+            ma_da_thay = {} 
+            hinh_nghi_ngo = [] 
+            
+            for img_file in f_images:
+                fname = img_file.name
+                chuoi_hinh_anh = ocr_results.get(fname, "")
+                
+                tim_thay = False
+                for ma in ds_ma_can_tim:
+                    ma_clean = ma.replace(" ", "").replace("-", "")
+                    if ma_clean in chuoi_hinh_anh:
+                        if ma not in ma_da_thay:
+                            ma_da_thay[ma] = []
+                        ma_da_thay[ma].append({'ten_file': fname, 'hinh_anh': dict_hinh_anh[fname]})
+                        tim_thay = True
+                
+                if not tim_thay:
+                    hinh_nghi_ngo.append({'ten_file': fname, 'hinh_anh': dict_hinh_anh[fname], 'chu_nhan_dien': chuoi_hinh_anh})
 
             gc.collect()
 
             progress_bar.progress(100, text="✅ Hoàn tất toàn bộ hình ảnh!")
-            time.sleep(1)
+            time.sleep(0.5)
             progress_bar.empty()
 
-            # 3. XUẤT BÁO CÁO VÀ GIAO DIỆN
+            # 4. XUẤT BÁO CÁO VÀ GIAO DIỆN
             ma_thieu = ds_ma_can_tim - set(ma_da_thay.keys())
             
             st.markdown("### 📊 BẢNG TỔNG KẾT KIỂM KÊ")
