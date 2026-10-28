@@ -54,11 +54,24 @@ def clean_ma_lo(val):
     if pd.isna(val): return ""
     return str(val).strip().upper()
 
+def parse_and_check_date(val, t_month, t_year):
+    """Kiểm tra Ngày xuất kho có khớp với Tháng/Năm đang chọn hay không"""
+    if pd.isna(val) or str(val).strip() == "": 
+        return False, ""
+    try:
+        dt = pd.to_datetime(str(val), errors='coerce')
+        if pd.notna(dt):
+            if dt.month == t_month and dt.year == t_year:
+                return True, dt.strftime("%d/%m/%Y")
+    except:
+        pass
+    return False, ""
+
 # -------------------------------------------------------------
 # LOGIC CHÍNH
 # -------------------------------------------------------------
 def kiem_soat_san_xuat():
-    st.caption('Kiểm soát nội bộ • Đối chiếu chéo 2 chiều giữa Báo cáo sản xuất và ERP 105')
+    st.caption('Kiểm soát nội bộ • Đối chiếu theo Ngày xuất kho giữa Báo cáo sản xuất và ERP 105')
     st.markdown("### 📥 Nạp Dữ Liệu Nguồn")
     
     col_t1, col_t2, _ = st.columns([2, 2, 6])
@@ -141,33 +154,43 @@ def kiem_soat_san_xuat():
                 except Exception as e: st.error(f"Lỗi hệ thống: {e}")
 
         # ==========================================
-        # PHẦN 2: ĐỐI CHIẾU CHÉO 2 CHIỀU (OPM 105 <-> NXT)
+        # PHẦN 2: ĐỐI CHIẾU ERP 105 <-> NXT (CÓ LỌC NGÀY XUẤT)
         # ==========================================
         if f_105 is not None and f_bc is not None:
             progress_bar.progress(60, text="Đang đồng bộ và đối chiếu chéo OPM 105 với sổ sách...")
             st.markdown("### 📊 DASHBOARD: ĐỐI CHIẾU CHÉO ERP 105 & NXT NGUYÊN LIỆU")
             
             try:
-                # 1. Xử lý ERP 105
+                # 1. Xử lý ERP 105 (Giữ nguyên)
                 df_105_raw = pd.read_excel(f_105, header=None, dtype=str)
                 df_105_raw['Mã Lô 105'] = df_105_raw[5].apply(clean_ma_lo)
                 df_105_raw['Khối Lượng 105'] = pd.to_numeric(df_105_raw[9], errors='coerce').fillna(0)
                 df_105_filtered = df_105_raw[(df_105_raw['Mã Lô 105'] != "") & (df_105_raw['Mã Lô 105'].str.len() > 3)]
                 df_105_grouped = df_105_filtered.groupby('Mã Lô 105', as_index=False)['Khối Lượng 105'].sum()
-                dict_105 = dict(zip(df_105_grouped['Mã Lô 105'], df_105_grouped['Khối Lượng 105'])) # Gom thành rổ ERP
+                dict_105 = dict(zip(df_105_grouped['Mã Lô 105'], df_105_grouped['Khối Lượng 105']))
 
-                # 2. Xử lý NXT NGUYÊN LIỆU
+                # 2. Xử lý NXT NGUYÊN LIỆU (Có lọc ngày cột P - Index 15)
                 nl_sheet_name = next((s for s in bc_sheets if "NXT NGUYEN LIEU" in s.upper()), None)
                 if not nl_sheet_name:
                     st.error("🚨 Không tìm thấy sheet có tên 'NXT NGUYEN LIEU' trong Báo cáo.")
                 else:
                     df_nl = pd.read_excel(f_bc, sheet_name=nl_sheet_name, header=None, dtype=str)
-                    dict_nl = {} # Rổ Sổ sách NXT
+                    dict_nl = {}
+                    dict_ngay_xuat = {} # Lưu lại ngày xuất kho
+                    
                     for idx, row in df_nl.iterrows():
-                        ma_lo_nxt = clean_ma_lo(row[1])
-                        kl_nxt = pd.to_numeric(row[7], errors='coerce') if pd.notna(row[7]) else 0
-                        if ma_lo_nxt != "" and len(ma_lo_nxt) > 3:
-                            dict_nl[ma_lo_nxt] = dict_nl.get(ma_lo_nxt, 0) + kl_nxt
+                        if idx < 2: continue # Bỏ qua header
+                        
+                        ngay_xuat_raw = row[15] # Cột P - Ngày xuất kho
+                        is_match, date_str = parse_and_check_date(ngay_xuat_raw, thang_chon, nam_chon)
+                        
+                        # CHỈ LẤY CÁC DÒNG XUẤT KHO TRONG THÁNG ĐANG CHỌN
+                        if is_match:
+                            ma_lo_nxt = clean_ma_lo(row[1])
+                            kl_nxt = pd.to_numeric(row[7], errors='coerce') if pd.notna(row[7]) else 0
+                            if ma_lo_nxt != "" and len(ma_lo_nxt) > 3:
+                                dict_nl[ma_lo_nxt] = dict_nl.get(ma_lo_nxt, 0) + kl_nxt
+                                dict_ngay_xuat[ma_lo_nxt] = date_str
 
                     # 3. ĐỐI CHIẾU 2 CHIỀU (Full Outer Join)
                     all_ma_lo = set(dict_105.keys()).union(set(dict_nl.keys()))
@@ -179,37 +202,43 @@ def kiem_soat_san_xuat():
                         kl_105 = dict_105.get(ma, 0) # Âm
                         kl_nxt = dict_nl.get(ma, 0) # Dương
                         chenh_lech = kl_105 + kl_nxt 
+                        ngay_xuat = dict_ngay_xuat.get(ma, "")
                         
                         if ma in dict_105 and ma in dict_nl:
                             if round(chenh_lech, 2) == 0:
-                                trang_thai = "Đạt"
+                                trang_thai = "Đã có thông tin trên ERP (Khớp 100%)"
                                 so_dat += 1
                             else:
-                                trang_thai = "Lệch khối lượng"
+                                trang_thai = "Đã có thông tin trên ERP (Bị lệch Khối lượng)"
                                 so_lech += 1
-                        elif ma in dict_105 and ma not in dict_nl:
-                            trang_thai = "Chỉ có trên ERP (105), KHÔNG CÓ TRÊN NXT"
-                            so_thieu_nxt += 1
-                        else:
-                            trang_thai = "Chỉ có trên NXT, KHÔNG CÓ TRÊN ERP (105)"
+                        elif ma in dict_nl and ma not in dict_105:
+                            trang_thai = "Chưa có thông tin trên ERP"
                             so_thieu_erp += 1
+                        else:
+                            # Lô này có trên ERP nhưng Kế toán chưa ghi vào NXT hoặc ghi lệch tháng
+                            trang_thai = f"Có giao dịch ERP nhưng KHÔNG GHI SỔ xuất kho tháng {thang_chon}/{nam_chon}"
+                            so_thieu_nxt += 1
                             
                         ket_qua.append({
-                            'Mã Lô': ma,
-                            'KL ERP 105 (Âm)': kl_105,
-                            'KL Sổ NXT (Dương)': kl_nxt,
-                            'Chênh Lệch (kg)': round(chenh_lech, 2),
-                            'Trạng Thái': trang_thai
+                            'Ngày xuất kho': ngay_xuat,
+                            'Mã số cuộn': ma,
+                            'Khối lượng Sổ NXT (Dương)': kl_nxt,
+                            'Khối lượng ERP 105 (Âm)': kl_105,
+                            'Chênh lệch (kg)': round(chenh_lech, 2),
+                            'Ghi chú': trang_thai
                         })
+
+                    # Sắp xếp lại danh sách: Ưu tiên hiển thị lô có ngày xuất kho lên trước
+                    ket_qua = sorted(ket_qua, key=lambda x: (x['Ngày xuất kho'] == "", x['Ngày xuất kho']))
 
                     # 4. Hiển thị Dashboard (4 Chỉ số)
                     col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-                    col_m1.metric("📦 Tổng Mã Lô (Cả 2 bên)", f"{len(all_ma_lo)} Lô")
-                    col_m2.metric("✅ Khớp 100%", f"{so_dat} Lô")
-                    col_m3.metric("⚠️ Lệch Số Kg", f"{so_lech} Lô", delta=f"{so_lech} lỗi", delta_color="inverse")
+                    col_m1.metric("📦 Tổng Mã Lô", f"{len(all_ma_lo)} Lô")
+                    col_m2.metric("✅ Đã Có ERP (Khớp)", f"{so_dat} Lô")
+                    col_m3.metric("⚠️ Đã Có ERP (Lệch KL)", f"{so_lech} Lô", delta=f"{so_lech} lỗi", delta_color="inverse")
                     
                     loi_lech_ma = so_thieu_nxt + so_thieu_erp
-                    col_m4.metric("🚨 Lệch Mã Lô (Rớt / Khống)", f"{loi_lech_ma} Lô", delta=f"{loi_lech_ma} lỗi", delta_color="inverse")
+                    col_m4.metric("🚨 Lỗi Thiếu / Khống", f"{loi_lech_ma} Lô", delta=f"{loi_lech_ma} lỗi", delta_color="inverse")
 
                     # 5. Hiển thị Bảng & Xuất Excel
                     if len(all_ma_lo) > 0:
@@ -218,8 +247,8 @@ def kiem_soat_san_xuat():
 
                         output = io.BytesIO()
                         with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                            df_kq.to_excel(writer, index=False, sheet_name='Doi_Chieu_2_Chieu')
-                            ws = writer.sheets['Doi_Chieu_2_Chieu']
+                            df_kq.to_excel(writer, index=False, sheet_name='Doi_Chieu_Xuat_Kho')
+                            ws = writer.sheets['Doi_Chieu_Xuat_Kho']
                             
                             f_green = PatternFill(start_color='C6EFCE', end_color='C6EFCE', fill_type='solid')
                             t_green = Font(color='006100')
@@ -230,20 +259,24 @@ def kiem_soat_san_xuat():
                             b_thin = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
 
                             for r in range(2, len(df_kq) + 2):
-                                status = str(ws.cell(row=r, column=5).value)
-                                for c in range(1, 6):
+                                # Kiểm tra giá trị ở cột Ghi chú (Cột số 6)
+                                status = str(ws.cell(row=r, column=6).value)
+                                for c in range(1, 7):
                                     cell = ws.cell(row=r, column=c)
                                     cell.border = b_thin
-                                    if status == "Đạt": cell.fill, cell.font = f_green, t_green
-                                    elif status == "Lệch khối lượng": cell.fill, cell.font = f_yel, t_yel
-                                    elif "KHÔNG CÓ" in status: cell.fill, cell.font = f_red, t_red
+                                    if "Khớp" in status: 
+                                        cell.fill, cell.font = f_green, t_green
+                                    elif "Lệch" in status: 
+                                        cell.fill, cell.font = f_yel, t_yel
+                                    elif "Chưa có" in status or "KHÔNG GHI SỔ" in status: 
+                                        cell.fill, cell.font = f_red, t_red
                                         
                             for col in ws.columns:
                                 max_len = max((len(str(c.value)) for c in col if c.value), default=0)
                                 ws.column_dimensions[col[0].column_letter].width = max_len + 2
 
-                        st.download_button("📥 Tải Báo Cáo Đối Chiếu (Đã Tô Màu)", data=output.getvalue(), file_name=f"Doi_Chieu_2_Chieu_{chuoi_yymm}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-                    else: st.info("Không tìm thấy dữ liệu hợp lệ để đối chiếu!")
+                        st.download_button("📥 Tải Báo Cáo Đối Chiếu", data=output.getvalue(), file_name=f"Doi_Chieu_Xuat_Kho_{chuoi_yymm}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                    else: st.info("Không tìm thấy giao dịch nào xuất kho trong tháng này!")
 
             except Exception as e: st.error(f"Lỗi hệ thống khi đối chiếu: {e}")
 
