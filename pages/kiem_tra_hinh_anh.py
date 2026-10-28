@@ -57,7 +57,6 @@ def parse_and_check_date(val, t_month, t_year):
 # -------------------------------------------------------------
 st.markdown("### 🔑 Cấu hình Trí Tuệ Nhân Tạo")
 
-# Hỗ trợ lấy Key từ file secrets (ẩn) hoặc nhập tay
 secret_key = ""
 try:
     secret_key = st.secrets.get("GEMINI_API_KEY", "")
@@ -73,25 +72,22 @@ if api_key_input:
     try:
         client = genai.Client(api_key=api_key_input.strip())
         
-        # TỰ ĐỘNG QUÉT DANH SÁCH MODEL TRÊN MÁY CHỦ GOOGLE
         with st.spinner("Đang quét danh sách AI Model khả dụng với Key của bạn..."):
             danh_sach_model = []
             for m in client.models.list():
                 if "gemini" in m.name:
-                    # Lọc sạch chữ "models/" để lấy đúng tên lõi
                     ten_gọn = m.name.replace("models/", "")
                     if ten_gọn not in danh_sach_model:
                         danh_sach_model.append(ten_gọn)
             
             if danh_sach_model:
-                # Đưa bản flash lên dòng đầu tiên cho bạn dễ chọn
                 if "gemini-1.5-flash" in danh_sach_model:
                     danh_sach_model.insert(0, danh_sach_model.pop(danh_sach_model.index("gemini-1.5-flash")))
                 
                 st.success("✅ Đã kết nối thành công với Google!")
-                selected_model = st.selectbox("🤖 Vui lòng chọn Model (Đây là danh sách trích xuất trực tiếp từ Key của bạn nên sẽ KHÔNG BAO GIỜ bị lỗi 404):", danh_sach_model)
+                selected_model = st.selectbox("🤖 Vui lòng chọn Model (Danh sách tự động ép chống lỗi 404):", danh_sach_model)
             else:
-                st.error("🚨 Key hợp lệ nhưng Google không cấp quyền dùng model AI nào cho Key này! (Kiểm tra lại tài khoản Google Cloud của bạn).")
+                st.error("🚨 Key hợp lệ nhưng Google không cấp quyền dùng model AI nào cho Key này!")
     except Exception as e:
         st.error(f"❌ Lỗi kết nối Key: {e}")
 
@@ -117,14 +113,13 @@ with col_upload2:
         f_images = st.file_uploader("Tải nhiều hình ảnh", type=['jpg', 'jpeg', 'png'], accept_multiple_files=True, label_visibility="collapsed")
 
 # -------------------------------------------------------------
-# LOGIC XỬ LÝ (CHUẨN SDK MỚI & CHỐNG ĐỨNG MÁY)
+# LOGIC XỬ LÝ (LÌ ĐÒN CHỐNG 503 & CHỐNG ĐỨNG MÁY)
 # -------------------------------------------------------------
 if not f_excel or not f_images:
     st.info("👆 Hãy tải lên File Excel và Hình ảnh để AI bắt đầu quét.")
 elif not api_key_input or not selected_model:
     st.warning("⚠️ Vui lòng hoàn tất cấu hình Key và chọn Model bên trên để tiếp tục.")
 else:
-    # Nút bấm bắt đầu (Giúp Streamlit không bị reset ngầm khi đang tải file)
     btn_quet = st.button("🚀 BẮT ĐẦU QUÉT KIỂM KÊ TỰ ĐỘNG", use_container_width=True)
     
     if btn_quet:
@@ -156,7 +151,7 @@ else:
                 st.error("🚨 Không tìm thấy mã lô nào trong Excel!")
                 st.stop()
 
-            # BƯỚC 2: QUÉT ẢNH CHỐNG TRÀN RAM
+            # BƯỚC 2: QUÉT ẢNH (VỚI CƠ CHẾ LÌ ĐÒN)
             ma_da_thay = {} 
             hinh_nghi_ngo = [] 
             
@@ -165,45 +160,66 @@ else:
                 ptram = int(20 + (80 * (i + 1) / tong_hinh))
                 progress_bar.progress(ptram, text=f"🤖 AI đang soi tấm ảnh {i+1}/{tong_hinh}: {img_file.name}...")
                 
-                # Bóp nhỏ ảnh gửi đi để tránh bị quá tải mạng
                 img_bytes = img_file.getvalue()
                 image = Image.open(io.BytesIO(img_bytes))
                 image_goc = image.copy()
-                image_goc.thumbnail((1200, 1200))
+                image_goc.thumbnail((1024, 1024))
                 
-                try:
-                    # Gọi AI bằng code chuẩn (như trong code Sforum của bạn)
-                    response = client.models.generate_content(
-                        model=selected_model,
-                        contents=["Bạn là chuyên gia kiểm kê. Hãy đọc toàn bộ chữ, số, mã vạch có trên nhãn sản phẩm trong ảnh này. Chỉ liệt kê các đoạn ký tự tìm được, không cần giải thích.", image_goc]
-                    )
-                    
-                    ocr_text = response.text if response.text else ""
-                    chuoi_hinh_anh = ocr_text.upper().replace(" ", "").replace("-", "").replace("\n", "")
-                    
-                    # Thu nhỏ siêu vi để lưu vào RAM (chống sập app Oh no!)
-                    image_hien_thi = image.copy()
-                    image_hien_thi.thumbnail((300, 300))
-                    
-                    tim_thay_trong_hinh = False
-                    for ma in ds_ma_can_tim:
-                        ma_clean = ma.replace(" ", "").replace("-", "")
-                        if ma_clean in chuoi_hinh_anh:
-                            if ma not in ma_da_thay:
-                                ma_da_thay[ma] = []
-                            ma_da_thay[ma].append({'ten_file': img_file.name, 'hinh_anh': image_hien_thi.copy()})
-                            tim_thay_trong_hinh = True
-                    
-                    if not tim_thay_trong_hinh:
-                        hinh_nghi_ngo.append({'ten_file': img_file.name, 'hinh_anh': image_hien_thi.copy(), 'chu_nhan_dien': ocr_text})
-                    
-                    # Dọn sạch RAM lập tức
-                    del image, image_goc, image_hien_thi, img_bytes
-                    gc.collect()
-                    time.sleep(3) # Nghỉ chút cho Google đỡ chặn
-                    
-                except Exception as e:
-                    st.error(f"Lỗi AI ở ảnh {img_file.name}: {e}")
+                # --- BẮT ĐẦU VÒNG LẶP LÌ ĐÒN ---
+                so_lan_thu = 0
+                thanh_cong = False
+                ocr_text = ""
+                
+                while so_lan_thu < 4 and not thanh_cong:
+                    try:
+                        response = client.models.generate_content(
+                            model=selected_model,
+                            contents=["Bạn là chuyên gia kiểm kê. Hãy đọc toàn bộ chữ, số, mã vạch có trên nhãn sản phẩm trong ảnh này. Chỉ liệt kê các đoạn ký tự tìm được, không cần giải thích.", image_goc]
+                        )
+                        ocr_text = response.text if response.text else ""
+                        thanh_cong = True # Đã đọc thành công, thoát vòng lặp lì đòn
+                        
+                    except Exception as e:
+                        loi_txt = str(e)
+                        # Nếu gặp 503 (Quá tải) hoặc 429 (Quá nhanh)
+                        if "503" in loi_txt or "UNAVAILABLE" in loi_txt or "429" in loi_txt:
+                            so_lan_thu += 1
+                            if so_lan_thu < 4:
+                                st.toast(f"⚠️ Google đang kẹt xe (Lỗi 503). Chờ 15s để đập cửa lại ảnh: {img_file.name} (Lần {so_lan_thu}/3)...")
+                                time.sleep(15) # Nghỉ 15 giây cho Google thở rồi gọi lại
+                            else:
+                                st.error(f"❌ Đã đập cửa 3 lần nhưng máy chủ Google vẫn sập. Bó tay ảnh: {img_file.name}")
+                        else:
+                            st.error(f"❌ Lỗi lạ ở ảnh {img_file.name}: {loi_txt}")
+                            break # Lỗi khác thì nghỉ luôn không đập cửa nữa
+                
+                if not thanh_cong:
+                    # Chuyển sang ảnh tiếp theo nếu đập cửa 3 lần vẫn thất bại
+                    continue 
+                # --- KẾT THÚC VÒNG LẶP LÌ ĐÒN ---
+
+                chuoi_hinh_anh = ocr_text.upper().replace(" ", "").replace("-", "").replace("\n", "")
+                
+                # Bóp nhỏ cực độ ảnh hiển thị (chống sập RAM app Oh no!)
+                image_hien_thi = image.copy()
+                image_hien_thi.thumbnail((300, 300))
+                
+                tim_thay_trong_hinh = False
+                for ma in ds_ma_can_tim:
+                    ma_clean = ma.replace(" ", "").replace("-", "")
+                    if ma_clean in chuoi_hinh_anh:
+                        if ma not in ma_da_thay:
+                            ma_da_thay[ma] = []
+                        ma_da_thay[ma].append({'ten_file': img_file.name, 'hinh_anh': image_hien_thi.copy()})
+                        tim_thay_trong_hinh = True
+                
+                if not tim_thay_trong_hinh:
+                    hinh_nghi_ngo.append({'ten_file': img_file.name, 'hinh_anh': image_hien_thi.copy(), 'chu_nhan_dien': ocr_text})
+                
+                # Dọn sạch RAM lập tức
+                del image, image_goc, image_hien_thi, img_bytes
+                gc.collect()
+                time.sleep(3) # Nghỉ cơ bản giữa các ảnh thành công
 
             progress_bar.progress(100, text="✅ Hoàn tất phân tích bằng AI!")
             time.sleep(0.5)
