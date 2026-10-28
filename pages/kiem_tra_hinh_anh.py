@@ -42,11 +42,11 @@ with col_home:
             st.switch_page('app_ksnb.py')
         except: pass
 
-st.markdown("<h1 class='apple-main-title'>📸 AI Kiểm Kê Bằng Hình Ảnh (Groq Llama 3.2)</h1>", unsafe_allow_html=True)
+st.markdown("<h1 class='apple-main-title'>📸 AI Kiểm Kê Bằng Hình Ảnh (Groq Llama 4 Scout)</h1>", unsafe_allow_html=True)
 st.markdown("<hr style='border-top: 1px solid #e2e8f0; margin-bottom: 20px;'>", unsafe_allow_html=True)
 
 # -------------------------------------------------------------
-# HÀM GỌI AI GROQ (THAY THẾ HOÀN TOÀN GOOGLE)
+# HÀM GỌI AI GROQ (ĐÃ CẬP NHẬT MODEL MỚI NHẤT)
 # -------------------------------------------------------------
 def parse_and_check_date(val, t_month, t_year):
     if pd.isna(val) or str(val).strip() == "": return False
@@ -57,7 +57,7 @@ def parse_and_check_date(val, t_month, t_year):
     return False
 
 def quet_anh_bang_groq(image_bytes, api_key, max_retries=3):
-    """Gửi ảnh lên siêu máy chủ Groq bằng Llama 3.2 Vision"""
+    """Gửi ảnh lên siêu máy chủ Groq bằng Llama 4 Scout Vision"""
     # 1. Ép dung lượng ảnh nhỏ lại để gửi siêu nhanh
     img_goc = Image.open(io.BytesIO(image_bytes))
     img_goc.thumbnail((1024, 1024))
@@ -72,7 +72,7 @@ def quet_anh_bang_groq(image_bytes, api_key, max_retries=3):
         "Content-Type": "application/json"
     }
     payload = {
-        "model": "llama-3.2-11b-vision-preview", # Bản AI thị giác mới nhất
+        "model": "llama-4-scout-17b-16e-instruct", # Đã nâng cấp lên Model Llama 4 mới nhất
         "messages": [
             {
                 "role": "user",
