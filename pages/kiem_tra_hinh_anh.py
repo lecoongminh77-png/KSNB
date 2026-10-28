@@ -1,26 +1,15 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 from PIL import Image
 import io
 import time
-
-try:
-    import google.generativeai as genai
-except ImportError:
-    st.error("⚠️ Bạn chưa cài thư viện google-generativeai. Hãy thêm nó vào file requirements.txt nhé!")
+import base64
+import requests
 
 # -------------------------------------------------------------
-# CẤU HÌNH GIAO DIỆN & API KEY GEMINI
+# CẤU HÌNH GIAO DIỆN
 # -------------------------------------------------------------
 st.set_page_config(page_title='Kiểm Kê Bằng Hình Ảnh', page_icon='📸', layout='wide')
-
-# Tích hợp trực tiếp API Key của bạn
-GEMINI_API_KEY = "AQ.Ab8RN6KLl0d7ROMPaEhiTTUTzqTBmkqLOfdbuLHcSxvGJosZ5Q"
-try:
-    genai.configure(api_key=GEMINI_API_KEY)
-except:
-    pass
 
 st.markdown("""
 <style>
@@ -41,8 +30,8 @@ with col_home:
     if st.button('🏠 Trang chủ', use_container_width=True):
         st.switch_page('app_ksnb.py')
 
-st.markdown("<h1 class='apple-main-title'>📸 AI Kiểm Kê Bằng Hình Ảnh (Bản Siêu Nhẹ)</h1>", unsafe_allow_html=True)
-st.markdown("<hr style='border-top: 1px solid #e2e8f0; margin-bottom: 30px;'>", unsafe_allow_html=True)
+st.markdown("<h1 class='apple-main-title'>📸 AI Kiểm Kê Bằng Hình Ảnh (Bản REST API)</h1>", unsafe_allow_html=True)
+st.markdown("<hr style='border-top: 1px solid #e2e8f0; margin-bottom: 20px;'>", unsafe_allow_html=True)
 
 # -------------------------------------------------------------
 # HÀM HỖ TRỢ
@@ -55,9 +44,47 @@ def parse_and_check_date(val, t_month, t_year):
     except: pass
     return False
 
+def quet_anh_bang_gemini_rest_api(image_bytes, api_key):
+    """Giả lập lệnh cURL gọi trực tiếp tới Google API bỏ qua thư viện"""
+    base64_image = base64.b64encode(image_bytes).decode('utf-8')
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+    
+    headers = {
+        "Content-Type": "application/json",
+        "X-goog-api-key": api_key.strip()
+    }
+    
+    payload = {
+        "contents": [{
+            "parts": [
+                {"text": "Bạn là chuyên gia kiểm kê kho. Hãy đọc và viết ra toàn bộ các dãy số, mã chữ có trên nhãn mác trong bức ảnh này. Không cần giải thích, chỉ xuất ra các mã chữ/số bạn thấy."},
+                {"inlineData": {
+                    "mimeType": "image/jpeg",
+                    "data": base64_image
+                }}
+            ]
+        }]
+    }
+    
+    response = requests.post(url, headers=headers, json=payload)
+    
+    if response.status_code == 200:
+        res_json = response.json()
+        try:
+            return res_json['candidates'][0]['content']['parts'][0]['text']
+        except KeyError:
+            return ""
+    else:
+        raise Exception(f"Lỗi {response.status_code}: {response.text}")
+
 # -------------------------------------------------------------
-# KHU VỰC TẢI DỮ LIỆU
+# KHU VỰC TẢI DỮ LIỆU & NHẬP KEY
 # -------------------------------------------------------------
+st.markdown("### 🔑 Cấu hình Trí Tuệ Nhân Tạo (Gemini)")
+api_key_input = st.text_input("Nhập Google Gemini API Key:", type="password", help="Hỗ trợ cả key dạng AIza... và AQ.Ab8...")
+
+st.markdown("<hr style='border-top: 1px dashed #ccc; margin: 20px 0;'>", unsafe_allow_html=True)
+
 st.markdown("### 📥 1. Thiết Lập Mốc Thời Gian Kiểm Kê")
 col_t1, col_t2, _ = st.columns([2, 2, 6])
 with col_t1: thang_chon = st.selectbox('Chọn Tháng', list(range(1, 13)), index=9)
@@ -70,20 +97,20 @@ col_upload1, col_upload2 = st.columns(2, gap="large")
 with col_upload1:
     with st.container(border=True):
         st.markdown("<div class='upload-title'>📄 2. Nạp File Excel (Kế hoạch)</div>", unsafe_allow_html=True)
-        st.write("Hệ thống sẽ lấy mã từ sheet GIAO NHAN TP GCBB và NXT NGUYEN LIEU.")
         f_excel = st.file_uploader("Tải file Excel", type=['xlsx', 'xls'], label_visibility="collapsed")
 
 with col_upload2:
     with st.container(border=True):
         st.markdown("<div class='upload-title'>📸 3. Nạp Hình Ảnh (Thực tế)</div>", unsafe_allow_html=True)
-        st.write("Quét chọn **nhiều hình ảnh** cùng lúc. Cứ ném file vào là máy sẽ tự chạy!")
         f_images = st.file_uploader("Tải hình ảnh", type=['jpg', 'jpeg', 'png'], accept_multiple_files=True, label_visibility="collapsed")
 
 # -------------------------------------------------------------
-# LOGIC XỬ LÝ (TỰ ĐỘNG CHẠY KHI ĐỦ 2 ĐIỀU KIỆN)
+# LOGIC XỬ LÝ (TỰ ĐỘNG CHẠY KHI ĐỦ ĐIỀU KIỆN)
 # -------------------------------------------------------------
 if not f_excel or not f_images:
-    st.info("👆 Hãy tải lên File Excel và Hình ảnh. Máy chủ AI Gemini sẽ **tự động phân tích** ngay khi nhận đủ dữ liệu!")
+    st.info("👆 Hãy tải lên File Excel và Hình ảnh để bắt đầu kiểm kê.")
+elif not api_key_input:
+    st.warning("⚠️ Vui lòng dán API Key của Google Gemini vào ô trên cùng để AI có thể đọc được hình ảnh!")
 else:
     progress_bar = st.progress(0, text="Đang bóc tách danh sách mã lô từ File Excel...")
     time.sleep(0.5)
@@ -96,7 +123,6 @@ else:
         xls = pd.ExcelFile(f_excel)
         sheet_names = xls.sheet_names
         
-        # Nguồn 1: GIAO NHAN TP GCBB
         if 'GIAO NHAN TP GCBB' in sheet_names:
             df1 = pd.read_excel(xls, sheet_name='GIAO NHAN TP GCBB', header=None, dtype=str)
             for idx, row in df1.iterrows():
@@ -104,7 +130,6 @@ else:
                     ma = str(row[9]).strip().upper()
                     if ma and ma != 'NAN' and len(ma) > 3: ds_ma_can_tim.add(ma)
 
-        # Nguồn 2: NXT NGUYEN LIEU
         sheet2 = next((s for s in sheet_names if 'NXT NGUYEN LIEU' in s.upper()), None)
         if sheet2:
             df2 = pd.read_excel(xls, sheet_name=sheet2, header=None, dtype=str)
@@ -119,11 +144,8 @@ else:
             st.stop()
 
         # ==========================================
-        # BƯỚC 2: AI GEMINI ĐỌC HÌNH ẢNH HÀNG LOẠT
+        # BƯỚC 2: AI GEMINI ĐỌC HÌNH ẢNH (Bằng Requests)
         # ==========================================
-        # Khởi tạo mô hình siêu nhẹ và thông minh
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        
         ma_da_thay = {} 
         hinh_nghi_ngo = [] 
         
@@ -132,36 +154,31 @@ else:
             ptram = int(20 + (80 * (i + 1) / tong_hinh))
             progress_bar.progress(ptram, text=f"🤖 AI Gemini đang soi tấm ảnh thứ {i+1}/{tong_hinh}: {img_file.name}...")
             
-            image = Image.open(img_file)
+            # Đọc file ảnh dưới dạng byte và đối tượng ảnh (để hiển thị sau)
+            img_bytes = img_file.getvalue()
+            image_obj = Image.open(io.BytesIO(img_bytes))
             
             try:
-                # Giao tiếp với Gemini
-                prompt = "Bạn là chuyên gia kiểm kê kho. Hãy đọc và viết ra toàn bộ các dãy số, mã chữ có trên nhãn mác trong bức ảnh này. Không cần giải thích, chỉ xuất ra các mã chữ/số bạn thấy."
-                response = model.generate_content([prompt, image])
-                
-                # Trích xuất và làm sạch chuỗi kết quả AI trả về
-                ocr_text = response.text if response.text else ""
+                # Gọi thẳng REST API (Cách mà lệnh cURL của bạn hoạt động)
+                ocr_text = quet_anh_bang_gemini_rest_api(img_bytes, api_key_input)
                 chuoi_hinh_anh = ocr_text.upper().replace(" ", "").replace("-", "").replace("\n", "")
                 
-                # So khớp với danh sách mã Excel
                 tim_thay_trong_hinh = False
                 for ma in ds_ma_can_tim:
                     ma_clean = ma.replace(" ", "").replace("-", "")
                     if ma_clean in chuoi_hinh_anh:
                         if ma not in ma_da_thay:
                             ma_da_thay[ma] = []
-                        ma_da_thay[ma].append({'ten_file': img_file.name, 'hinh_anh': image})
+                        ma_da_thay[ma].append({'ten_file': img_file.name, 'hinh_anh': image_obj})
                         tim_thay_trong_hinh = True
                 
-                # Phân loại ảnh lỗi/nghi ngờ
                 if not tim_thay_trong_hinh:
-                    hinh_nghi_ngo.append({'ten_file': img_file.name, 'hinh_anh': image, 'chu_nhan_dien': ocr_text})
+                    hinh_nghi_ngo.append({'ten_file': img_file.name, 'hinh_anh': image_obj, 'chu_nhan_dien': ocr_text})
                 
-                # Cho hệ thống nghỉ ngơi 3 giây để tránh bị Google khóa API vì request quá nhanh (Rate Limit)
-                time.sleep(3)
+                time.sleep(3) # Nghỉ 3s chống chặn API
                 
             except Exception as e:
-                st.error(f"Lỗi kết nối Gemini ở ảnh {img_file.name}: {e}")
+                st.error(f"Lỗi kết nối API ở ảnh {img_file.name}: {e}")
 
         progress_bar.progress(100, text="✅ Hoàn tất phân tích!")
         time.sleep(0.5)
@@ -182,7 +199,6 @@ else:
         st.markdown("<br>", unsafe_allow_html=True)
         col_c1, col_c2, col_c3 = st.columns(3, gap="medium")
         
-        # CỘT 1
         with col_c1:
             st.markdown("<div class='list-box'><h4 style='color:#1e7e34; margin-top:0;'>✅ CÁC MÃ ĐÃ CÓ HÌNH</h4>", unsafe_allow_html=True)
             if len(ma_da_thay) > 0:
@@ -194,7 +210,6 @@ else:
                 st.info("Chưa tìm thấy mã nào.")
             st.markdown("</div>", unsafe_allow_html=True)
 
-        # CỘT 2
         with col_c2:
             st.markdown("<div class='list-box'><h4 style='color:#dc3545; margin-top:0;'>❌ CÁC MÃ BỊ THIẾU</h4>", unsafe_allow_html=True)
             if len(ma_thieu) > 0:
@@ -204,7 +219,6 @@ else:
                 st.success("Tuyệt vời! Đã chụp đủ 100% hàng.")
             st.markdown("</div>", unsafe_allow_html=True)
 
-        # CỘT 3
         with col_c3:
             st.markdown("<div class='list-box'><h4 style='color:#e37100; margin-top:0;'>⚠️ HÌNH ẢNH NGHI NGỜ</h4>", unsafe_allow_html=True)
             if len(hinh_nghi_ngo) > 0:
