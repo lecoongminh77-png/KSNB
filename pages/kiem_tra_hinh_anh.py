@@ -45,14 +45,20 @@ def parse_and_check_date(val, t_month, t_year):
     return False
 
 def quet_anh_bang_gemini_rest_api(image_bytes, api_key):
-    """Giả lập lệnh cURL gọi trực tiếp tới Google API bỏ qua thư viện"""
+    """Gửi trực tiếp ảnh lên Google AI, tự động nhận diện loại API Key"""
     base64_image = base64.b64encode(image_bytes).decode('utf-8')
     url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
     
-    headers = {
-        "Content-Type": "application/json",
-        "X-goog-api-key": api_key.strip()
-    }
+    api_key_clean = api_key.strip()
+    headers = {"Content-Type": "application/json"}
+    
+    # 🌟 ĐIỂM CHỐT LỖI 401 NẰM Ở ĐÂY: Phân loại chìa khóa 
+    if api_key_clean.startswith("AIza"):
+        # Cắm ổ API Key chuẩn
+        headers["x-goog-api-key"] = api_key_clean
+    else:
+        # Cắm ổ Access Token / Service Account
+        headers["Authorization"] = f"Bearer {api_key_clean}"
     
     payload = {
         "contents": [{
@@ -116,9 +122,7 @@ else:
     time.sleep(0.5)
 
     try:
-        # ==========================================
         # BƯỚC 1: LỌC DANH SÁCH MÃ TỪ EXCEL
-        # ==========================================
         ds_ma_can_tim = set()
         xls = pd.ExcelFile(f_excel)
         sheet_names = xls.sheet_names
@@ -143,9 +147,7 @@ else:
             st.error(f"🚨 Không tìm thấy mã lô nào thuộc tháng {thang_chon}/{nam_chon} trong file Excel!")
             st.stop()
 
-        # ==========================================
         # BƯỚC 2: AI GEMINI ĐỌC HÌNH ẢNH (Bằng Requests)
-        # ==========================================
         ma_da_thay = {} 
         hinh_nghi_ngo = [] 
         
@@ -154,12 +156,11 @@ else:
             ptram = int(20 + (80 * (i + 1) / tong_hinh))
             progress_bar.progress(ptram, text=f"🤖 AI Gemini đang soi tấm ảnh thứ {i+1}/{tong_hinh}: {img_file.name}...")
             
-            # Đọc file ảnh dưới dạng byte và đối tượng ảnh (để hiển thị sau)
             img_bytes = img_file.getvalue()
             image_obj = Image.open(io.BytesIO(img_bytes))
             
             try:
-                # Gọi thẳng REST API (Cách mà lệnh cURL của bạn hoạt động)
+                # GỌI HÀM MỚI ĐỂ XỬ LÝ LỖI 401
                 ocr_text = quet_anh_bang_gemini_rest_api(img_bytes, api_key_input)
                 chuoi_hinh_anh = ocr_text.upper().replace(" ", "").replace("-", "").replace("\n", "")
                 
@@ -175,7 +176,7 @@ else:
                 if not tim_thay_trong_hinh:
                     hinh_nghi_ngo.append({'ten_file': img_file.name, 'hinh_anh': image_obj, 'chu_nhan_dien': ocr_text})
                 
-                time.sleep(3) # Nghỉ 3s chống chặn API
+                time.sleep(3) # Nghỉ 3s chống chặn API vì spam
                 
             except Exception as e:
                 st.error(f"Lỗi kết nối API ở ảnh {img_file.name}: {e}")
@@ -184,9 +185,7 @@ else:
         time.sleep(0.5)
         progress_bar.empty()
 
-        # ==========================================
         # BƯỚC 3: BÁO CÁO KẾT QUẢ KIỂM KÊ (UI)
-        # ==========================================
         ma_thieu = ds_ma_can_tim - set(ma_da_thay.keys())
         
         st.markdown("### 📊 BẢNG TỔNG KẾT KIỂM KÊ")
@@ -232,9 +231,7 @@ else:
                 st.success("Tất cả hình tải lên đều nhận diện thành công.")
             st.markdown("</div>", unsafe_allow_html=True)
 
-        # ==========================================
         # BƯỚC 4: XUẤT BIÊN BẢN KIỂM KÊ (EXCEL)
-        # ==========================================
         st.markdown("<br><hr>", unsafe_allow_html=True)
         st.markdown("### 📝 Biên Bản Kiểm Kê (Xuất Excel)")
         
