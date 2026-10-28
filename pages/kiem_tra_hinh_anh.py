@@ -37,7 +37,7 @@ with col_home:
         try: st.switch_page('app_ksnb.py')
         except: pass
 
-st.markdown("<h1 class='apple-main-title'>📸 AI Kiểm Kê Hình Ảnh (Bản Gộp Nhóm Siêu Tốc)</h1>", unsafe_allow_html=True)
+st.markdown("<h1 class='apple-main-title'>📸 AI Kiểm Kê Hình Ảnh (Bản Chuẩn Gemini 3.8)</h1>", unsafe_allow_html=True)
 st.markdown("<hr style='border-top: 1px solid #e2e8f0; margin-bottom: 20px;'>", unsafe_allow_html=True)
 
 def parse_and_check_date(val, t_month, t_year):
@@ -49,7 +49,7 @@ def parse_and_check_date(val, t_month, t_year):
     return False
 
 # -------------------------------------------------------------
-# CẤU HÌNH GOOGLE GEMINI (CÓ Ô CHỌN MODEL TÙY Ý)
+# CẤU HÌNH GOOGLE GEMINI (DÙNG CHUẨN GEMINI 3.8 FLASH)
 # -------------------------------------------------------------
 st.markdown("### 🔑 Cấu hình Trí Tuệ Nhân Tạo (Google Gemini)")
 secret_key = ""
@@ -58,31 +58,19 @@ except: pass
 
 api_key_input = st.text_input("Dán Google Gemini API Key vào đây:", value=secret_key, type="password")
 
-selected_model = None
-client = None
+# Cố định chọn chuẩn model mới nhất theo yêu cầu của Google API
+selected_model = st.selectbox(
+    "🤖 Chọn Model Gemini:",
+    ["gemini-3.8-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+)
 
+client = None
 if api_key_input:
     try:
         client = genai.Client(api_key=api_key_input.strip())
-        with st.spinner("Đang kết nối lấy danh sách AI từ Google..."):
-            danh_sach_model = []
-            for m in client.models.list():
-                if "gemini" in m.name:
-                    ten_gọn = m.name.replace("models/", "")
-                    if ten_gọn not in danh_sach_model:
-                        danh_sach_model.append(ten_gọn)
-            if danh_sach_model:
-                st.success("✅ Kết nối Google thành công!")
-                if "gemini-2.0-flash" in danh_sach_model:
-                    danh_sach_model.insert(0, danh_sach_model.pop(danh_sach_model.index("gemini-2.0-flash")))
-                elif "gemini-1.5-flash" in danh_sach_model:
-                    danh_sach_model.insert(0, danh_sach_model.pop(danh_sach_model.index("gemini-1.5-flash")))
-                
-                selected_model = st.selectbox("🤖 Chọn Model Gemini để quét:", danh_sach_model)
-            else:
-                st.error("🚨 Không lấy được model từ Google.")
+        st.success("✅ Khởi tạo kết nối Google thành công!")
     except Exception as e:
-        st.error(f"❌ Lỗi kết nối Key: {e}")
+        st.error(f"❌ Lỗi khởi tạo Key: {e}")
 
 st.markdown("<hr style='border-top: 1px dashed #ccc; margin: 20px 0;'>", unsafe_allow_html=True)
 
@@ -110,8 +98,8 @@ with col_upload2:
 # -------------------------------------------------------------
 if not f_excel or not f_images:
     st.info("👆 Hãy tải lên File Excel và Hình ảnh để AI bắt đầu quét.")
-elif not api_key_input or not selected_model:
-    st.warning("⚠️ Vui lòng cấu hình Key và chọn Model bên trên để bắt đầu.")
+elif not api_key_input or not client:
+    st.warning("⚠️ Vui lòng nhập API Key hợp lệ bên trên để bắt đầu.")
 else:
     btn_quet = st.button("🚀 BẮT ĐẦU QUÉT HÀNG LOẠT (GỘP NHÓM)", use_container_width=True)
     
@@ -144,7 +132,7 @@ else:
                 st.error("🚨 Không tìm thấy mã lô nào trong Excel!")
                 st.stop()
 
-            # 2. CHIA NHÓM VÀ GỬI GỘP (BATCHING 10 ẢNH/LẦN ĐỂ TỐC ĐỘ CAO & AN TOÀN)
+            # 2. CHIA NHÓM VÀ GỬI GỘP (BATCHING 10 ẢNH/LẦN)
             chunk_size = 10
             image_chunks = [f_images[i:i + chunk_size] for i in range(0, len(f_images), chunk_size)]
             
