@@ -8,6 +8,5 @@ streamlit-lottie
 requests
 streamlit-option-menu
 xlrd
-easyocr
-opencv-python-headless
+google-generativeai
 python-calamine
