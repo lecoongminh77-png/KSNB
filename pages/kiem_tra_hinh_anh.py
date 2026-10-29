@@ -8,7 +8,7 @@ from google import genai
 from google.genai import types
 
 # -------------------------------------------------------------
-# CẤU HÌNH GIAO DIỆN
+# CẤU HÌNH GIAO DIỆN APPLE
 # -------------------------------------------------------------
 st.set_page_config(page_title='Kiểm Kê Bằng Hình Ảnh', page_icon='📸', layout='wide')
 
@@ -37,7 +37,7 @@ with col_home:
         try: st.switch_page('app_ksnb.py')
         except: pass
 
-st.markdown("<h1 class='apple-main-title'>📸 AI Kiểm Kê Hình Ảnh (Bản Chuẩn Gemini 3.8)</h1>", unsafe_allow_html=True)
+st.markdown("<h1 class='apple-main-title'>📸 AI Kiểm Kê Hình Ảnh (Bản Miễn Phí - Chống Spam)</h1>", unsafe_allow_html=True)
 st.markdown("<hr style='border-top: 1px solid #e2e8f0; margin-bottom: 20px;'>", unsafe_allow_html=True)
 
 def parse_and_check_date(val, t_month, t_year):
@@ -49,7 +49,7 @@ def parse_and_check_date(val, t_month, t_year):
     return False
 
 # -------------------------------------------------------------
-# CẤU HÌNH GOOGLE GEMINI (DÙNG CHUẨN GEMINI 3.8 FLASH)
+# CẤU HÌNH GOOGLE GEMINI
 # -------------------------------------------------------------
 st.markdown("### 🔑 Cấu hình Trí Tuệ Nhân Tạo (Google Gemini)")
 secret_key = ""
@@ -58,17 +58,17 @@ except: pass
 
 api_key_input = st.text_input("Dán Google Gemini API Key vào đây:", value=secret_key, type="password")
 
-# Cố định chọn chuẩn model mới nhất theo yêu cầu của Google API
+# Ép mặc định dùng 1.5-flash để có hạn mức 1.500 lần/ngày
 selected_model = st.selectbox(
-    "🤖 Chọn Model Gemini:",
-    ["gemini-3.8-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+    "🤖 Chọn Model Gemini (Khuyên dùng 1.5 Flash cho tài khoản miễn phí):",
+    ["gemini-1.5-flash", "gemini-2.0-flash"]
 )
 
 client = None
 if api_key_input:
     try:
         client = genai.Client(api_key=api_key_input.strip())
-        st.success("✅ Khởi tạo kết nối Google thành công!")
+        st.success("✅ Khởi tạo kết nối Google thành công! Hạn mức miễn phí: 1.500 lần/ngày.")
     except Exception as e:
         st.error(f"❌ Lỗi khởi tạo Key: {e}")
 
@@ -94,17 +94,19 @@ with col_upload2:
         f_images = st.file_uploader("Tải nhiều hình ảnh", type=['jpg', 'jpeg', 'png'], accept_multiple_files=True, label_visibility="collapsed")
 
 # -------------------------------------------------------------
-# LOGIC GỘP NHÓM THÔNG MINH (MULTI-IMAGE BATCHING)
+# LOGIC GỘP NHÓM & ÉP TỐC ĐỘ CHẬM (CHỐNG SPAM 429)
 # -------------------------------------------------------------
 if not f_excel or not f_images:
     st.info("👆 Hãy tải lên File Excel và Hình ảnh để AI bắt đầu quét.")
 elif not api_key_input or not client:
     st.warning("⚠️ Vui lòng nhập API Key hợp lệ bên trên để bắt đầu.")
 else:
-    btn_quet = st.button("🚀 BẮT ĐẦU QUÉT HÀNG LOẠT (GỘP NHÓM)", use_container_width=True)
+    btn_quet = st.button("🚀 BẮT ĐẦU QUÉT HÀNG LOẠT (TỰ ĐỘNG GIÃN CÁCH)", use_container_width=True)
     
     if btn_quet:
-        progress_bar = st.progress(0, text="Đang bóc tách mã từ Excel...")
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        status_text.markdown("**Đang bóc tách mã từ Excel...**")
         time.sleep(0.5)
 
         try:
@@ -132,7 +134,7 @@ else:
                 st.error("🚨 Không tìm thấy mã lô nào trong Excel!")
                 st.stop()
 
-            # 2. CHIA NHÓM VÀ GỬI GỘP (BATCHING 10 ẢNH/LẦN)
+            # 2. CHIA NHÓM (10 ảnh/lần) VÀ CHỜ ĐỢI
             chunk_size = 10
             image_chunks = [f_images[i:i + chunk_size] for i in range(0, len(f_images), chunk_size)]
             
@@ -141,8 +143,9 @@ else:
             total_chunks = len(image_chunks)
             
             for chunk_idx, chunk in enumerate(image_chunks):
-                progress_val = int((chunk_idx / total_chunks) * 80)
-                progress_bar.progress(progress_val, text=f"Đang gửi nhóm ảnh {chunk_idx + 1}/{total_chunks} lên AI...")
+                progress_val = int((chunk_idx / total_chunks) * 85)
+                progress_bar.progress(progress_val)
+                status_text.markdown(f"**Đang gửi nhóm ảnh {chunk_idx + 1}/{total_chunks} lên AI... (Vui lòng không tắt trang)**")
                 
                 contents = [
                     "Hãy đọc tất cả chữ và số lô trên nhãn mác trong các bức ảnh dưới đây. "
@@ -164,6 +167,7 @@ else:
                     contents.append(f"TÊN FILE: {img_file.name}")
                     contents.append(img_api)
                 
+                # Gọi API
                 try:
                     response = client.models.generate_content(
                         model=selected_model,
@@ -179,13 +183,18 @@ else:
                             fname = parts[0].strip()
                             content = parts[1].split("---")[0].strip().upper().replace(" ", "").replace("-", "").replace("\n", "")
                             ocr_results[fname] = content
+                            
                 except Exception as e:
-                    st.error(f"Lỗi ở nhóm ảnh {chunk_idx + 1}: {e}")
+                    st.error(f"❌ Lỗi ở nhóm ảnh {chunk_idx + 1}: {e}")
                 
+                # --- ÉP TỐC ĐỘ CHẬM (NGỦ ĐÔNG 20 GIÂY) ĐỂ CHỐNG SPAM ---
                 if chunk_idx < total_chunks - 1:
-                    time.sleep(1.5)
+                    for i in range(20, 0, -1):
+                        status_text.markdown(f"⏳ **Bảo vệ chống Spam:** Đang nghỉ ngơi **{i} giây** trước khi gửi nhóm tiếp theo...")
+                        time.sleep(1)
 
-            progress_bar.progress(90, text="Đang khớp dữ liệu AI trả về với bảng Excel...")
+            status_text.markdown("**Đang khớp dữ liệu AI trả về với bảng Excel...**")
+            progress_bar.progress(95)
 
             # 3. ĐỐI SOÁT DỮ LIỆU
             ma_da_thay = {} 
@@ -209,9 +218,11 @@ else:
 
             gc.collect()
 
-            progress_bar.progress(100, text="✅ Hoàn tất toàn bộ hình ảnh!")
-            time.sleep(0.5)
+            progress_bar.progress(100)
+            status_text.success("✅ Hoàn tất toàn bộ hình ảnh!")
+            time.sleep(1)
             progress_bar.empty()
+            status_text.empty()
 
             # 4. XUẤT BÁO CÁO VÀ GIAO DIỆN
             ma_thieu = ds_ma_can_tim - set(ma_da_thay.keys())
