@@ -6,7 +6,7 @@ import pandas as pd
 import streamlit as st
 import openpyxl
 from openpyxl.styles import PatternFill, Font, Border, Side
-import traceback # Thêm thư viện để truy vết lỗi chi tiết
+import traceback 
 
 # -------------------------------------------------------------
 # CẤU HÌNH GIAO DIỆN CHUẨN APPLE & THANH TIỆN ÍCH CỐ ĐỊNH
@@ -195,7 +195,6 @@ def doi_chieu_hrc_tung_file():
                             if s in pl_sheets:
                                 try:
                                     df_pl = pd.read_excel(f_pl, sheet_name=s, skiprows=6)
-                                    # Bẫy lỗi: Đảm bảo sheet PL có ít nhất 12 cột
                                     if len(df_pl.columns) > 11:
                                         col_pl_ma = df_pl.columns[7]
                                         col_pl_net = df_pl.columns[11]
@@ -243,7 +242,6 @@ def doi_chieu_hrc_tung_file():
                     if f_opm is not None:
                         try:
                             df_opm = pd.read_excel(f_opm, skiprows=8)
-                            # Bẫy lỗi: Đảm bảo OPM có ít nhất 36 cột
                             if len(df_opm.columns) > 35:
                                 df_opm_clean = df_opm.dropna(subset=[df_opm.columns[0], df_opm.columns[1], df_opm.columns[10]]).copy()
                                 df_opm_clean['Mã Lô'] = df_opm_clean[df_opm.columns[0]].astype(str).str.strip().str.upper()
@@ -279,12 +277,19 @@ def doi_chieu_hrc_tung_file():
                     ]
 
                     total_sheets = len(selected_sheets)
-                    for idx, sheet_name in enumerate(wb_formulas.sheetnames):
+                    processed_count = 0
+                    
+                    # Lặp qua BẢN SAO danh sách sheet để tránh lỗi khi remove sheet
+                    for sheet_name in list(wb_formulas.sheetnames):
                         if sheet_name not in selected_sheets:
                             wb_formulas.remove(wb_formulas[sheet_name])
                             continue
                             
-                        current_progress = 50 + int((idx / len(wb_formulas.sheetnames)) * 40)
+                        # Đếm sheet đã xử lý để đẩy thanh progress an toàn
+                        processed_count += 1
+                        current_progress = 50 + int((processed_count / total_sheets) * 40)
+                        current_progress = min(current_progress, 95) # Khóa trần không cho lố 95%
+                        
                         my_bar.progress(current_progress, text=f"🔍 Đang đối chiếu Sheet: {sheet_name}...")
 
                         ws_val = wb_values[sheet_name]
@@ -428,7 +433,7 @@ def doi_chieu_hrc_tung_file():
                                 cell_l_form.font = red_font
 
                     # --- LƯU FILE KẾT QUẢ ---
-                    my_bar.progress(95, text="💾 Đang đóng gói File Excel...")
+                    my_bar.progress(98, text="💾 Đang đóng gói File Excel...")
                     output = io.BytesIO()
                     wb_formulas.save(output)
                     
