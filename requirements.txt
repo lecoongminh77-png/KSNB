@@ -9,4 +9,4 @@ xlrd
 python-calamine
 pillow
 requests
-groq
+openai
