@@ -10,7 +10,7 @@ from groq import Groq
 # -------------------------------------------------------------
 # CẤU HÌNH GIAO DIỆN
 # -------------------------------------------------------------
-st.set_page_config(page_title='Kiểm Kê Kho (Llama 3.2)', page_icon='📸', layout='wide')
+st.set_page_config(page_title='Kiểm Kê Kho (Llama 3.2 Chính thức)', page_icon='📸', layout='wide')
 
 st.markdown("""
 <style>
@@ -57,13 +57,15 @@ def encode_image_to_base64(image_bytes):
 # CẤU HÌNH GROQ API
 # -------------------------------------------------------------
 st.markdown("### 🔑 Cấu hình Groq API (Miễn phí)")
-api_key_input = st.text_input("Dán Groq API Key vào đây (Lấy tại console.groq.com):", type="password")
+api_key_input = st.text_input("Dán Groq API Key vào đây:", type="password")
 
+# Cập nhật danh sách model chính thức (đã gỡ bỏ bản preview bị khai tử)
 selected_model = st.selectbox(
     "🤖 Chọn Model Vision:",
     [
-        "llama-3.2-90b-vision-preview",  # Model thông minh nhất hiện tại của Meta
-        "llama-3.2-11b-vision-preview"   # Model nhẹ hơn, phản hồi nhanh hơn
+        "llama-3.2-90b-vision-instruct",  # Model 90B chính thức
+        "llama-3.2-11b-vision-instruct",  # Model 11B chính thức
+        "llama-3.2-90b-text-preview"      # Dự phòng
     ]
 )
 
@@ -136,7 +138,7 @@ else:
                 st.error("🚨 Không tìm thấy mã lô nào trong Excel!")
                 st.stop()
 
-            # 2. XỬ LÝ ẢNH & GỌI API (Nhóm 10 ảnh để tránh quá tải dung lượng Groq)
+            # 2. XỬ LÝ ẢNH & GỌI API (Nhóm 10 ảnh)
             chunk_size = 10 
             image_chunks = [f_images[i:i + chunk_size] for i in range(0, len(f_images), chunk_size)]
             
@@ -175,7 +177,7 @@ else:
                         "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}
                     })
                 
-                # Gửi yêu cầu lên Groq (Cơ chế tự thử lại nếu lỗi mạng)
+                # Gửi yêu cầu lên Groq (Cơ chế tự thử lại)
                 max_retries = 3
                 for attempt in range(max_retries):
                     try:
@@ -204,14 +206,14 @@ else:
                     
                     except Exception as e:
                         if attempt < max_retries - 1:
-                            status_text.warning(f"⚠️ Mạng tắc nghẽn. Đang thử lại lần {attempt + 2} cho nhóm {chunk_idx + 1}...")
-                            time.sleep(5)
+                            status_text.warning(f"⚠️ Đang thử lại lần {attempt + 2} cho nhóm {chunk_idx + 1}...")
+                            time.sleep(3)
                         else:
-                            st.error(f"❌ Nhóm {chunk_idx + 1} gặp lỗi sau nhiều lần thử: {e}")
+                            st.error(f"❌ Nhóm {chunk_idx + 1} gặp lỗi: {e}")
 
-                # Nghỉ ngắn giữa các nhóm để nhường đường truyền
+                # Nghỉ ngắn giữa các nhóm
                 if chunk_idx < total_chunks - 1:
-                    time.sleep(3)
+                    time.sleep(2)
 
             # 3. ĐỐI SOÁT DỮ LIỆU EXCEL
             status_text.markdown("**🔄 Đang đối soát dữ liệu với bảng kế hoạch...**")
@@ -273,43 +275,4 @@ else:
                     for ma in sorted(list(ma_thieu)):
                         st.markdown(f"- **{ma}**")
                 else:
-                    st.success("Tuyệt vời! Đã chụp đủ 100% hàng.")
-                st.markdown("</div>", unsafe_allow_html=True)
-
-            with col_c3:
-                st.markdown("<div class='list-box'><h4 style='color:#e37100; margin-top:0;'>⚠️ HÌNH ẢNH NGHI NGỜ (Không khớp mã)</h4>", unsafe_allow_html=True)
-                if len(hinh_nghi_ngo) > 0:
-                    for item in hinh_nghi_ngo:
-                        with st.expander(f"📷 {item['ten_file']}"):
-                            st.image(item['hinh_anh'], use_container_width=True)
-                            st.caption("AI đọc được:")
-                            st.write(item['chu_nhan_dien'])
-                else:
-                    st.success("Tất cả hình tải lên đều nhận diện thành công.")
-                st.markdown("</div>", unsafe_allow_html=True)
-
-            st.markdown("<br><hr>", unsafe_allow_html=True)
-            st.markdown("### 📝 Biên Bản Kiểm Kê (Xuất Excel)")
-            
-            bien_ban_data = []
-            for ma in sorted(ds_ma_can_tim):
-                if ma in ma_da_thay:
-                    file_names = ", ".join([img['ten_file'] for img in ma_da_thay[ma]])
-                    bien_ban_data.append({'Mã Lô': ma, 'Trạng Thái': '✅ Đã kiểm kê', 'Ghi Chú': f"Ảnh: {file_names}"})
-                else:
-                    bien_ban_data.append({'Mã Lô': ma, 'Trạng Thái': '❌ THIẾU', 'Ghi Chú': "Không tìm thấy hình"})
-
-            df_bb = pd.DataFrame(bien_ban_data)
-            output = io.BytesIO()
-            with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                df_bb.to_excel(writer, index=False, sheet_name='Kiem_Ke')
-                
-            st.download_button(
-                label="📥 Tải Xuống Biên Bản Kiểm Kê (Excel)", 
-                data=output.getvalue(), 
-                file_name=f"Bien_Ban_Kiem_Ke_Llama3_{chuoi_yymm}.xlsx", 
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-
-        except Exception as e:
-            st.error(f"Lỗi hệ thống: {e}")
+                    st.success("Tuyệt vời! Đã chụp đủ 100%
