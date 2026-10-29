@@ -5,12 +5,12 @@ import io
 import time
 import gc
 import base64
-from groq import Groq
+from openai import OpenAI
 
 # -------------------------------------------------------------
 # CẤU HÌNH GIAO DIỆN
 # -------------------------------------------------------------
-st.set_page_config(page_title='Kiểm Kê Kho (Llama 3.2 Chính thức)', page_icon='📸', layout='wide')
+st.set_page_config(page_title='Kiểm Kê Kho (OpenRouter Miễn Phí)', page_icon='📸', layout='wide')
 
 st.markdown("""
 <style>
@@ -20,9 +20,9 @@ st.markdown("""
     .apple-main-title { font-size: 36px; font-weight: 700; color: #1d1d1f; margin-bottom: 20px; text-align: center; }
     [data-testid="stVerticalBlockBorderWrapper"] { background: #ffffff; border-radius: 16px; padding: 15px; border: 1px solid rgba(0,0,0,0.08); box-shadow: 0 2px 12px rgba(0,0,0,0.03); }
     div[data-testid="stMetric"] { background-color: #ffffff; border-radius: 12px; padding: 15px; border: 1px solid rgba(0,0,0,0.05); box-shadow: 0 2px 8px rgba(0,0,0,0.02); text-align: center; }
-    .upload-title { font-size: 18px; font-weight: 700; margin-bottom: 10px; color: #f97316;}
+    .upload-title { font-size: 18px; font-weight: 700; margin-bottom: 10px; color: #8b5cf6;}
     .list-box { background: #fff; padding: 15px; border-radius: 10px; border: 1px solid #e2e8f0; height: 100%; }
-    button[kind="primary"] { background-color: #f97316 !important; color: white !important; border-color: #f97316 !important; }
+    button[kind="primary"] { background-color: #8b5cf6 !important; color: white !important; border-color: #8b5cf6 !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -32,7 +32,7 @@ with col_home:
         try: st.switch_page('app_ksnb.py')
         except: pass
 
-st.markdown("<h1 class='apple-main-title'>📸 AI Kiểm Kê Hình Ảnh (Sức mạnh Llama 3.2 Vision)</h1>", unsafe_allow_html=True)
+st.markdown("<h1 class='apple-main-title'>📸 AI Kiểm Kê Hình Ảnh (Hệ thống OpenRouter)</h1>", unsafe_allow_html=True)
 st.markdown("<hr style='border-top: 1px solid #e2e8f0; margin-bottom: 20px;'>", unsafe_allow_html=True)
 
 # Hàm hỗ trợ ép ngày tháng
@@ -44,36 +44,39 @@ def parse_and_check_date(val, t_month, t_year):
     except: pass
     return False
 
-# Hàm chuyển ảnh sang Base64 để gửi qua Groq
+# Hàm chuyển ảnh sang Base64 để gửi qua API
 def encode_image_to_base64(image_bytes):
     img = Image.open(io.BytesIO(image_bytes))
-    # Resize nhẹ để tránh vượt quá dung lượng payload của API
     img.thumbnail((800, 800))
     buffered = io.BytesIO()
     img.save(buffered, format="JPEG", quality=85)
     return base64.b64encode(buffered.getvalue()).decode('utf-8')
 
 # -------------------------------------------------------------
-# CẤU HÌNH GROQ API
+# CẤU HÌNH OPENROUTER API
 # -------------------------------------------------------------
-st.markdown("### 🔑 Cấu hình Groq API (Miễn phí)")
-api_key_input = st.text_input("Dán Groq API Key vào đây:", type="password")
+st.markdown("### 🔑 Cấu hình OpenRouter API")
+api_key_input = st.text_input("Dán OpenRouter API Key vào đây (Lấy tại openrouter.ai):", type="password")
 
-# Cập nhật danh sách model chính thức (đã gỡ bỏ bản preview bị khai tử)
+# Danh sách các Model Vision ĐANG MIỄN PHÍ trên OpenRouter
 selected_model = st.selectbox(
-    "🤖 Chọn Model Vision:",
+    "🤖 Chọn Model AI (Miễn phí):",
     [
-        "llama-3.2-90b-vision-instruct",  # Model 90B chính thức
-        "llama-3.2-11b-vision-instruct",  # Model 11B chính thức
-        "llama-3.2-90b-text-preview"      # Dự phòng
+        "meta-llama/llama-3.2-11b-vision-instruct:free",  # Llama Vision nhẹ & miễn phí
+        "meta-llama/llama-3.2-90b-vision-instruct:free",  # Llama Vision thông minh & miễn phí
+        "qwen/qwen-2-vl-7b-instruct:free"                 # Qwen Vision của Alibaba (Rất giỏi đọc chữ)
     ]
 )
 
 client = None
 if api_key_input:
     try:
-        client = Groq(api_key=api_key_input.strip())
-        st.success("✅ Đã kết nối thành công với máy chủ Groq!")
+        # OpenRouter dùng chung thư viện với OpenAI nhưng trỏ về máy chủ riêng
+        client = OpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=api_key_input.strip()
+        )
+        st.success("✅ Đã kết nối thành công với trạm OpenRouter!")
     except Exception as e:
         st.error(f"❌ Lỗi khởi tạo Key: {e}")
 
@@ -99,14 +102,14 @@ with col_upload2:
         f_images = st.file_uploader("Tải nhiều hình ảnh", type=['jpg', 'jpeg', 'png'], accept_multiple_files=True, label_visibility="collapsed")
 
 # -------------------------------------------------------------
-# LOGIC GỌI LLAMA 3.2 VISION QUA GROQ
+# LOGIC GỌI AI QUA OPENROUTER
 # -------------------------------------------------------------
 if not f_excel or not f_images:
     st.info("👆 Hãy tải lên File Excel và Hình ảnh để AI bắt đầu quét.")
 elif not api_key_input or not client:
-    st.warning("⚠️ Vui lòng nhập Groq API Key để bắt đầu.")
+    st.warning("⚠️ Vui lòng nhập OpenRouter API Key để bắt đầu.")
 else:
-    btn_quet = st.button("🚀 BẮT ĐẦU KIỂM KÊ (Dùng Llama 3.2)", use_container_width=True)
+    btn_quet = st.button("🚀 BẮT ĐẦU KIỂM KÊ (OpenRouter)", use_container_width=True)
     
     if btn_quet:
         progress_bar = st.progress(0)
@@ -147,15 +150,15 @@ else:
             total_chunks = len(image_chunks)
             
             for chunk_idx, chunk in enumerate(image_chunks):
-                status_text.markdown(f"**🧠 Llama 3.2 đang quét nhóm ảnh {chunk_idx + 1}/{total_chunks}...**")
+                status_text.markdown(f"**🧠 AI đang quét nhóm ảnh {chunk_idx + 1}/{total_chunks}...**")
                 progress_bar.progress(int(((chunk_idx+1) / total_chunks) * 85))
                 
-                # Xây dựng cấu trúc tin nhắn theo chuẩn OpenAI/Groq Vision (Tránh gãy dòng khi copy)
+                # Tránh lỗi gãy dòng
                 prompt_text = (
                     "Hãy đọc tất cả chữ và số lô trên nhãn mác trong các bức ảnh. "
                     "Tôi sẽ đánh dấu từng ảnh bằng chữ [ẢNH SỐ X]. "
-                    "Bạn phải trả lời ĐÚNG cấu trúc:" + chr(10) + chr(10) +
-                    "[ẢNH SỐ X]" + chr(10) + "NỘI DUNG: <mã đọc được>" + chr(10) + "---" + chr(10)
+                    "Bạn phải trả lời ĐÚNG cấu trúc:\n\n"
+                    "[ẢNH SỐ X]\nNỘI DUNG: <mã đọc được>\n---\n"
                 )
                 
                 content_payload = [{"type": "text", "text": prompt_text}]
@@ -163,22 +166,19 @@ else:
                 for i, img_file in enumerate(chunk):
                     img_bytes = img_file.getvalue()
                     
-                    # Nén ảnh UI
                     img_ui = Image.open(io.BytesIO(img_bytes)).copy()
                     img_ui.thumbnail((300, 300))
                     dict_hinh_anh[img_file.name] = img_ui
                     
-                    # Nén và Encode ảnh gửi API
                     base64_image = encode_image_to_base64(img_bytes)
                     
-                    text_label = chr(10) + chr(10) + f"[ẢNH SỐ {i+1}] (Tên file: {img_file.name})"
-                    content_payload.append({"type": "text", "text": text_label})
+                    content_payload.append({"type": "text", "text": f"\n\n[ẢNH SỐ {i+1}] (Tên file: {img_file.name})"})
                     content_payload.append({
                         "type": "image_url",
                         "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}
                     })
                 
-                # Gửi yêu cầu lên Groq (Cơ chế tự thử lại)
+                # Gửi yêu cầu (Có cơ chế tự thử lại vì model Free đôi lúc bị kẹt mạng)
                 max_retries = 3
                 for attempt in range(max_retries):
                     try:
@@ -190,31 +190,30 @@ else:
                         )
                         raw_text = completion.choices[0].message.content
                         
-                        # Bóc tách kết quả dựa trên tên file
+                        # Bóc tách kết quả
                         for i, img_file in enumerate(chunk):
                             marker = f"[ẢNH SỐ {i+1}]"
                             if marker in raw_text:
                                 block = raw_text.split(marker)[1]
                                 if "NỘI DUNG:" in block:
-                                    content = block.split("NỘI DUNG:")[1].split("---")[0].strip().upper().replace(" ", "").replace("-", "").replace(chr(10), "")
+                                    content = block.split("NỘI DUNG:")[1].split("---")[0].strip().upper().replace(" ", "").replace("-", "").replace("\n", "")
                                     ocr_results[img_file.name] = content
                                 else:
                                     ocr_results[img_file.name] = ""
                             else:
                                 ocr_results[img_file.name] = ""
                         
-                        break # Thành công thì thoát vòng lặp retry
+                        break
                     
                     except Exception as e:
                         if attempt < max_retries - 1:
-                            status_text.warning(f"⚠️ Đang thử lại lần {attempt + 2} cho nhóm {chunk_idx + 1}...")
-                            time.sleep(3)
+                            status_text.warning(f"⚠️ Mạng AI Free đang bận. Đang thử lại lần {attempt + 2} cho nhóm {chunk_idx + 1}...")
+                            time.sleep(5)
                         else:
                             st.error(f"❌ Nhóm {chunk_idx + 1} gặp lỗi: {e}")
 
-                # Nghỉ ngắn giữa các nhóm
                 if chunk_idx < total_chunks - 1:
-                    time.sleep(2)
+                    time.sleep(3)
 
             # 3. ĐỐI SOÁT DỮ LIỆU EXCEL
             status_text.markdown("**🔄 Đang đối soát dữ liệu với bảng kế hoạch...**")
@@ -310,7 +309,7 @@ else:
             st.download_button(
                 label="📥 Tải Xuống Biên Bản Kiểm Kê (Excel)", 
                 data=output.getvalue(), 
-                file_name=f"Bien_Ban_Kiem_Ke_Llama3_{chuoi_yymm}.xlsx", 
+                file_name=f"Bien_Ban_Kiem_Ke_OpenRouter_{chuoi_yymm}.xlsx", 
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
 
