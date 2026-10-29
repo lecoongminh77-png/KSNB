@@ -6,6 +6,7 @@ import pandas as pd
 import streamlit as st
 import openpyxl
 from openpyxl.styles import PatternFill, Font, Border, Side
+import traceback # Thêm thư viện để truy vết lỗi chi tiết
 
 # -------------------------------------------------------------
 # CẤU HÌNH GIAO DIỆN CHUẨN APPLE & THANH TIỆN ÍCH CỐ ĐỊNH
@@ -112,7 +113,7 @@ st.markdown(
 st.markdown("<hr style='border: none; border-top: 1px solid #e2e8f0; margin: 15px 0 25px 0;'>", unsafe_allow_html=True)
 
 # ==============================================================================
-# LOGIC KSNB TỔNG HỢP: ĐỌC 2 LỚP, BẢO LƯU TEMPLATE & THANH TIẾN TRÌNH %
+# LOGIC KSNB TỔNG HỢP: ĐỌC 2 LỚP, BẢY LỖI THÔNG MINH & THANH TIẾN TRÌNH %
 # ==============================================================================
 def doi_chieu_hrc_tung_file():
     st.caption('Kiểm soát nội bộ • Đọc thông minh nhiều sheet, đối soát 4 bên & phát hiện gian lận công thức')
@@ -168,7 +169,6 @@ def doi_chieu_hrc_tung_file():
             f_bv = st.file_uploader('4. File Dữ liệu Nhập Bảo vệ', type=['xlsx', 'xls'])
             f_opm = st.file_uploader('5. File Báo cáo ERP OPM 105', type=['xlsx', 'xls'])
 
-    # --- HÀM ÉP KIỂU SỐ AN TOÀN ---
     def to_float(v):
         if v is None: return 0.0
         v_str = str(v).strip().upper()
@@ -176,13 +176,11 @@ def doi_chieu_hrc_tung_file():
         try: return float(v)
         except: return 0.0
 
-    # --- NÚT XỬ LÝ ---
     if f_bbnt is not None:
         if len(selected_sheets) == 0:
             st.warning("⚠️ Vui lòng chọn ít nhất 1 sheet BBNT để bắt đầu đối chiếu.")
         else:
             if st.button('🚀 Bắt đầu đối chiếu tự động', use_container_width=True):
-                # Khởi tạo thanh Progress Bar
                 progress_text = "🔄 Bắt đầu nạp hệ thống..."
                 my_bar = st.progress(0, text=progress_text)
                 
@@ -195,54 +193,75 @@ def doi_chieu_hrc_tung_file():
                         pl_sheets = xls_pl.sheet_names
                         for s in selected_sheets:
                             if s in pl_sheets:
-                                df_pl = pd.read_excel(f_pl, sheet_name=s, skiprows=6)
-                                col_pl_ma = df_pl.columns[7]
-                                col_pl_net = df_pl.columns[11]
-                                df_pl_clean = df_pl.dropna(subset=[col_pl_ma, col_pl_net]).copy()
-                                pl_key = df_pl_clean[col_pl_ma].astype(str).str.replace(r'\.0$', '', regex=True).str.strip().str.upper() + 'A'
-                                pl_net_val = pd.to_numeric(df_pl_clean[col_pl_net], errors='coerce').fillna(0)
-                                dict_pl_master[s] = dict(zip(pl_key, pl_net_val))
+                                try:
+                                    df_pl = pd.read_excel(f_pl, sheet_name=s, skiprows=6)
+                                    # Bẫy lỗi: Đảm bảo sheet PL có ít nhất 12 cột
+                                    if len(df_pl.columns) > 11:
+                                        col_pl_ma = df_pl.columns[7]
+                                        col_pl_net = df_pl.columns[11]
+                                        df_pl_clean = df_pl.dropna(subset=[col_pl_ma, col_pl_net]).copy()
+                                        pl_key = df_pl_clean[col_pl_ma].astype(str).str.replace(r'\.0$', '', regex=True).str.strip().str.upper() + 'A'
+                                        pl_net_val = pd.to_numeric(df_pl_clean[col_pl_net], errors='coerce').fillna(0)
+                                        dict_pl_master[s] = dict(zip(pl_key, pl_net_val))
+                                    else:
+                                        st.warning(f"⚠️ Bỏ qua PL lô '{s}': Sheet có cấu trúc lạ (ít hơn 12 cột).")
+                                except Exception as e:
+                                    st.warning(f"⚠️ Lỗi đọc sheet '{s}' của Packing List: {e}")
                             else:
-                                st.warning(f"⚠️ Bỏ qua PL cho lô '{s}' vì không tìm thấy sheet cùng tên trong file Packing List.")
+                                st.warning(f"⚠️ Bỏ qua PL lô '{s}': Không tìm thấy sheet cùng tên.")
 
                     my_bar.progress(25, text="⚖️ Đang xử lý Dữ liệu Trạm cân & Bảo vệ...")
                     dict_tc_kl, dict_tc_phanloai = {}, {}
                     if f_tc is not None:
-                        df_tc = pd.read_excel(f_tc)
-                        tc_p = df_tc['PHIẾU CÂN'].astype(str).str.replace(r'\.0$', '', regex=True).str.strip()
-                        tc_kl = pd.to_numeric(df_tc['KHỐI LƯỢNG PHIẾU CÂN'], errors='coerce').fillna(0)
-                        tc_pl = df_tc['PHÂN LOẠI'].fillna('Nhập hàng').astype(str).str.strip() if 'PHÂN LOẠI' in df_tc.columns else 'Nhập hàng'
-                        dict_tc_kl = dict(zip(tc_p, tc_kl))
-                        dict_tc_phanloai = dict(zip(tc_p, tc_pl)) if not isinstance(tc_pl, str) else {k: tc_pl for k in tc_p}
+                        try:
+                            df_tc = pd.read_excel(f_tc)
+                            if 'PHIẾU CÂN' in df_tc.columns and 'KHỐI LƯỢNG PHIẾU CÂN' in df_tc.columns:
+                                tc_p = df_tc['PHIẾU CÂN'].astype(str).str.replace(r'\.0$', '', regex=True).str.strip()
+                                tc_kl = pd.to_numeric(df_tc['KHỐI LƯỢNG PHIẾU CÂN'], errors='coerce').fillna(0)
+                                tc_pl = df_tc['PHÂN LOẠI'].fillna('Nhập hàng').astype(str).str.strip() if 'PHÂN LOẠI' in df_tc.columns else 'Nhập hàng'
+                                dict_tc_kl = dict(zip(tc_p, tc_kl))
+                                dict_tc_phanloai = dict(zip(tc_p, tc_pl)) if not isinstance(tc_pl, str) else {k: tc_pl for k in tc_p}
+                            else:
+                                st.warning("⚠️ File Trạm cân thiếu cột 'PHIẾU CÂN' hoặc 'KHỐI LƯỢNG PHIẾU CÂN'.")
+                        except Exception as e:
+                            st.warning(f"⚠️ Lỗi đọc file Trạm cân: {e}")
 
                     dict_bv_phieu, dict_bv_kl = {}, {}
                     if f_bv is not None:
-                        df_bv = pd.read_excel(f_bv)
-                        for _, r in df_bv.iterrows():
-                            p_can = str(r.get('MÃ PHIẾU CÂN', '')).replace('.0', '').strip()
-                            txt = f"{r.get('MÃ HÀNG HÓA', '')} {r.get('TÊN HÀNG HÓA', '')}".upper()
-                            dict_bv_phieu[txt] = p_can 
-                            dict_bv_kl[txt] = r.get('KHỐI LƯỢNG PHIẾU CÂN', 0)
+                        try:
+                            df_bv = pd.read_excel(f_bv)
+                            for _, r in df_bv.iterrows():
+                                p_can = str(r.get('MÃ PHIẾU CÂN', '')).replace('.0', '').strip()
+                                txt = f"{r.get('MÃ HÀNG HÓA', '')} {r.get('TÊN HÀNG HÓA', '')}".upper()
+                                dict_bv_phieu[txt] = p_can 
+                                dict_bv_kl[txt] = r.get('KHỐI LƯỢNG PHIẾU CÂN', 0)
+                        except Exception as e:
+                            st.warning(f"⚠️ Lỗi đọc file Nhập Bảo Vệ: {e}")
 
                     my_bar.progress(40, text="🏭 Đang xử lý Báo cáo ERP OPM...")
                     opm_035_po, opm_035_rtv, opm_031, opm_03g = {}, {}, {}, {}
                     if f_opm is not None:
-                        df_opm = pd.read_excel(f_opm, skiprows=8)
-                        df_opm_clean = df_opm.dropna(subset=[df_opm.columns[0], df_opm.columns[1], df_opm.columns[10]]).copy()
-                        df_opm_clean['Mã Lô'] = df_opm_clean[df_opm.columns[0]].astype(str).str.strip().str.upper()
-                        df_opm_clean['Khối Lượng'] = pd.to_numeric(df_opm_clean[df_opm.columns[10]], errors='coerce').fillna(0)
-                        df_opm_clean['Mã Kho'] = df_opm_clean[df_opm.columns[35]].astype(str).str.strip()
-                        opm_035_po = df_opm_clean[(df_opm_clean['Mã Kho'] == '035') & (df_opm_clean[df_opm.columns[1]] == 'PO Receipt')].groupby('Mã Lô')['Khối Lượng'].sum().to_dict()
-                        opm_035_rtv = df_opm_clean[(df_opm_clean['Mã Kho'] == '035') & (df_opm_clean[df_opm.columns[1]] == 'Return to Vendor')].groupby('Mã Lô')['Khối Lượng'].sum().to_dict()
-                        opm_031 = df_opm_clean[(df_opm_clean['Mã Kho'].isin(['03G', '03H'])) & (df_opm_clean[df_opm.columns[1]] == 'Intransit Receipt')].groupby('Mã Lô')['Khối Lượng'].sum().to_dict()
-                        opm_03g = df_opm_clean[(df_opm_clean['Mã Kho'] == '03G') & (df_opm_clean[df_opm.columns[1]] == 'PO Receipt')].groupby('Mã Lô')['Khối Lượng'].sum().to_dict()
+                        try:
+                            df_opm = pd.read_excel(f_opm, skiprows=8)
+                            # Bẫy lỗi: Đảm bảo OPM có ít nhất 36 cột
+                            if len(df_opm.columns) > 35:
+                                df_opm_clean = df_opm.dropna(subset=[df_opm.columns[0], df_opm.columns[1], df_opm.columns[10]]).copy()
+                                df_opm_clean['Mã Lô'] = df_opm_clean[df_opm.columns[0]].astype(str).str.strip().str.upper()
+                                df_opm_clean['Khối Lượng'] = pd.to_numeric(df_opm_clean[df_opm.columns[10]], errors='coerce').fillna(0)
+                                df_opm_clean['Mã Kho'] = df_opm_clean[df_opm.columns[35]].astype(str).str.strip()
+                                
+                                opm_035_po = df_opm_clean[(df_opm_clean['Mã Kho'] == '035') & (df_opm_clean[df_opm.columns[1]] == 'PO Receipt')].groupby('Mã Lô')['Khối Lượng'].sum().to_dict()
+                                opm_035_rtv = df_opm_clean[(df_opm_clean['Mã Kho'] == '035') & (df_opm_clean[df_opm.columns[1]] == 'Return to Vendor')].groupby('Mã Lô')['Khối Lượng'].sum().to_dict()
+                                opm_031 = df_opm_clean[(df_opm_clean['Mã Kho'].isin(['03G', '03H'])) & (df_opm_clean[df_opm.columns[1]] == 'Intransit Receipt')].groupby('Mã Lô')['Khối Lượng'].sum().to_dict()
+                                opm_03g = df_opm_clean[(df_opm_clean['Mã Kho'] == '03G') & (df_opm_clean[df_opm.columns[1]] == 'PO Receipt')].groupby('Mã Lô')['Khối Lượng'].sum().to_dict()
+                            else:
+                                st.error("🛑 File Báo cáo OPM 105 không đủ 36 cột. Hãy kiểm tra lại Layout lúc xuất từ ERP.")
+                        except Exception as e:
+                            st.error(f"🛑 Lỗi đọc file OPM 105: {e}")
 
                     # --- BƯỚC 2: MỞ FILE 2 LỚP & ĐỐI CHIẾU ---
-                    my_bar.progress(50, text="🧠 Đang phân tích kép biểu mẫu BBNT (Values & Formulas)...")
-                    
-                    # Bản 1: Đọc giá trị để bắt số thật (tránh lỗi VLOOKUP)
+                    my_bar.progress(50, text="🧠 Đang phân tích kép biểu mẫu BBNT...")
                     wb_values = openpyxl.load_workbook(f_bbnt, data_only=True)
-                    # Bản 2: Đọc công thức để tô màu, viết kết quả và check dòng SUM
                     wb_formulas = openpyxl.load_workbook(f_bbnt, data_only=False) 
                     
                     yellow_fill = PatternFill(start_color='FFFFFF00', end_color='FFFFFF00', fill_type='solid')
@@ -262,17 +281,15 @@ def doi_chieu_hrc_tung_file():
                     total_sheets = len(selected_sheets)
                     for idx, sheet_name in enumerate(wb_formulas.sheetnames):
                         if sheet_name not in selected_sheets:
-                            wb_formulas.remove(wb_formulas[sheet_name]) # Xóa sheet thừa ở bản output
+                            wb_formulas.remove(wb_formulas[sheet_name])
                             continue
                             
-                        # Cập nhật thanh % cho từng sheet
                         current_progress = 50 + int((idx / len(wb_formulas.sheetnames)) * 40)
                         my_bar.progress(current_progress, text=f"🔍 Đang đối chiếu Sheet: {sheet_name}...")
 
                         ws_val = wb_values[sheet_name]
                         ws_form = wb_formulas[sheet_name]
                         
-                        # Tìm tọa độ dòng "Tổng cộng" bằng bản Values
                         tong_row = -1
                         for row in range(8, ws_val.max_row + 2):
                             for col in range(1, 5):
@@ -284,7 +301,6 @@ def doi_chieu_hrc_tung_file():
                         
                         if tong_row == -1: tong_row = ws_val.max_row + 1
 
-                        # Tô vàng Header Cột đối chiếu 
                         for i, col_name in enumerate(new_cols):
                             cell = ws_form.cell(row=8, column=14+i)
                             cell.value = col_name
@@ -294,10 +310,9 @@ def doi_chieu_hrc_tung_file():
 
                         sum_net, sum_gross, sum_can_ban, sum_chenh_lech = 0.0, 0.0, 0.0, 0.0
                         
-                        # Xử lý từng dòng dữ liệu bằng Data Thực (ws_val)
                         for r in range(10, tong_row):
                             raw_ma_cuon = ws_val.cell(r, 4).value
-                            if raw_ma_cuon is None or str(raw_ma_cuon).strip().upper() == 'NONE' or str(raw_ma_cuon).strip() == '':
+                            if raw_ma_cuon is None or str(raw_ma_cuon).strip().upper() in ['NONE', '', '#N/A']:
                                 continue
                                 
                             ma_cuon = str(raw_ma_cuon).replace('.0', '').strip().upper()
@@ -315,7 +330,6 @@ def doi_chieu_hrc_tung_file():
                             sum_can_ban += can_ban
                             sum_chenh_lech += chenh_lech_kg_file
 
-                            # Logic KSNB 4 bên
                             tc_phanloai = dict_tc_phanloai.get(phieu_can, 'Nhập hàng')
                             kl_net_pl = dict_pl_master.get(sheet_name, {}).get(ma_hoa, 0)
                             doi_chieu = net_ct - kl_net_pl
@@ -355,7 +369,6 @@ def doi_chieu_hrc_tung_file():
                                 so_voi_qd, kl_035, cl_035, kl_031, cl_031, kl_03g, cl_03g
                             ]
                             
-                            # Ghi kết quả vào bản Formulas
                             for i, val in enumerate(row_data):
                                 cell = ws_form.cell(row=r, column=14+i)
                                 cell.value = val
@@ -377,8 +390,6 @@ def doi_chieu_hrc_tung_file():
                         # --- KIỂM TOÁN DÒNG TỔNG CỘNG ---
                         if tong_row != -1 and tong_row > 10:
                             cols_to_check = {8: ('H', sum_net), 9: ('I', sum_gross), 10: ('J', sum_can_ban), 11: ('K', sum_chenh_lech)}
-                            
-                            # Check 4 cột SUM
                             for col_idx, (col_letter, manual_sum) in cols_to_check.items():
                                 cell_form = ws_form.cell(row=tong_row, column=col_idx)
                                 cell_val = ws_val.cell(row=tong_row, column=col_idx)
@@ -398,7 +409,6 @@ def doi_chieu_hrc_tung_file():
                                     cell_form.fill = red_fill
                                     cell_form.font = red_font
                             
-                            # Check cột %
                             cell_l_form = ws_form.cell(row=tong_row, column=12)
                             cell_l_val = ws_val.cell(row=tong_row, column=12)
                             val_l = cell_l_form.value
@@ -423,17 +433,19 @@ def doi_chieu_hrc_tung_file():
                     wb_formulas.save(output)
                     
                     my_bar.progress(100, text="✅ Hoàn tất 100%!")
-                    st.success(f'🎉 Kế toán đã rà soát xong {len(selected_sheets)} lô hàng (Đã tự động loại bỏ lỗi VLOOKUP)!')
+                    st.success(f'🎉 Kế toán đã rà soát xong {len(selected_sheets)} lô hàng (File chống sập đã kích hoạt)!')
                     st.download_button(
-                        '📥 Tải File Biên Bản Đối Chiếu (Bảo lưu Form & Tô đỏ)',
+                        '📥 Tải File Biên Bản Đối Chiếu',
                         data=output.getvalue(),
                         file_name='BBNT_Nghiem_Thu_Doi_Chieu_Tong_Hop.xlsx',
                         mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                     )
 
                 except Exception as e:
-                    my_bar.empty() # Ẩn thanh % nếu lỗi
-                    st.error(f'⚠️ Lỗi hệ thống khi xử lý dữ liệu: {e}')
+                    my_bar.empty()
+                    st.error(f'🛑 Lỗi Cốt Lõi: {e}')
+                    with st.expander("🔍 Chi tiết lỗi (Dành cho kỹ thuật)"):
+                        st.code(traceback.format_exc())
     else:
         st.info('👉 Hãy nạp tối thiểu File BBNT để bắt đầu.')
 
