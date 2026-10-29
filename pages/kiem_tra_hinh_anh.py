@@ -150,12 +150,12 @@ else:
                 status_text.markdown(f"**🧠 Llama 3.2 đang quét nhóm ảnh {chunk_idx + 1}/{total_chunks}...**")
                 progress_bar.progress(int(((chunk_idx+1) / total_chunks) * 85))
                 
-                # Xây dựng cấu trúc tin nhắn theo chuẩn OpenAI/Groq Vision
+                # Xây dựng cấu trúc tin nhắn theo chuẩn OpenAI/Groq Vision (Tránh gãy dòng khi copy)
                 prompt_text = (
                     "Hãy đọc tất cả chữ và số lô trên nhãn mác trong các bức ảnh. "
                     "Tôi sẽ đánh dấu từng ảnh bằng chữ [ẢNH SỐ X]. "
-                    "Bạn phải trả lời ĐÚNG cấu trúc:\n\n"
-                    "[ẢNH SỐ X]\nNỘI DUNG: <mã đọc được>\n---\n"
+                    "Bạn phải trả lời ĐÚNG cấu trúc:" + chr(10) + chr(10) +
+                    "[ẢNH SỐ X]" + chr(10) + "NỘI DUNG: <mã đọc được>" + chr(10) + "---" + chr(10)
                 )
                 
                 content_payload = [{"type": "text", "text": prompt_text}]
@@ -171,7 +171,8 @@ else:
                     # Nén và Encode ảnh gửi API
                     base64_image = encode_image_to_base64(img_bytes)
                     
-                    content_payload.append({"type": "text", "text": f"\n\n[ẢNH SỐ {i+1}] (Tên file: {img_file.name})"})
+                    text_label = chr(10) + chr(10) + f"[ẢNH SỐ {i+1}] (Tên file: {img_file.name})"
+                    content_payload.append({"type": "text", "text": text_label})
                     content_payload.append({
                         "type": "image_url",
                         "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}
@@ -195,7 +196,7 @@ else:
                             if marker in raw_text:
                                 block = raw_text.split(marker)[1]
                                 if "NỘI DUNG:" in block:
-                                    content = block.split("NỘI DUNG:")[1].split("---")[0].strip().upper().replace(" ", "").replace("-", "").replace("\n", "")
+                                    content = block.split("NỘI DUNG:")[1].split("---")[0].strip().upper().replace(" ", "").replace("-", "").replace(chr(10), "")
                                     ocr_results[img_file.name] = content
                                 else:
                                     ocr_results[img_file.name] = ""
@@ -275,4 +276,43 @@ else:
                     for ma in sorted(list(ma_thieu)):
                         st.markdown(f"- **{ma}**")
                 else:
-                    st.success("Tuyệt vời! Đã chụp đủ 100%
+                    st.success("Tuyệt vời! Đã chụp đủ 100% hàng.")
+                st.markdown("</div>", unsafe_allow_html=True)
+
+            with col_c3:
+                st.markdown("<div class='list-box'><h4 style='color:#e37100; margin-top:0;'>⚠️ HÌNH ẢNH NGHI NGỜ (Không khớp mã)</h4>", unsafe_allow_html=True)
+                if len(hinh_nghi_ngo) > 0:
+                    for item in hinh_nghi_ngo:
+                        with st.expander(f"📷 {item['ten_file']}"):
+                            st.image(item['hinh_anh'], use_container_width=True)
+                            st.caption("AI đọc được:")
+                            st.write(item['chu_nhan_dien'])
+                else:
+                    st.success("Tất cả hình tải lên đều nhận diện thành công.")
+                st.markdown("</div>", unsafe_allow_html=True)
+
+            st.markdown("<br><hr>", unsafe_allow_html=True)
+            st.markdown("### 📝 Biên Bản Kiểm Kê (Xuất Excel)")
+            
+            bien_ban_data = []
+            for ma in sorted(ds_ma_can_tim):
+                if ma in ma_da_thay:
+                    file_names = ", ".join([img['ten_file'] for img in ma_da_thay[ma]])
+                    bien_ban_data.append({'Mã Lô': ma, 'Trạng Thái': '✅ Đã kiểm kê', 'Ghi Chú': f"Ảnh: {file_names}"})
+                else:
+                    bien_ban_data.append({'Mã Lô': ma, 'Trạng Thái': '❌ THIẾU', 'Ghi Chú': "Không tìm thấy hình"})
+
+            df_bb = pd.DataFrame(bien_ban_data)
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                df_bb.to_excel(writer, index=False, sheet_name='Kiem_Ke')
+                
+            st.download_button(
+                label="📥 Tải Xuống Biên Bản Kiểm Kê (Excel)", 
+                data=output.getvalue(), 
+                file_name=f"Bien_Ban_Kiem_Ke_Llama3_{chuoi_yymm}.xlsx", 
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+
+        except Exception as e:
+            st.error(f"Lỗi hệ thống: {e}")
