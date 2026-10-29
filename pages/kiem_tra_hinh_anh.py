@@ -4,13 +4,15 @@ from PIL import Image
 import io
 import time
 import gc
+import os
+import tempfile
 from google import genai
 from google.genai import types
 
 # -------------------------------------------------------------
 # CẤU HÌNH GIAO DIỆN
 # -------------------------------------------------------------
-st.set_page_config(page_title='Kiểm Kê Bằng Hình Ảnh', page_icon='📸', layout='wide')
+st.set_page_config(page_title='Kiểm Kê Bằng Hình Ảnh (File API)', page_icon='📸', layout='wide')
 
 st.markdown("""
 <style>
@@ -32,7 +34,7 @@ with col_home:
         try: st.switch_page('app_ksnb.py')
         except: pass
 
-st.markdown("<h1 class='apple-main-title'>📸 AI Kiểm Kê Hình Ảnh (Bản Chống Spam Đa Key)</h1>", unsafe_allow_html=True)
+st.markdown("<h1 class='apple-main-title'>📸 AI Kiểm Kê Hình Ảnh (Dùng File API - Siêu Tốc)</h1>", unsafe_allow_html=True)
 st.markdown("<hr style='border-top: 1px solid #e2e8f0; margin-bottom: 20px;'>", unsafe_allow_html=True)
 
 def parse_and_check_date(val, t_month, t_year):
@@ -44,30 +46,26 @@ def parse_and_check_date(val, t_month, t_year):
     return False
 
 # -------------------------------------------------------------
-# CẤU HÌNH GOOGLE GEMINI (HỖ TRỢ NHIỀU KEY)
+# CẤU HÌNH GOOGLE GEMINI (CHỈ CẦN 1 KEY)
 # -------------------------------------------------------------
-st.markdown("### 🔑 Cấu hình Trí Tuệ Nhân Tạo (Tự động xoay vòng Key)")
-api_key_input = st.text_input("Dán các API Key vào đây (cách nhau bằng dấu phẩy):", type="password")
+st.markdown("### 🔑 Cấu hình Trí Tuệ Nhân Tạo")
+api_key_input = st.text_input("Dán 1 API Key vào đây:", type="password")
 
-# Đã bổ sung các tên model chuẩn xác nhất để chống lỗi 404
+# Cập nhật danh sách Model thế hệ mới nhất, bỏ các bản lỗi thời
 selected_model = st.selectbox(
-    "🤖 Chọn Model Gemini (Khuyên dùng bản Latest):",
+    "🤖 Chọn Model Gemini:",
     [
-        "gemini-1.5-flash-latest",
-        "gemini-1.5-flash-002", 
-        "gemini-1.5-flash", 
-        "gemini-2.0-flash-exp"
+        "gemini-2.0-flash", 
+        "gemini-1.5-flash",
+        "gemini-1.5-flash-002"
     ]
 )
 
-danh_sach_keys = [k.strip() for k in api_key_input.split(',') if k.strip()]
 client = None
-current_key_idx = 0
-
-if len(danh_sach_keys) > 0:
+if api_key_input:
     try:
-        client = genai.Client(api_key=danh_sach_keys[current_key_idx])
-        st.success(f"✅ Đã tải thành công {len(danh_sach_keys)} API Key vào hệ thống!")
+        client = genai.Client(api_key=api_key_input.strip())
+        st.success("✅ Đã kết nối thành công với Google API!")
     except Exception as e:
         st.error(f"❌ Lỗi khởi tạo Key: {e}")
 
@@ -93,22 +91,22 @@ with col_upload2:
         f_images = st.file_uploader("Tải nhiều hình ảnh", type=['jpg', 'jpeg', 'png'], accept_multiple_files=True, label_visibility="collapsed")
 
 # -------------------------------------------------------------
-# LOGIC GỘP NHÓM & XOAY VÒNG KEY (ĐÃ SỬA LỖI ĐỨNG HÌNH)
+# LOGIC FILE API: TẢI LÊN KHO TẠM -> GỌI AI 1 LẦN
 # -------------------------------------------------------------
 if not f_excel or not f_images:
     st.info("👆 Hãy tải lên File Excel và Hình ảnh để AI bắt đầu quét.")
-elif len(danh_sach_keys) == 0 or not client:
-    st.warning("⚠️ Vui lòng nhập ít nhất 1 API Key hợp lệ bên trên để bắt đầu.")
+elif not api_key_input or not client:
+    st.warning("⚠️ Vui lòng nhập API Key để bắt đầu.")
 else:
-    btn_quet = st.button("🚀 BẮT ĐẦU QUÉT (TỰ ĐỘNG CHUYỂN KEY KHI LỖI)", use_container_width=True)
+    btn_quet = st.button("🚀 BẮT ĐẦU KIỂM KÊ (SIÊU TỐC - CHỐNG LỖI)", use_container_width=True)
     
     if btn_quet:
         progress_bar = st.progress(0)
         status_text = st.empty()
-        status_text.markdown("**Đang bóc tách mã từ Excel...**")
-        time.sleep(0.5)
-
+        
         try:
+            # --- BƯỚC 1: LỌC MÃ EXCEL ---
+            status_text.markdown("**Đang bóc tách mã từ Excel...**")
             ds_ma_can_tim = set()
             xls = pd.ExcelFile(f_excel)
             sheet_names = xls.sheet_names
@@ -132,83 +130,85 @@ else:
                 st.error("🚨 Không tìm thấy mã lô nào trong Excel!")
                 st.stop()
 
-            # Chia nhóm 25 ảnh/lần
-            chunk_size = 25
-            image_chunks = [f_images[i:i + chunk_size] for i in range(0, len(f_images), chunk_size)]
-            
-            ocr_results = {}
+            # --- BƯỚC 2: TẢI ẢNH LÊN GOOGLE FILE API ---
+            uploaded_gemini_files = []
             dict_hinh_anh = {}
-            total_chunks = len(image_chunks)
+            total_images = len(f_images)
             
-            for chunk_idx, chunk in enumerate(image_chunks):
-                progress_val = int((chunk_idx / total_chunks) * 85)
-                progress_bar.progress(progress_val)
+            for idx, img_file in enumerate(f_images):
+                status_text.markdown(f"**☁️ Đang đẩy ảnh lên kho Google ({idx + 1}/{total_images})...**")
+                progress_bar.progress(int((idx / total_images) * 40)) # Chiếm 40% tiến trình
                 
+                # Lưu nháp ra ổ cứng tạm để File API tải lên
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
+                    img_bytes = img_file.getvalue()
+                    tmp.write(img_bytes)
+                    tmp_path = tmp.name
+                
+                # Nén ảnh UI để hiển thị sau
+                img_ui = Image.open(io.BytesIO(img_bytes)).copy()
+                img_ui.thumbnail((300, 300))
+                dict_hinh_anh[img_file.name] = img_ui
+                
+                # Đẩy lên Google Kho
+                g_file = client.files.upload(file=tmp_path, config={'display_name': img_file.name})
+                uploaded_gemini_files.append((img_file.name, g_file))
+                
+                # Xóa file nháp ở ổ cứng
+                os.remove(tmp_path)
+            
+            # --- BƯỚC 3: GỌI AI HÀNG LOẠT ---
+            # Gộp 50 ảnh vào 1 lần gọi duy nhất để vượt qua mọi giới hạn Rate Limit
+            chunk_size = 50 
+            ocr_results = {}
+            total_chunks = (len(uploaded_gemini_files) + chunk_size - 1) // chunk_size
+            
+            for chunk_idx in range(total_chunks):
+                start = chunk_idx * chunk_size
+                end = start + chunk_size
+                chunk = uploaded_gemini_files[start:end]
+                
+                status_text.markdown(f"**🧠 AI đang đọc mã lô hàng loạt (Nhóm {chunk_idx + 1}/{total_chunks}). Vui lòng đợi...**")
+                progress_bar.progress(40 + int(((chunk_idx+1) / total_chunks) * 40))
+                
+                # Nội dung yêu cầu AI
                 contents = [
-                    "Hãy đọc tất cả chữ và số lô trên nhãn mác trong các bức ảnh dưới đây. "
-                    "Mỗi ảnh bắt đầu bằng 'TÊN FILE:'. Bạn phải trả lời ĐÚNG cấu trúc:\n\n"
+                    "Hãy đọc tất cả chữ và số lô trên nhãn mác trong các hình ảnh dưới đây. "
+                    "Tôi cung cấp tên file và hình ảnh tương ứng. Bạn phải trả lời ĐÚNG cấu trúc:\n\n"
                     "TÊN FILE: <tên file>\nNỘI DUNG: <mã đọc được>\n---\n"
                 ]
                 
-                for img_file in chunk:
-                    img_bytes = img_file.getvalue()
-                    img = Image.open(io.BytesIO(img_bytes))
-                    
-                    img_api = img.copy()
-                    img_api.thumbnail((800, 800))
-                    
-                    img_ui = img.copy()
-                    img_ui.thumbnail((300, 300))
-                    dict_hinh_anh[img_file.name] = img_ui
-                    
-                    contents.append(f"TÊN FILE: {img_file.name}")
-                    contents.append(img_api)
+                for fname, g_file in chunk:
+                    contents.append(f"TÊN FILE: {fname}")
+                    contents.append(g_file)
                 
-                success = False
-                attempts = 0
+                # Gọi API 1 lượt duy nhất cho 50 ảnh
+                response = client.models.generate_content(
+                    model=selected_model,
+                    contents=contents,
+                    config=types.GenerateContentConfig(temperature=0.1)
+                )
                 
-                while attempts < len(danh_sach_keys) and not success:
-                    status_text.markdown(f"**Đang gửi nhóm ảnh {chunk_idx + 1}/{total_chunks} bằng Key số {current_key_idx + 1}...**")
-                    try:
-                        response = client.models.generate_content(
-                            model=selected_model,
-                            contents=contents,
-                            config=types.GenerateContentConfig(temperature=0.1)
-                        )
-                        raw_text = response.text if response.text else ""
-                        
-                        blocks = raw_text.split("TÊN FILE:")
-                        for block in blocks:
-                            if "NỘI DUNG:" in block:
-                                parts = block.split("NỘI DUNG:")
-                                fname = parts[0].strip()
-                                content = parts[1].split("---")[0].strip().upper().replace(" ", "").replace("-", "").replace("\n", "")
-                                ocr_results[fname] = content
-                        
-                        success = True 
-                        
-                    except Exception as e:
-                        # Gặp BẤT KỲ LỖI NÀO (404, 429, 500...) đều nhảy Key
-                        attempts += 1
-                        if attempts < len(danh_sach_keys):
-                            current_key_idx = (current_key_idx + 1) % len(danh_sach_keys)
-                            client = genai.Client(api_key=danh_sach_keys[current_key_idx])
-                            status_text.warning(f"⚠️ **Lỗi mạng/Model (Thử lại). Đang chuyển sang Key số {current_key_idx + 1}...**")
-                            time.sleep(3) 
-                        else:
-                            st.error(f"🚨 Nhóm {chunk_idx + 1} báo lỗi trên tất cả các Key: {e}. Hệ thống sẽ BỎ QUA và đi tiếp!")
-                            break # Hết Key thì báo lỗi rồi thoát vòng lặp nhỏ này, nhảy sang nhóm ảnh tiếp theo
+                raw_text = response.text if response.text else ""
                 
-                # Ép ngủ 20s giữa các nhóm để làm mát Key (Dù thành công hay thất bại vẫn phải nghỉ)
-                if chunk_idx < total_chunks - 1:
-                    for i in range(20, 0, -1):
-                        status_text.markdown(f"⏳ **Làm mát hệ thống:** Đang chờ **{i} giây** trước khi chạy nhóm tiếp theo...")
-                        time.sleep(1)
+                # Bóc tách kết quả
+                blocks = raw_text.split("TÊN FILE:")
+                for block in blocks:
+                    if "NỘI DUNG:" in block:
+                        parts = block.split("NỘI DUNG:")
+                        fname = parts[0].strip()
+                        content = parts[1].split("---")[0].strip().upper().replace(" ", "").replace("-", "").replace("\n", "")
+                        ocr_results[fname] = content
 
-            status_text.markdown("**Đang khớp dữ liệu AI trả về với bảng Excel...**")
-            progress_bar.progress(95)
+            # --- BƯỚC 4: DỌN DẸP KHO GOOGLE ---
+            status_text.markdown("**🧹 Đang dọn dẹp kho lưu trữ và đối soát dữ liệu...**")
+            for fname, g_file in uploaded_gemini_files:
+                try: client.files.delete(name=g_file.name)
+                except: pass
 
-            # 3. ĐỐI SOÁT DỮ LIỆU
+            progress_bar.progress(90)
+
+            # --- BƯỚC 5: ĐỐI SOÁT DỮ LIỆU EXCEL ---
             ma_da_thay = {} 
             hinh_nghi_ngo = [] 
             
@@ -230,12 +230,12 @@ else:
 
             gc.collect()
             progress_bar.progress(100)
-            status_text.success("✅ Hoàn tất toàn bộ hình ảnh!")
+            status_text.success("✅ Hoàn tất toàn bộ hệ thống siêu tốc!")
             time.sleep(1)
             progress_bar.empty()
             status_text.empty()
 
-            # 4. XUẤT BÁO CÁO VÀ GIAO DIỆN
+            # --- XUẤT BÁO CÁO VÀ GIAO DIỆN ---
             ma_thieu = ds_ma_can_tim - set(ma_da_thay.keys())
             
             st.markdown("### 📊 BẢNG TỔNG KẾT KIỂM KÊ")
@@ -304,4 +304,4 @@ else:
             )
 
         except Exception as e:
-            st.error(f"Lỗi phân tích hệ thống: {e}")
+            st.error(f"Lỗi hệ thống: {e}")
