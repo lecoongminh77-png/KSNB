@@ -8,7 +8,7 @@ from google import genai
 from google.genai import types
 
 # -------------------------------------------------------------
-# CẤU HÌNH GIAO DIỆN APPLE
+# CẤU HÌNH GIAO DIỆN
 # -------------------------------------------------------------
 st.set_page_config(page_title='Kiểm Kê Bằng Hình Ảnh', page_icon='📸', layout='wide')
 
@@ -22,12 +22,7 @@ st.markdown("""
     div[data-testid="stMetric"] { background-color: #ffffff; border-radius: 12px; padding: 15px; border: 1px solid rgba(0,0,0,0.05); box-shadow: 0 2px 8px rgba(0,0,0,0.02); text-align: center; }
     .upload-title { font-size: 18px; font-weight: 700; margin-bottom: 10px; color: #0071e3;}
     .list-box { background: #fff; padding: 15px; border-radius: 10px; border: 1px solid #e2e8f0; height: 100%; }
-    
-    button[kind="primary"] {
-        background-color: #007aff !important;
-        color: white !important;
-        border-color: #007aff !important;
-    }
+    button[kind="primary"] { background-color: #007aff !important; color: white !important; border-color: #007aff !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -54,9 +49,15 @@ def parse_and_check_date(val, t_month, t_year):
 st.markdown("### 🔑 Cấu hình Trí Tuệ Nhân Tạo (Tự động xoay vòng Key)")
 api_key_input = st.text_input("Dán các API Key vào đây (cách nhau bằng dấu phẩy):", type="password")
 
+# Đã bổ sung các tên model chuẩn xác nhất để chống lỗi 404
 selected_model = st.selectbox(
-    "🤖 Chọn Model Gemini (Khuyên dùng 1.5 Flash):",
-    ["gemini-1.5-flash", "gemini-2.0-flash"]
+    "🤖 Chọn Model Gemini (Khuyên dùng bản Latest):",
+    [
+        "gemini-1.5-flash-latest",
+        "gemini-1.5-flash-002", 
+        "gemini-1.5-flash", 
+        "gemini-2.0-flash-exp"
+    ]
 )
 
 danh_sach_keys = [k.strip() for k in api_key_input.split(',') if k.strip()]
@@ -92,7 +93,7 @@ with col_upload2:
         f_images = st.file_uploader("Tải nhiều hình ảnh", type=['jpg', 'jpeg', 'png'], accept_multiple_files=True, label_visibility="collapsed")
 
 # -------------------------------------------------------------
-# LOGIC GỘP NHÓM & XOAY VÒNG KEY
+# LOGIC GỘP NHÓM & XOAY VÒNG KEY (ĐÃ SỬA LỖI ĐỨNG HÌNH)
 # -------------------------------------------------------------
 if not f_excel or not f_images:
     st.info("👆 Hãy tải lên File Excel và Hình ảnh để AI bắt đầu quét.")
@@ -108,7 +109,6 @@ else:
         time.sleep(0.5)
 
         try:
-            # 1. LỌC MÃ EXCEL
             ds_ma_can_tim = set()
             xls = pd.ExcelFile(f_excel)
             sheet_names = xls.sheet_names
@@ -132,7 +132,7 @@ else:
                 st.error("🚨 Không tìm thấy mã lô nào trong Excel!")
                 st.stop()
 
-            # 2. CHIA NHÓM (25 ảnh/lần)
+            # Chia nhóm 25 ảnh/lần
             chunk_size = 25
             image_chunks = [f_images[i:i + chunk_size] for i in range(0, len(f_images), chunk_size)]
             
@@ -144,7 +144,6 @@ else:
                 progress_val = int((chunk_idx / total_chunks) * 85)
                 progress_bar.progress(progress_val)
                 
-                # Nén nội dung yêu cầu
                 contents = [
                     "Hãy đọc tất cả chữ và số lô trên nhãn mác trong các bức ảnh dưới đây. "
                     "Mỗi ảnh bắt đầu bằng 'TÊN FILE:'. Bạn phải trả lời ĐÚNG cấu trúc:\n\n"
@@ -165,7 +164,6 @@ else:
                     contents.append(f"TÊN FILE: {img_file.name}")
                     contents.append(img_api)
                 
-                # Logic gọi AI và Tự động xoay vòng Key
                 success = False
                 attempts = 0
                 
@@ -187,32 +185,24 @@ else:
                                 content = parts[1].split("---")[0].strip().upper().replace(" ", "").replace("-", "").replace("\n", "")
                                 ocr_results[fname] = content
                         
-                        success = True # Đã gửi thành công cục này
+                        success = True 
                         
                     except Exception as e:
-                        err_msg = str(e).lower()
-                        # Bắt lỗi 429 Spam hoặc Quota Exhausted
-                        if "429" in err_msg or "quota" in err_msg or "exhausted" in err_msg or "too many" in err_msg:
-                            attempts += 1
-                            if attempts < len(danh_sach_keys):
-                                current_key_idx = (current_key_idx + 1) % len(danh_sach_keys)
-                                client = genai.Client(api_key=danh_sach_keys[current_key_idx])
-                                status_text.warning(f"⚠️ **Mạng tắc nghẽn (Lỗi Spam)! Đang tự động chuyển sang Key phụ số {current_key_idx + 1}...**")
-                                time.sleep(3) # Nghỉ 3 giây trước khi đổi Key
-                            else:
-                                st.error("🚨 TẤT CẢ CÁC KEY ĐỀU ĐÃ BỊ GOOGLE CHẶN (Hết lượt). Vui lòng thêm Key mới hoặc chờ ngày mai!")
-                                break # Văng ra khỏi vòng lặp
+                        # Gặp BẤT KỲ LỖI NÀO (404, 429, 500...) đều nhảy Key
+                        attempts += 1
+                        if attempts < len(danh_sach_keys):
+                            current_key_idx = (current_key_idx + 1) % len(danh_sach_keys)
+                            client = genai.Client(api_key=danh_sach_keys[current_key_idx])
+                            status_text.warning(f"⚠️ **Lỗi mạng/Model (Thử lại). Đang chuyển sang Key số {current_key_idx + 1}...**")
+                            time.sleep(3) 
                         else:
-                            st.error(f"❌ Lỗi định dạng/ảnh ở nhóm {chunk_idx + 1}: {e}")
-                            break
+                            st.error(f"🚨 Nhóm {chunk_idx + 1} báo lỗi trên tất cả các Key: {e}. Hệ thống sẽ BỎ QUA và đi tiếp!")
+                            break # Hết Key thì báo lỗi rồi thoát vòng lặp nhỏ này, nhảy sang nhóm ảnh tiếp theo
                 
-                if not success:
-                    st.stop() # Dừng hẳn chương trình nếu tất cả Key đều hỏng
-
-                # Vẫn giữ chế độ ngủ đông 20s giữa các lần gửi (để bảo vệ Key lâu dài)
+                # Ép ngủ 20s giữa các nhóm để làm mát Key (Dù thành công hay thất bại vẫn phải nghỉ)
                 if chunk_idx < total_chunks - 1:
                     for i in range(20, 0, -1):
-                        status_text.markdown(f"⏳ **Làm mát hệ thống:** Đang chờ **{i} giây** trước khi gửi nhóm tiếp theo...")
+                        status_text.markdown(f"⏳ **Làm mát hệ thống:** Đang chờ **{i} giây** trước khi chạy nhóm tiếp theo...")
                         time.sleep(1)
 
             status_text.markdown("**Đang khớp dữ liệu AI trả về với bảng Excel...**")
@@ -239,7 +229,6 @@ else:
                     hinh_nghi_ngo.append({'ten_file': fname, 'hinh_anh': dict_hinh_anh[fname], 'chu_nhan_dien': chuoi_hinh_anh})
 
             gc.collect()
-
             progress_bar.progress(100)
             status_text.success("✅ Hoàn tất toàn bộ hình ảnh!")
             time.sleep(1)
