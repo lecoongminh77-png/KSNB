@@ -17,15 +17,18 @@ st.set_page_config(
 st.markdown(
     """
 <style>
+    /* Ẩn sidebar */
     [data-testid="stSidebar"] { display: none !important; }
     [data-testid="collapsedControl"] { display: none !important; }
 
+    /* Nền trang */
     .stApp {
         background-color: #f5f5f7;
         font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
         color: #1d1d1f;
     }
     
+    /* Header */
     .apple-header-box {
         display: flex;
         justify-content: space-between;
@@ -41,6 +44,7 @@ st.markdown(
         margin: 0;
     }
     
+    /* Nút bấm Apple Style */
     div.stButton > button:first-child {
         background: #0071e3 !important;
         color: #ffffff !important;
@@ -56,6 +60,7 @@ st.markdown(
         color: #ffffff !important;
     }
 
+    /* Container Streamlit Thẻ Apple */
     [data-testid="stVerticalBlockBorderWrapper"] {
         background: #ffffff;
         border-radius: 16px;
@@ -64,6 +69,7 @@ st.markdown(
         box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
     }
 
+    /* Thành phần chữ trong thẻ */
     .upload-title {
         font-size: 18px;
         font-weight: 700;
@@ -130,7 +136,7 @@ st.markdown(
 
 
 # -------------------------------------------------------------
-# CÁC HÀM XỬ LÝ DỮ LIỆU
+# CÁC HÀM XỬ LÝ DỮ LIỆU TỰ ĐỘNG
 # -------------------------------------------------------------
 def read_auto_header(file_obj, keywords, sheet_name=0, max_scan=25, match_all=False):
     """Tự động tìm dòng header thực tế dựa trên danh sách từ khóa."""
@@ -155,12 +161,12 @@ def read_auto_header(file_obj, keywords, sheet_name=0, max_scan=25, match_all=Fa
 def doi_chieu_mot_sheet(f_bbnt, sheet_bbnt, f_pl, sheet_pl, dict_tc_kl, dict_tc_phanloai, dict_bv_phieu, dict_bv_kl, opm_035_po, opm_035_rtv, opm_031, opm_03g_po, opm_03g_rtv):
     # 1. ĐỌC BBNT
     df_bbnt = read_auto_header(f_bbnt, ['MÃ SỐ CUỘN', 'MÃ CUỘN', 'SỐ PHIẾU CÂN'], sheet_name=sheet_bbnt)
-    col_cuon = next(c for c in df_bbnt.columns if 'CUỘN' in str(c).upper())
-    col_pcan = next(c for c in df_bbnt.columns if 'PHIẾU CÂN' in str(c).upper())
-    col_net = next(c for c in df_bbnt.columns if 'CHỨNG TỪ GIAO HÀNG' in str(c).upper() and 'GROSS' not in str(c).upper())
-    col_gross = next(c for c in df_bbnt.columns if 'GROSS' in str(c).upper())
-    col_canban = next(c for c in df_bbnt.columns if 'CÂN BÀN' in str(c).upper())
-    col_dsai = next(c for c in df_bbnt.columns if 'CHÊNH LỆCH' in str(c).upper() and '%' in str(c))
+    col_cuon = next((c for c in df_bbnt.columns if 'CUỘN' in str(c).upper()), df_bbnt.columns[3])
+    col_pcan = next((c for c in df_bbnt.columns if 'PHIẾU CÂN' in str(c).upper()), df_bbnt.columns[4])
+    col_net = next((c for c in df_bbnt.columns if 'CHỨNG TỪ GIAO HÀNG' in str(c).upper() and 'GROSS' not in str(c).upper()), df_bbnt.columns[7])
+    col_gross = next((c for c in df_bbnt.columns if 'GROSS' in str(c).upper()), df_bbnt.columns[8])
+    col_canban = next((c for c in df_bbnt.columns if 'CÂN BÀN' in str(c).upper()), df_bbnt.columns[9])
+    col_dsai = next((c for c in df_bbnt.columns if 'CHÊNH LỆCH' in str(c).upper() and '%' in str(c)), df_bbnt.columns[11])
 
     df_bbnt = df_bbnt.dropna(subset=[col_cuon]).copy()
     df_bbnt = df_bbnt[~df_bbnt[df_bbnt.columns[0]].astype(str).str.contains('Tổng cộng|Kết luận', case=False, na=False)]
@@ -175,14 +181,18 @@ def doi_chieu_mot_sheet(f_bbnt, sheet_bbnt, f_pl, sheet_pl, dict_tc_kl, dict_tc_
     # 2. ĐỌC PACKING LIST
     dict_pl = {}
     if f_pl is not None and sheet_pl is not None:
-        df_pl = read_auto_header(f_pl, ['MÃ SỐ NSX', 'MÃ SỐ HSPM', 'KL(NET)'], sheet_name=sheet_pl)
-        c_pl_ma = next(c for c in df_pl.columns if 'MÃ SỐ NSX' in str(c).upper() or 'MÃ SỐ' in str(c).upper())
-        c_pl_kl = next(c for c in df_pl.columns if 'NET' in str(c).upper())
+        try:
+            df_pl = read_auto_header(f_pl, ['MÃ SỐ NSX', 'MÃ SỐ HSPM', 'KL(NET)'], sheet_name=sheet_pl)
+            c_pl_ma = next((c for c in df_pl.columns if 'MÃ SỐ NSX' in str(c).upper() or 'MÃ SỐ' in str(c).upper()), None)
+            c_pl_kl = next((c for c in df_pl.columns if 'NET' in str(c).upper()), None)
 
-        df_pl_clean = df_pl.dropna(subset=[c_pl_ma, c_pl_kl]).copy()
-        pl_key = df_pl_clean[c_pl_ma].astype(str).str.replace(r'\.0$', '', regex=True).str.strip().str.upper() + 'A'
-        pl_val = pd.to_numeric(df_pl_clean[c_pl_kl], errors='coerce').fillna(0)
-        dict_pl = pd.DataFrame({'Key': pl_key, 'Net': pl_val}).groupby('Key')['Net'].sum().to_dict()
+            if c_pl_ma and c_pl_kl:
+                df_pl_clean = df_pl.dropna(subset=[c_pl_ma, c_pl_kl]).copy()
+                pl_key = df_pl_clean[c_pl_ma].astype(str).str.replace(r'\.0$', '', regex=True).str.strip().str.upper() + 'A'
+                pl_val = pd.to_numeric(df_pl_clean[c_pl_kl], errors='coerce').fillna(0)
+                dict_pl = pd.DataFrame({'Key': pl_key, 'Net': pl_val}).groupby('Key')['Net'].sum().to_dict()
+        except Exception:
+            dict_pl = {}
 
     # 3. TÍNH CÁC CỘT ĐỐI SOÁT
     res_df['NHẬP/XUẤT'] = phieu_can_bbnt.map(lambda x: dict_tc_phanloai.get(x, 'Nhập hàng'))
@@ -243,7 +253,7 @@ def doi_chieu_hrc_tung_file():
 
             f_bbnt = st.file_uploader('1. File Biên bản nghiệm thu (BBNT)', type=['xlsx', 'xls'])
 
-            # Ô CHỌN NHIỀU SHEET NẰM TRỰC TIẾP DƯỚI Ô NẠP FILE BBNT
+            # Ô CHỌN NHIỀU SHEET
             selected_sheets = []
             if f_bbnt is not None:
                 try:
@@ -317,60 +327,74 @@ Thời gian: 1 tháng cần kiểm tra
                         # 1. QUÉT DỮ LIỆU BẢO VỆ
                         bv_raw_list = []
                         if f_bv is not None:
-                            df_bv = read_auto_header(f_bv, ['MÃ PHIẾU CÂN', 'KHỐI LƯỢNG PHIẾU CÂN'])
-                            col_bv_hang = next((c for c in df_bv.columns if 'TÊN HÀNG HÓA' in str(c).upper() or 'MÃ HÀNG HÓA' in str(c).upper()), None)
-                            col_bv_pcan = next((c for c in df_bv.columns if 'MÃ PHIẾU CÂN' in str(c).upper() or 'PHIẾU CÂN' in str(c).upper()), None)
-                            col_bv_kl = next((c for c in df_bv.columns if 'KHỐI LƯỢNG' in str(c).upper()), None)
+                            try:
+                                df_bv = read_auto_header(f_bv, ['MÃ PHIẾU CÂN', 'KHỐI LƯỢNG PHIẾU CÂN'])
+                                col_bv_hang = next((c for c in df_bv.columns if 'TÊN HÀNG HÓA' in str(c).upper() or 'MÃ HÀNG HÓA' in str(c).upper()), None)
+                                col_bv_pcan = next((c for c in df_bv.columns if 'MÃ PHIẾU CÂN' in str(c).upper() or 'PHIẾU CÂN' in str(c).upper()), None)
+                                col_bv_kl = next((c for c in df_bv.columns if 'KHỐI LƯỢNG' in str(c).upper()), None)
 
-                            for _, r in df_bv.iterrows():
-                                txt = f"{r.get('MÃ HÀNG HÓA', '')} {r.get('TÊN HÀNG HÓA', '')}"
-                                p = str(r.get(col_bv_pcan, '')).replace('.0', '').strip()
-                                kl = r.get(col_bv_kl, 0)
-                                bv_raw_list.append((txt, p, kl))
+                                if col_bv_hang and col_bv_pcan and col_bv_kl:
+                                    for _, r in df_bv.iterrows():
+                                        txt = f"{r.get('MÃ HÀNG HÓA', '')} {r.get('TÊN HÀNG HÓA', '')}"
+                                        p = str(r.get(col_bv_pcan, '')).replace('.0', '').strip()
+                                        kl = r.get(col_bv_kl, 0)
+                                        bv_raw_list.append((txt, p, kl))
+                            except Exception:
+                                bv_raw_list = []
 
                         # 2. QUÉT DỮ LIỆU TRẠM CÂN
                         dict_tc_kl, dict_tc_phanloai = {}, {}
                         if f_tc is not None:
-                            df_tc = read_auto_header(f_tc, ['PHIẾU CÂN', 'KHỐI LƯỢNG PHIẾU CÂN'])
-                            col_tc_p = next(c for c in df_tc.columns if str(c).strip().upper() == 'PHIẾU CÂN')
-                            col_tc_kl = next(c for c in df_tc.columns if 'KHỐI LƯỢNG' in str(c).upper())
-                            col_tc_pl = next((c for c in df_tc.columns if 'PHÂN LOẠI' in str(c).upper()), None)
+                            try:
+                                df_tc = read_auto_header(f_tc, ['PHIẾU CÂN', 'KHỐI LƯỢNG PHIẾU CÂN'])
+                                col_tc_p = next((c for c in df_tc.columns if str(c).strip().upper() == 'PHIẾU CÂN'), df_tc.columns[0])
+                                col_tc_kl = next((c for c in df_tc.columns if 'KHỐI LƯỢNG' in str(c).upper()), None)
+                                col_tc_pl = next((c for c in df_tc.columns if 'PHÂN LOẠI' in str(c).upper()), None)
 
-                            tc_p = df_tc[col_tc_p].astype(str).str.replace(r'\.0$', '', regex=True).str.strip()
-                            tc_kl = pd.to_numeric(df_tc[col_tc_kl], errors='coerce').fillna(0)
-                            dict_tc_kl = dict(zip(tc_p, tc_kl))
-                            if col_tc_pl:
-                                dict_tc_phanloai = dict(zip(tc_p, df_tc[col_tc_pl].fillna('Nhập hàng').astype(str)))
+                                tc_p = df_tc[col_tc_p].astype(str).str.replace(r'\.0$', '', regex=True).str.strip()
+                                tc_kl = pd.to_numeric(df_tc[col_tc_kl], errors='coerce').fillna(0) if col_tc_kl else 0
+                                dict_tc_kl = dict(zip(tc_p, tc_kl))
+                                if col_tc_pl:
+                                    dict_tc_phanloai = dict(zip(tc_p, df_tc[col_tc_pl].fillna('Nhập hàng').astype(str)))
+                            except Exception:
+                                dict_tc_kl, dict_tc_phanloai = {}, {}
 
-                        # 3. QUÉT DỮ LIỆU ERP OPM 105 (Yêu cầu cả 2 từ khóa để không nhận nhầm dòng 5)
+                        # 3. QUÉT DỮ LIỆU ERP OPM 105 (Đồng nhất tên biến)
                         opm_035_po, opm_035_rtv, opm_031, opm_03g_po, opm_03g_rtv = {}, {}, {}, {}, {}
                         if f_opm is not None:
-                            df_opm = read_auto_header(f_opm, ['LOẠI GIAO DỊCH', 'MÃ LÔ'], match_all=True)
-                            if len(df_opm) > 0 and '[' in str(df_opm.iloc[0, 1]):
-                                df_opm = df_opm.iloc[1:].copy()
+                            try:
+                                df_opm = read_auto_header(f_opm, ['LOẠI GIAO DỊCH', 'MÃ LÔ'], match_all=True)
+                                if len(df_opm) > 0 and '[' in str(df_opm.iloc[0, 1]):
+                                    df_opm = df_opm.iloc[1:].copy()
 
-                            c_opm_loai = next(c for c in df_opm.columns if 'LOẠI GIAO DỊCH' in str(c).upper())
-                            c_opm_malo = next(c for c in df_opm.columns if 'MÃ LÔ' in str(c).upper())
-                            c_opm_kl = next(c for c in df_opm.columns if 'KHỐI LƯỢNG' in str(c).upper() and 'GROSS' not in str(c).upper())
-                            c_opm_kho = next(c for c in df_opm.columns if 'MĂ KHO' in str(c).upper() or str(c).strip().upper() == 'MÃ KHO')
+                                c_opm_loai = next((c for c in df_opm.columns if 'LOẠI GIAO DỊCH' in str(c).upper()), None)
+                                c_opm_malo = next((c for c in df_opm.columns if 'MÃ LÔ' in str(c).upper()), None)
+                                c_opm_kl = next((c for c in df_opm.columns if 'KHỐI LƯỢNG' in str(c).upper() and 'GROSS' not in str(c).upper()), None)
+                                c_opm_kho = next((c for c in df_opm.columns if any(k in str(c).upper() for k in ['MĂ KHO', 'MÃ KHO', 'MA KHO', 'KHO']) and 'KHU VỰC' not in str(c).upper()), None)
 
-                            df_opm_clean = df_opm.dropna(subset=[c_opm_malo, c_opm_loai]).copy()
-                            lo_str = df_opm_clean[c_opm_malo].astype(str).str.strip().str.upper()
-                            df_opm_clean['Key'] = lo_str.apply(lambda x: x if x.endswith('A') else x + 'A')
-                            df_opm_clean['KL'] = pd.to_numeric(df_opm_clean[c_opm_kl], errors='coerce').fillna(0)
-                            df_opm_clean['Kho_Clean'] = df_opm_clean[c_kho].astype(str).str.strip().str.upper()
+                                if c_opm_loai and c_opm_malo and c_opm_kl and c_opm_kho:
+                                    df_opm_clean = df_opm.dropna(subset=[c_opm_malo, c_opm_loai]).copy()
+                                    lo_str = df_opm_clean[c_opm_malo].astype(str).str.strip().str.upper()
+                                    df_opm_clean['Key'] = lo_str.apply(lambda x: x if x.endswith('A') else x + 'A')
+                                    df_opm_clean['KL'] = pd.to_numeric(df_opm_clean[c_opm_kl], errors='coerce').fillna(0)
+                                    df_opm_clean['Kho_Clean'] = df_opm_clean[c_opm_kho].astype(str).str.strip().str.upper()
 
-                            opm_035_po = df_opm_clean[(df_opm_clean['Kho_Clean'] == '035') & (df_opm_clean[c_opm_loai].str.contains('PO Receipt', case=False, na=False))].groupby('Key')['KL'].sum().to_dict()
-                            opm_035_rtv = df_opm_clean[(df_opm_clean['Kho_Clean'] == '035') & (df_opm_clean[c_opm_loai].str.contains('Return to Vendor', case=False, na=False))].groupby('Key')['KL'].sum().to_dict()
-                            opm_031 = df_opm_clean[(df_opm_clean['Kho_Clean'].isin(['03G', '03H'])) & (df_opm_clean[c_opm_loai].str.contains('Intransit Receipt', case=False, na=False))].groupby('Key')['KL'].sum().to_dict()
-                            opm_03g_po = df_opm_clean[(df_opm_clean['Kho_Clean'] == '03G') & (df_opm_clean[c_opm_loai].str.contains('PO Receipt', case=False, na=False))].groupby('Key')['KL'].sum().to_dict()
-                            opm_03g_rtv = df_opm_clean[(df_opm_clean['Kho_Clean'] == '03G') & (df_opm_clean[c_opm_loai].str.contains('Return to Vendor', case=False, na=False))].groupby('Key')['KL'].sum().to_dict()
+                                    opm_035_po = df_opm_clean[(df_opm_clean['Kho_Clean'] == '035') & (df_opm_clean[c_opm_loai].str.contains('PO Receipt', case=False, na=False))].groupby('Key')['KL'].sum().to_dict()
+                                    opm_035_rtv = df_opm_clean[(df_opm_clean['Kho_Clean'] == '035') & (df_opm_clean[c_opm_loai].str.contains('Return to Vendor', case=False, na=False))].groupby('Key')['KL'].sum().to_dict()
+                                    opm_031 = df_opm_clean[(df_opm_clean['Kho_Clean'].isin(['03G', '03H'])) & (df_opm_clean[c_opm_loai].str.contains('Intransit Receipt', case=False, na=False))].groupby('Key')['KL'].sum().to_dict()
+                                    opm_03g_po = df_opm_clean[(df_opm_clean['Kho_Clean'] == '03G') & (df_opm_clean[c_opm_loai].str.contains('PO Receipt', case=False, na=False))].groupby('Key')['KL'].sum().to_dict()
+                                    opm_03g_rtv = df_opm_clean[(df_opm_clean['Kho_Clean'] == '03G') & (df_opm_clean[c_opm_loai].str.contains('Return to Vendor', case=False, na=False))].groupby('Key')['KL'].sum().to_dict()
+                            except Exception:
+                                opm_035_po, opm_035_rtv, opm_031, opm_03g_po, opm_03g_rtv = {}, {}, {}, {}, {}
 
                         # 4. DANH SÁCH SHEET CỦA PACKING LIST ĐỂ BẮT CẶP
                         pl_sheet_names = []
                         if f_pl is not None:
-                            f_pl.seek(0)
-                            pl_sheet_names = pd.ExcelFile(f_pl).sheet_names
+                            try:
+                                f_pl.seek(0)
+                                pl_sheet_names = pd.ExcelFile(f_pl).sheet_names
+                            except Exception:
+                                pl_sheet_names = []
 
                         # 5. TIẾN HÀNH XỬ LÝ VÀ GHI TỪNG SHEET VÀO EXCEL
                         output = io.BytesIO()
@@ -380,12 +404,12 @@ Thời gian: 1 tháng cần kiểm tra
                                 
                                 f_bbnt.seek(0)
                                 df_temp = read_auto_header(f_bbnt, ['MÃ SỐ CUỘN', 'MÃ CUỘN'], sheet_name=s_name)
-                                col_c_temp = next(c for c in df_temp.columns if 'CUỘN' in str(c).upper())
+                                col_c_temp = next((c for c in df_temp.columns if 'CUỘN' in str(c).upper()), df_temp.columns[3])
                                 cuon_list = df_temp[col_c_temp].dropna().astype(str).str.replace(r'\.0$', '', regex=True).str.strip().str.upper().tolist()
 
                                 dict_bv_p_sheet = {}
                                 dict_bv_kl_sheet = {}
-                                if f_bv is not None:
+                                if bv_raw_list:
                                     for txt, p, kl in bv_raw_list:
                                         for m in cuon_list:
                                             if m in txt and m not in dict_bv_p_sheet:
