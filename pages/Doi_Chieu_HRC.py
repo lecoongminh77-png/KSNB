@@ -17,18 +17,15 @@ st.set_page_config(
 st.markdown(
     """
 <style>
-    /* Ẩn sidebar */
     [data-testid="stSidebar"] { display: none !important; }
     [data-testid="collapsedControl"] { display: none !important; }
 
-    /* Nền trang */
     .stApp {
         background-color: #f5f5f7;
         font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
         color: #1d1d1f;
     }
     
-    /* Header */
     .apple-header-box {
         display: flex;
         justify-content: space-between;
@@ -44,7 +41,6 @@ st.markdown(
         margin: 0;
     }
     
-    /* Nút bấm Apple Style */
     div.stButton > button:first-child {
         background: #0071e3 !important;
         color: #ffffff !important;
@@ -60,7 +56,6 @@ st.markdown(
         color: #ffffff !important;
     }
 
-    /* Container Streamlit Thẻ Apple */
     [data-testid="stVerticalBlockBorderWrapper"] {
         background: #ffffff;
         border-radius: 16px;
@@ -69,7 +64,6 @@ st.markdown(
         box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
     }
 
-    /* Thành phần chữ trong thẻ */
     .upload-title {
         font-size: 18px;
         font-weight: 700;
@@ -136,25 +130,29 @@ st.markdown(
 
 
 # -------------------------------------------------------------
-# CÁC HÀM XỬ LÝ DỮ LIỆU TỰ ĐỘNG
+# CÁC HÀM XỬ LÝ DỮ LIỆU
 # -------------------------------------------------------------
-def read_auto_header(file_obj, keywords, sheet_name=0, max_scan=20):
-    """Tự động tìm dòng chứa tiêu đề dựa vào từ khóa, tránh lỗi skiprows cố định."""
+def read_auto_header(file_obj, keywords, sheet_name=0, max_scan=25, match_all=False):
+    """Tự động tìm dòng header thực tế dựa trên danh sách từ khóa."""
     file_obj.seek(0)
     df_raw = pd.read_excel(file_obj, sheet_name=sheet_name, header=None, nrows=max_scan)
     header_idx = 0
     for idx, row in df_raw.iterrows():
         row_str = " ".join([str(val).upper() for val in row.values if pd.notna(val)])
-        if any(k.upper() in row_str for k in keywords):
-            header_idx = idx
-            break
+        if match_all:
+            if all(k.upper() in row_str for k in keywords):
+                header_idx = idx
+                break
+        else:
+            if any(k.upper() in row_str for k in keywords):
+                header_idx = idx
+                break
     file_obj.seek(0)
     df = pd.read_excel(file_obj, sheet_name=sheet_name, skiprows=header_idx)
     return df
 
 
 def doi_chieu_mot_sheet(f_bbnt, sheet_bbnt, f_pl, sheet_pl, dict_tc_kl, dict_tc_phanloai, dict_bv_phieu, dict_bv_kl, opm_035_po, opm_035_rtv, opm_031, opm_03g_po, opm_03g_rtv):
-    """Thực hiện tính toán đối soát cho 1 cặp sheet cụ thể."""
     # 1. ĐỌC BBNT
     df_bbnt = read_auto_header(f_bbnt, ['MÃ SỐ CUỘN', 'MÃ CUỘN', 'SỐ PHIẾU CÂN'], sheet_name=sheet_bbnt)
     col_cuon = next(c for c in df_bbnt.columns if 'CUỘN' in str(c).upper())
@@ -174,7 +172,7 @@ def doi_chieu_mot_sheet(f_bbnt, sheet_bbnt, f_pl, sheet_pl, dict_tc_kl, dict_tc_
     phieu_can_bbnt = df_bbnt[col_pcan].astype(str).str.replace(r'\.0$', '', regex=True).str.strip()
     ma_hoa = ma_cuon + 'A'
 
-    # 2. ĐỌC PACKING LIST (Nếu có sheet tương ứng)
+    # 2. ĐỌC PACKING LIST
     dict_pl = {}
     if f_pl is not None and sheet_pl is not None:
         df_pl = read_auto_header(f_pl, ['MÃ SỐ NSX', 'MÃ SỐ HSPM', 'KL(NET)'], sheet_name=sheet_pl)
@@ -225,7 +223,7 @@ def doi_chieu_mot_sheet(f_bbnt, sheet_bbnt, f_pl, sheet_pl, dict_tc_kl, dict_tc_
 
 
 # -------------------------------------------------------------
-# CHỨC NĂNG CHÍNH: GIAO DIỆN & TIẾN TRÌNH XỬ LÝ
+# CHỨC NĂNG CHÍNH
 # -------------------------------------------------------------
 def doi_chieu_hrc_tung_file():
     st.caption('Kiểm soát nội bộ • Tự động đối soát 4 bên và tô đỏ ô sai phạm dữ liệu')
@@ -245,7 +243,7 @@ def doi_chieu_hrc_tung_file():
 
             f_bbnt = st.file_uploader('1. File Biên bản nghiệm thu (BBNT)', type=['xlsx', 'xls'])
 
-            # PHƯƠNG ÁN A: Ô CHỌN NHIỀU SHEET NẰM NGAY DƯỚI Ô NẠP FILE BBNT
+            # Ô CHỌN NHIỀU SHEET NẰM TRỰC TIẾP DƯỚI Ô NẠP FILE BBNT
             selected_sheets = []
             if f_bbnt is not None:
                 try:
@@ -307,7 +305,7 @@ Thời gian: 1 tháng cần kiểm tra
             f_bv = st.file_uploader('4. File Dữ liệu Nhập Bảo vệ', type=['xlsx', 'xls'])
             f_opm = st.file_uploader('5. File Báo cáo ERP OPM 105', type=['xlsx', 'xls'])
 
-    # TIẾN HÀNH XỬ LÝ KHI BẤM NÚT
+    # TIẾN HÀNH XỬ LÝ
     st.write("")
     if f_bbnt is not None:
         if not selected_sheets:
@@ -316,27 +314,24 @@ Thời gian: 1 tháng cần kiểm tra
             if st.button('🚀 Bắt đầu đối chiếu tự động', use_container_width=True):
                 with st.spinner(f'Đang đối soát {len(selected_sheets)} sheet dữ liệu và định dạng màu...'):
                     try:
-                        # 1. QUÉT DỮ LIỆU CHUNG TỪ FILE BẢO VỆ
-                        dict_bv_phieu, dict_bv_kl = {}, {}
+                        # 1. QUÉT DỮ LIỆU BẢO VỆ
+                        bv_raw_list = []
                         if f_bv is not None:
-                            df_bv = read_auto_header(f_bv, ['MÃ PHIẾU CÂN', 'KHỐI LƯỢNG PHIẾU CÂN', 'TÊN HÀNG HÓA'])
+                            df_bv = read_auto_header(f_bv, ['MÃ PHIẾU CÂN', 'KHỐI LƯỢNG PHIẾU CÂN'])
                             col_bv_hang = next((c for c in df_bv.columns if 'TÊN HÀNG HÓA' in str(c).upper() or 'MÃ HÀNG HÓA' in str(c).upper()), None)
-                            col_bv_pcan = next((c for c in df_bv.columns if 'MÃ PHIẾU CÂN' in str(c).upper()), None)
+                            col_bv_pcan = next((c for c in df_bv.columns if 'MÃ PHIẾU CÂN' in str(c).upper() or 'PHIẾU CÂN' in str(c).upper()), None)
                             col_bv_kl = next((c for c in df_bv.columns if 'KHỐI LƯỢNG' in str(c).upper()), None)
 
                             for _, r in df_bv.iterrows():
-                                txt = str(r[col_bv_hang]).upper()
-                                p = str(r[col_bv_pcan]).replace('.0', '').strip()
-                                kl = r[col_bv_kl]
-                                # Lưu danh sách thô để tra nhanh
-                                if p not in dict_bv_phieu:
-                                    dict_bv_phieu[txt] = p
-                                    dict_bv_kl[txt] = kl
+                                txt = f"{r.get('MÃ HÀNG HÓA', '')} {r.get('TÊN HÀNG HÓA', '')}"
+                                p = str(r.get(col_bv_pcan, '')).replace('.0', '').strip()
+                                kl = r.get(col_bv_kl, 0)
+                                bv_raw_list.append((txt, p, kl))
 
-                        # 2. QUÉT DỮ LIỆU CHUNG TỪ FILE TRẠM CÂN
+                        # 2. QUÉT DỮ LIỆU TRẠM CÂN
                         dict_tc_kl, dict_tc_phanloai = {}, {}
                         if f_tc is not None:
-                            df_tc = read_auto_header(f_tc, ['PHIẾU CÂN', 'KHỐI LƯỢNG PHIẾU CÂN', 'PHÂN LOẠI'])
+                            df_tc = read_auto_header(f_tc, ['PHIẾU CÂN', 'KHỐI LƯỢNG PHIẾU CÂN'])
                             col_tc_p = next(c for c in df_tc.columns if str(c).strip().upper() == 'PHIẾU CÂN')
                             col_tc_kl = next(c for c in df_tc.columns if 'KHỐI LƯỢNG' in str(c).upper())
                             col_tc_pl = next((c for c in df_tc.columns if 'PHÂN LOẠI' in str(c).upper()), None)
@@ -347,10 +342,10 @@ Thời gian: 1 tháng cần kiểm tra
                             if col_tc_pl:
                                 dict_tc_phanloai = dict(zip(tc_p, df_tc[col_tc_pl].fillna('Nhập hàng').astype(str)))
 
-                        # 3. QUÉT DỮ LIỆU CHUNG TỪ FILE ERP OPM 105
+                        # 3. QUÉT DỮ LIỆU ERP OPM 105 (Yêu cầu cả 2 từ khóa để không nhận nhầm dòng 5)
                         opm_035_po, opm_035_rtv, opm_031, opm_03g_po, opm_03g_rtv = {}, {}, {}, {}, {}
                         if f_opm is not None:
-                            df_opm = read_auto_header(f_opm, ['LOẠI GIAO DỊCH', 'MÃ LÔ', 'KHO'])
+                            df_opm = read_auto_header(f_opm, ['LOẠI GIAO DỊCH', 'MÃ LÔ'], match_all=True)
                             if len(df_opm) > 0 and '[' in str(df_opm.iloc[0, 1]):
                                 df_opm = df_opm.iloc[1:].copy()
 
@@ -377,14 +372,12 @@ Thời gian: 1 tháng cần kiểm tra
                             f_pl.seek(0)
                             pl_sheet_names = pd.ExcelFile(f_pl).sheet_names
 
-                        # 5. TIẾN HÀNH CHẠY TỪNG SHEET ĐƯỢC CHỌN VÀ GHI EXCEL
+                        # 5. TIẾN HÀNH XỬ LÝ VÀ GHI TỪNG SHEET VÀO EXCEL
                         output = io.BytesIO()
                         with pd.ExcelWriter(output, engine='openpyxl') as writer:
                             for s_name in selected_sheets:
-                                # Tìm sheet trùng tên bên Packing list
                                 matched_pl = next((p for p in pl_sheet_names if p.strip().upper() == s_name.strip().upper()), None)
                                 
-                                # Tạo map bảo vệ riêng cho các cuộn trong sheet này
                                 f_bbnt.seek(0)
                                 df_temp = read_auto_header(f_bbnt, ['MÃ SỐ CUỘN', 'MÃ CUỘN'], sheet_name=s_name)
                                 col_c_temp = next(c for c in df_temp.columns if 'CUỘN' in str(c).upper())
@@ -393,11 +386,11 @@ Thời gian: 1 tháng cần kiểm tra
                                 dict_bv_p_sheet = {}
                                 dict_bv_kl_sheet = {}
                                 if f_bv is not None:
-                                    for txt, p in dict_bv_phieu.items():
+                                    for txt, p, kl in bv_raw_list:
                                         for m in cuon_list:
                                             if m in txt and m not in dict_bv_p_sheet:
                                                 dict_bv_p_sheet[m] = p
-                                                dict_bv_kl_sheet[m] = dict_bv_kl[txt]
+                                                dict_bv_kl_sheet[m] = kl
 
                                 res_df = doi_chieu_mot_sheet(
                                     f_bbnt, s_name, f_pl, matched_pl,
@@ -406,7 +399,6 @@ Thời gian: 1 tháng cần kiểm tra
                                     opm_035_po, opm_035_rtv, opm_031, opm_03g_po, opm_03g_rtv
                                 )
 
-                                # Ghi sheet vào Excel
                                 clean_sname = re.sub(r'[\\/*?:\[\]]', '_', s_name)[:31]
                                 res_df.to_excel(writer, index=False, sheet_name=clean_sname)
                                 ws = writer.sheets[clean_sname]
