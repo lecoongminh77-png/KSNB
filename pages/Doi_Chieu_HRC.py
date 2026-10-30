@@ -5,33 +5,89 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 import pandas as pd
 import streamlit as st
 
+# 1. CẤU HÌNH GIAO DIỆN
 st.set_page_config(
-    page_title="Đối Chiếu Nghiệm Thu HRC - KSNB", page_icon="🛡️", layout="wide"
+    page_title="Đối Chiếu Nghiệm Thu HRC - KSNB",
+    page_icon="🛡️",
+    layout="wide",
+)
+
+st.markdown(
+    """
+<style>
+    [data-testid="stSidebar"] { display: none !important; }
+    [data-testid="collapsedControl"] { display: none !important; }
+    .stApp {
+        background-color: #f5f5f7;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+        color: #1d1d1f;
+    }
+    .apple-header-box {
+        padding: 20px 0 10px 0;
+        margin-bottom: 5px;
+    }
+    .apple-main-title {
+        font-size: 32px;
+        font-weight: 700;
+        color: #1d1d1f;
+        letter-spacing: -0.02em;
+        margin: 0;
+    }
+    div.stButton > button:first-child {
+        background: #0071e3 !important;
+        color: #ffffff !important;
+        border-radius: 980px !important;
+        border: none !important;
+        padding: 12px 24px !important;
+        font-weight: 600 !important;
+        font-size: 15px !important;
+        box-shadow: 0 4px 12px rgba(0, 113, 227, 0.25) !important;
+    }
+    div.stButton > button:first-child:hover {
+        background: #0077ed !important;
+    }
+    [data-testid="stVerticalBlockBorderWrapper"] {
+        background: #ffffff;
+        border-radius: 16px;
+        padding: 16px;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+    }
+</style>
+""",
+    unsafe_allow_html=True,
+)
+
+st.markdown(
+    """
+<div class="apple-header-box">
+    <h1 class="apple-main-title">📑 Đối Chiếu Nghiệm Thu HRC - KSNB</h1>
+    <p style="color: #6e6e73; font-size: 14px; margin-top: 4px;">Giữ nguyên phôi Biên bản nghiệm thu gốc và tự động scan 4 file đối soát</p>
+</div>
+<hr style='border: none; border-top: 1px solid #d2d2d7; margin: 10px 0 20px 0;'>
+""",
+    unsafe_allow_html=True,
 )
 
 
-def tim_dong_tieu_de(file_bytes, tu_khoa_list, max_scan=20):
-    """Tự động tìm dòng header thực tế trong file Excel, không sợ file bị đổi dòng header."""
-    df_raw = pd.read_excel(file_bytes, header=None, nrows=max_scan)
+# 2. HÀM TỰ ĐỘNG TÌM HEADER & SCAN DỮ LIỆU
+def tim_dong_tieu_de(file_obj, tu_khoa_list, max_scan=20):
+    df_raw = pd.read_excel(file_obj, header=None, nrows=max_scan)
     for idx, row in df_raw.iterrows():
-        row_text = " ".join(
-            [str(v).upper() for v in row.values if pd.notna(v)]
-        )
+        row_text = " ".join([str(v).upper() for v in row.values if pd.notna(v)])
         if any(k.upper() in row_text for k in tu_khoa_list):
             return idx
     return 0
 
 
 def xu_ly_doi_chieu(f_bb, f_pl, f_tc, f_bv, f_opm):
-    # 1. MỞ TRỰC TIẾP FILE BIÊN BẢN GỐC (GIỮ NGUYÊN 100% FORMAT GỐC)
+    # Đọc trực tiếp phôi biên bản gốc
     wb = load_workbook(f_bb, data_only=False)
     ws = wb.active
-
-    # Đọc bản data_only để lấy giá trị số thực của 13 cột đầu (tránh dính công thức vlookup bị lỗi)
     wb_val = load_workbook(f_bb, data_only=True)
     ws_val = wb_val.active
 
-    # Xác định dòng tiêu đề của BBNT (thường là dòng 8)
+    # Tìm dòng tiêu đề của BBNT
     row_header = 8
     for r in range(1, 15):
         if (
@@ -41,11 +97,11 @@ def xu_ly_doi_chieu(f_bb, f_pl, f_tc, f_bv, f_opm):
             row_header = r
             break
 
-    # Lấy danh sách các dòng dữ liệu (loại bỏ dòng tổng cộng, kết luận)
+    # Lấy danh sách cuộn cần đối chiếu
     data_rows = []
     for r in range(row_header + 1, ws.max_row + 1):
         c_val = ws_val.cell(row=r, column=4).value
-        stt_val = str(ws_val.cell(row=r, column=1).value).strip()
+        stt_val = str(ws_val.cell(row=r, column=1).value or "").strip()
         if (
             c_val is not None
             and str(c_val).strip() != ""
@@ -57,9 +113,10 @@ def xu_ly_doi_chieu(f_bb, f_pl, f_tc, f_bv, f_opm):
 
     list_cuon = [x[1] for x in data_rows]
 
-    # 2. SCAN FILE PACKING LIST
+    # Quét dữ liệu Packing List
     dict_pl = {}
     if f_pl:
+        f_pl.seek(0)
         idx_pl = tim_dong_tieu_de(f_pl, ["MÃ SỐ NSX", "MÃ SỐ HSPM", "KL(NET)"])
         f_pl.seek(0)
         df_pl = pd.read_excel(f_pl, skiprows=idx_pl)
@@ -69,7 +126,6 @@ def xu_ly_doi_chieu(f_bb, f_pl, f_tc, f_bv, f_opm):
             if "MÃ SỐ NSX" in str(c).upper() or "MÃ SỐ" in str(c).upper()
         )
         col_net = next(c for c in df_pl.columns if "NET" in str(c).upper())
-
         df_pl_clean = df_pl.dropna(subset=[col_nsx, col_net])
         keys = (
             df_pl_clean[col_nsx]
@@ -86,21 +142,12 @@ def xu_ly_doi_chieu(f_bb, f_pl, f_tc, f_bv, f_opm):
             .to_dict()
         )
 
-    # 3. SCAN FILE DỮ LIỆU BẢO VỆ (Quét mã cuộn trong text)
+    # Quét dữ liệu Bảo vệ
     dict_bv_phieu = {}
     dict_bv_kl = {}
     if f_bv:
         f_bv.seek(0)
         df_bv = pd.read_excel(f_bv)
-        col_hang = next(
-            (
-                c
-                for c in df_bv.columns
-                if "MÃ HÀNG HÓA" in str(c).upper()
-                or "TÊN HÀNG HÓA" in str(c).upper()
-            ),
-            None,
-        )
         col_pcan = next(
             (
                 c
@@ -123,7 +170,7 @@ def xu_ly_doi_chieu(f_bb, f_pl, f_tc, f_bv, f_opm):
                     dict_bv_phieu[m] = p_can
                     dict_bv_kl[m] = kl_can
 
-    # 4. SCAN FILE TRẠM CÂN
+    # Quét dữ liệu Trạm cân
     dict_tc_kl = {}
     dict_tc_pl = {}
     if f_tc:
@@ -150,7 +197,7 @@ def xu_ly_doi_chieu(f_bb, f_pl, f_tc, f_bv, f_opm):
                 zip(p_series, df_tc[col_pl].fillna("Nhập hàng").astype(str))
             )
 
-    # 5. SCAN FILE ERP OPM 105 (Bắt đúng cột Khối lượng và Mã Kho)
+    # Quét dữ liệu ERP OPM 105
     opm_035_po, opm_035_rtv, opm_031, opm_03g_po, opm_03g_rtv = (
         {},
         {},
@@ -159,6 +206,7 @@ def xu_ly_doi_chieu(f_bb, f_pl, f_tc, f_bv, f_opm):
         {},
     )
     if f_opm:
+        f_opm.seek(0)
         idx_opm = tim_dong_tieu_de(f_opm, ["LOẠI GIAO DỊCH", "MÃ LÔ"])
         f_opm.seek(0)
         df_opm = pd.read_excel(f_opm, skiprows=idx_opm)
@@ -169,13 +217,11 @@ def xu_ly_doi_chieu(f_bb, f_pl, f_tc, f_bv, f_opm):
             c for c in df_opm.columns if "LOẠI GIAO DỊCH" in str(c).upper()
         )
         c_malo = next(c for c in df_opm.columns if "MÃ LÔ" in str(c).upper())
-        # Cột khối lượng thực chất là cột tên 'Khối Lượng' (cột số 9)
         c_kl = next(
             c
             for c in df_opm.columns
             if "KHỐI LƯỢNG" in str(c).upper() and "GROSS" not in str(c).upper()
         )
-        # Cột kho thực chất là cột 'Mă Kho' (cột 34)
         c_kho = next(
             c
             for c in df_opm.columns
@@ -260,7 +306,7 @@ def xu_ly_doi_chieu(f_bb, f_pl, f_tc, f_bv, f_opm):
             .to_dict()
         )
 
-    # 6. GHI ĐÈ TIÊU ĐỀ CÁC CỘT TỪ N ĐẾN AH (CỘT 14 ĐẾN 34)
+    # Ghi tiêu đề cột 14 đến 34
     headers = [
         (14, "NHẬP/XUẤT"),
         (15, "Mã hóa"),
@@ -308,7 +354,8 @@ def xu_ly_doi_chieu(f_bb, f_pl, f_tc, f_bv, f_opm):
             wrap_text=True, horizontal="center", vertical="center"
         )
 
-    # 7. SCAN TỪNG DÒNG VÀ ĐIỀN GIÁ TRỊ VÀO PHÔI BBNT
+    # Điền giá trị đối soát và tô màu cảnh báo
+    preview_records = []
     for r, m in data_rows:
         m_hoa = m + "A"
         p_can_bbnt = str(ws_val.cell(row=r, column=5).value or "").strip()
@@ -317,7 +364,6 @@ def xu_ly_doi_chieu(f_bb, f_pl, f_tc, f_bv, f_opm):
         can_ban = float(ws_val.cell(row=r, column=10).value or 0)
         dsai_bbnt = round(float(ws_val.cell(row=r, column=12).value or 0), 6)
 
-        # Tính toán giá trị từ các nguồn đã scan
         nhap_xuat = dict_tc_pl.get(p_can_bbnt, "Nhập hàng")
         kl_net_pl = float(dict_pl.get(m_hoa, 0))
         doi_chieu_pl = net_ct - kl_net_pl
@@ -325,7 +371,6 @@ def xu_ly_doi_chieu(f_bb, f_pl, f_tc, f_bv, f_opm):
         p_can_bv = str(dict_bv_phieu.get(m, "")).strip()
         chk_pcan = p_can_bbnt == p_can_bv if p_can_bv else False
 
-        # Khối lượng trạm cân tra theo số phiếu bảo vệ (nếu ko có lấy phiếu bbnt)
         p_tra_tc = p_can_bv if p_can_bv else p_can_bbnt
         kl_tc = float(dict_tc_kl.get(p_tra_tc, 0))
 
@@ -334,11 +379,8 @@ def xu_ly_doi_chieu(f_bb, f_pl, f_tc, f_bv, f_opm):
         chenh_lech_kg = kl_tc - gross_ct
         chenh_lech_ds = chenh_lech_kg / gross_ct if gross_ct != 0 else 0
         chk_dsai = round(chenh_lech_ds, 6) == dsai_bbnt
-        so_quy_dinh = (
-            "VUOT DUNG SAI" if abs(chenh_lech_ds) > 0.003 else "OK"
-        )
+        so_quy_dinh = "VUOT DUNG SAI" if abs(chenh_lech_ds) > 0.003 else "OK"
 
-        # OPM 105
         kl_035 = float(
             opm_035_po.get(m_hoa, 0) - abs(opm_035_rtv.get(m_hoa, 0))
         )
@@ -350,7 +392,6 @@ def xu_ly_doi_chieu(f_bb, f_pl, f_tc, f_bv, f_opm):
         )
         chenh_03g = kl_net_pl - kl_03g
 
-        # Ghi vào từng ô
         row_values = {
             14: nhap_xuat,
             15: m_hoa,
@@ -380,7 +421,6 @@ def xu_ly_doi_chieu(f_bb, f_pl, f_tc, f_bv, f_opm):
             c.value = val
             c.border = border_thin
 
-            # Tô đỏ nếu có lỗi vi phạm
             is_err = False
             if col_idx in [20, 23, 24, 27] and val is False:
                 is_err = True
@@ -397,6 +437,70 @@ def xu_ly_doi_chieu(f_bb, f_pl, f_tc, f_bv, f_opm):
                 c.fill = red_fill
                 c.font = red_font
 
-    output = io.BytesIO()
-    wb.save(output)
-    return output.getvalue()
+        preview_records.append({
+            "Mã cuộn": m,
+            "Phiếu cân": p_can_bbnt,
+            "KL Net PL": kl_net_pl,
+            "KL Cân bàn": can_ban,
+            "KL Trạm cân": kl_tc,
+            "Dung sai": so_quy_dinh,
+            "KL Kho 035": kl_035,
+        })
+
+    out_io = io.BytesIO()
+    wb.save(out_io)
+    return out_io.getvalue(), pd.DataFrame(preview_records)
+
+
+# 3. GIAO DIỆN UPLOAD VÀ NÚT BẤM (HIỂN THỊ ĐẦY ĐỦ)
+col1, col2 = st.columns(2, gap="large")
+
+with col1:
+    with st.container(border=True):
+        st.subheader("1️⃣ Biên bản & Trạm cân")
+        f_bb = st.file_uploader(
+            "1. File Biên bản nghiệm thu (BBNT gốc)",
+            type=["xlsx", "xls"],
+            key="u_bb",
+        )
+        f_pl = st.file_uploader(
+            "2. File Packing List NCC", type=["xlsx", "xls"], key="u_pl"
+        )
+        f_tc = st.file_uploader(
+            "3. File Dữ liệu Trạm cân", type=["xlsx", "xls"], key="u_tc"
+        )
+
+with col2:
+    with st.container(border=True):
+        st.subheader("2️⃣ Bảo vệ & ERP OPM")
+        f_bv = st.file_uploader(
+            "4. File Nhập Bảo vệ", type=["xlsx", "xls"], key="u_bv"
+        )
+        f_opm = st.file_uploader(
+            "5. File ERP OPM 105", type=["xlsx", "xls"], key="u_opm"
+        )
+
+st.write("")
+if f_bb is not None:
+    if st.button("🚀 Bắt đầu đối chiếu tự động", use_container_width=True):
+        with st.spinner("Đang scan 5 file và ghi trực tiếp vào phôi BBNT..."):
+            try:
+                excel_bytes, df_preview = xu_ly_doi_chieu(
+                    f_bb, f_pl, f_tc, f_bv, f_opm
+                )
+                st.success("✅ Đã đối soát thành công và khớp dữ liệu hoàn tất!")
+
+                st.markdown("### 🔍 Bảng xem trước dữ liệu đối soát")
+                st.dataframe(df_preview, use_container_width=True)
+
+                st.download_button(
+                    label="📥 TẢI FILE BIÊN BẢN NGHIỆM THU ĐÃ ĐỐI SOÁT (EXCEL)",
+                    data=excel_bytes,
+                    file_name="BBNT_Nghiem_Thu_Doi_Chieu_Hoan_Tat.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                )
+            except Exception as e:
+                st.error(f"❌ Có lỗi trong quá trình xử lý: {e}")
+else:
+    st.info("👉 Hãy nạp tối thiểu File Biên bản nghiệm thu (1) để xuất hiện nút đối soát.")
