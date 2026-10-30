@@ -1,1181 +1,637 @@
-À, đúng rồi — bạn cần **nguyên một file code** để dán vào `app.py`. Đây là bản đầy đủ, bắt đầu bằng `import io` và `import re`. Cài thư viện bằng `pip install streamlit pandas openpyxl`, rồi chạy `streamlit run app.py`.
-
-```python
 import io
 import re
-import math
-import numbers
-import posixpath
-import shutil
-import unicodedata
-import xml.etree.ElementTree as ET
-from collections import defaultdict
-from io import BytesIO
-from typing import Any, Iterable, Sequence
-from zipfile import ZIP_DEFLATED, ZipFile
-
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 import pandas as pd
 import streamlit as st
-from openpyxl import load_workbook
-from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
-
-MAIN_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
-DOC_REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
-PKG_REL_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
-CONTENT_TYPES_NS = "http://schemas.openxmlformats.org/package/2006/content-types"
-
-RESULT_HEADERS = (
-    (14, "NHẬP/XUẤT"),
-    (15, "Mã hóa"),
-    (16, "Khối lượng net theo PL"),
-    (17, "Đối chiếu"),
-    (18, "KL theo bc nhập hàng"),
-    (19, "Số phiếu cân"),
-    (20, "Đối chiếu số phiếu cân"),
-    (21, "KL theo bc trạm cân"),
-    (22, ""),
-    (23, "Đối chiếu KL TC & KL BCBV"),
-    (24, "Đối chiếu KL TC & KL BBNT"),
-    (25, "Chênh lệch (kg)"),
-    (26, "Chênh lệch dung sai"),
-    (27, "Đối chiếu dung sai"),
-    (28, "So với quy định (>+-0.3%)"),
-    (29, "KL Nhập kho\n035"),
-    (30, "Chênh lệch"),
-    (31, "KL Nhập kho\n031"),
-    (32, "Chênh lệch"),
-    (33, "KL Nhập kho\n03G-3H"),
-    (34, "Chênh lệch"),
-)
-
-
-class ReconciliationError(ValueError):
-    pass
-
-
-def as_bytes(file_obj):
-    if isinstance(file_obj, bytes):
-        return file_obj
-    if isinstance(file_obj, bytearray):
-        return bytes(file_obj)
-    if hasattr(file_obj, "getvalue"):
-        return file_obj.getvalue()
-    if hasattr(file_obj, "read"):
-        position = file_obj.tell() if hasattr(file_obj, "tell") else None
-        data = file_obj.read()
-        if position is not None and hasattr(file_obj, "seek"):
-            file_obj.seek(position)
-        return data
-    raise TypeError("Đầu vào phải là file Excel hoặc dữ liệu bytes.")
-
-
-def fold(value):
-    text = unicodedata.normalize("NFKD", str(value if value is not None else ""))
-    text = "".join(ch for ch in text if not unicodedata.combining(ch))
-    text = text.replace("đ", "d").replace("Đ", "D")
-    return re.sub(r"\s+", " ", text).strip().upper()
-
-
-def clean_id(value):
-    if value is None:
-        return ""
-    try:
-        if pd.isna(value):
-            return ""
-    except (TypeError, ValueError):
-        pass
-
-    if isinstance(value, numbers.Integral):
-        return str(int(value))
-    if isinstance(value, numbers.Real) and math.isfinite(float(value)):
-        number = float(value)
-        if number.is_integer():
-            return str(int(number))
-
-    return re.sub(r"\.0+$", "", str(value).strip())
-
-
-def normalize_ticket(value):
-    return clean_id(value)
-
-
-def normalize_lot(value):
-    text = clean_id(value).upper()
-    if not text:
-        return ""
-    return text if text.endswith("A") else text + "A"
-
-
-def normalize_warehouse(value):
-    text = clean_id(value).upper()
-    if text.isdigit() and len(text) < 3:
-        return text.zfill(3)
-    return text
-
-
-def as_number(value, default=0.0):
-    if value is None:
-        return default
-    try:
-        if pd.isna(value):
-            return default
-    except (TypeError, ValueError):
-        pass
-
-    if isinstance(value, numbers.Real):
-        number = float(value)
-        return number if math.isfinite(number) else default
-
-    text = str(value).strip().replace(" ", "")
-    if not text:
-        return default
-
-    if "," in text and "." in text:
-        text = text.replace(",", "")
-    elif "," in text:
-        if re.fullmatch(r"-?\d{1,3}(,\d{3})+", text):
-            text = text.replace(",", "")
-        else:
-            text = text.replace(",", ".")
-
-    try:
-        number = float(text)
-        return number if math.isfinite(number) else default
-    except ValueError:
-        return default
-
-
-def workbook_sheet_names(file_obj):
-    workbook = load_workbook(
-        BytesIO(as_bytes(file_obj)),
-        read_only=True,
-        data_only=True,
-        keep_links=False,
-    )
-    try:
-        return list(workbook.sheetnames)
-    finally:
-        workbook.close()
-
-
-def part_name(target):
-    target = target.replace("\\", "/")
-    if target.startswith("/"):
-        return posixpath.normpath(target.lstrip("/"))
-    return posixpath.normpath(posixpath.join("xl", target))
-
-
-def register_xml_namespaces(xml_bytes):
-    try:
-        for _, (prefix, uri) in ET.iterparse(
-            BytesIO(xml_bytes), events=("start-ns",)
-        ):
-            ET.register_namespace(prefix or "", uri)
-    except ET.ParseError:
-        pass
-
-
-def serialize_xml(root):
-    return ET.tostring(root, encoding="utf-8", xml_declaration=True)
-
-
-def select_workbook_sheets(file_obj, selected_names):
-    """Giữ lại các sheet đã chọn trước khi openpyxl đọc dữ liệu."""
-    content = as_bytes(file_obj)
-    wanted = {str(name).strip() for name in selected_names}
-
-    if not wanted:
-        raise ReconciliationError("Bạn cần chọn ít nhất một sheet BBNT.")
-
-    try:
-        source_zip = ZipFile(BytesIO(content), "r")
-    except Exception as exc:
-        raise ReconciliationError(
-            "Không đọc được file BBNT. Hãy dùng file .xlsx hợp lệ."
-        ) from exc
-
-    with source_zip:
-        required_parts = {
-            "xl/workbook.xml",
-            "xl/_rels/workbook.xml.rels",
-            "[Content_Types].xml",
-        }
-        if not required_parts.issubset(set(source_zip.namelist())):
-            raise ReconciliationError("File BBNT không có cấu trúc .xlsx hợp lệ.")
-
-        workbook_bytes = source_zip.read("xl/workbook.xml")
-        rels_bytes = source_zip.read("xl/_rels/workbook.xml.rels")
-        types_bytes = source_zip.read("[Content_Types].xml")
-
-        register_xml_namespaces(workbook_bytes)
-        register_xml_namespaces(rels_bytes)
-        register_xml_namespaces(types_bytes)
-
-        workbook_root = ET.fromstring(workbook_bytes)
-        rels_root = ET.fromstring(rels_bytes)
-        types_root = ET.fromstring(types_bytes)
-
-        sheets_element = workbook_root.find(f"{{{MAIN_NS}}}sheets")
-        if sheets_element is None:
-            raise ReconciliationError("Không tìm thấy danh sách sheet trong BBNT.")
-
-        relationship_targets = {
-            rel.attrib.get("Id", ""): rel.attrib.get("Target", "")
-            for rel in rels_root.findall(f"{{{PKG_REL_NS}}}Relationship")
-        }
-
-        sheet_nodes = list(sheets_element)
-        selected_nodes = []
-
-        for original_index, sheet in enumerate(sheet_nodes):
-            name = sheet.attrib.get("name", "")
-            relationship_id = sheet.attrib.get(f"{{{DOC_REL_NS}}}id", "")
-            target = relationship_targets.get(relationship_id)
-
-            if name in wanted and target:
-                selected_nodes.append(
-                    (original_index, sheet, relationship_id, part_name(target))
-                )
-
-        selected_found = {
-            sheet.attrib.get("name", "")
-            for _, sheet, _, _ in selected_nodes
-        }
-        missing_names = wanted.difference(selected_found)
-
-        if missing_names:
-            raise ReconciliationError(
-                "Không tìm thấy sheet BBNT: " + ", ".join(sorted(missing_names))
-            )
-
-        selected_original_indexes = {
-            original_index for original_index, _, _, _ in selected_nodes
-        }
-        new_sheet_index = {
-            original_index: new_index
-            for new_index, (original_index, _, _, _) in enumerate(selected_nodes)
-        }
-        selected_relationship_ids = {
-            relationship_id for _, _, relationship_id, _ in selected_nodes
-        }
-        selected_parts = {part for _, _, _, part in selected_nodes}
-
-        removed_sheet_parts = set()
-        removed_names = []
-
-        for sheet in sheet_nodes:
-            name = sheet.attrib.get("name", "")
-            if name not in wanted:
-                removed_names.append(name)
-                relationship_id = sheet.attrib.get(f"{{{DOC_REL_NS}}}id", "")
-                target = relationship_targets.get(relationship_id)
-                if target:
-                    removed_sheet_parts.add(part_name(target))
-                sheets_element.remove(sheet)
-
-        book_views = workbook_root.find(f"{{{MAIN_NS}}}bookViews")
-        if book_views is not None:
-            for view in book_views.findall(f"{{{MAIN_NS}}}workbookView"):
-                view.set("activeTab", "0")
-                view.set("firstSheet", "0")
-
-        defined_names = workbook_root.find(f"{{{MAIN_NS}}}definedNames")
-        if defined_names is not None:
-            for defined_name in list(defined_names):
-                local_sheet_id = defined_name.attrib.get("localSheetId")
-
-                if local_sheet_id is not None:
-                    try:
-                        original_index = int(local_sheet_id)
-                    except ValueError:
-                        defined_names.remove(defined_name)
-                        continue
-
-                    if original_index not in selected_original_indexes:
-                        defined_names.remove(defined_name)
-                    else:
-                        defined_name.set(
-                            "localSheetId",
-                            str(new_sheet_index[original_index]),
-                        )
-                else:
-                    formula = (defined_name.text or "").casefold()
-                    refers_to_removed_sheet = any(
-                        f"'{name.casefold()}'!" in formula
-                        or f"{name.casefold()}!" in formula
-                        for name in removed_names
-                        if name
-                    )
-                    if refers_to_removed_sheet:
-                        defined_names.remove(defined_name)
-
-            if not list(defined_names):
-                workbook_root.remove(defined_names)
-
-        removed_parts = set(removed_sheet_parts)
-
-        for part in removed_sheet_parts:
-            rel_part = posixpath.join(
-                posixpath.dirname(part),
-                "_rels",
-                posixpath.basename(part) + ".rels",
-            )
-            removed_parts.add(rel_part)
-
-        for relationship in list(
-            rels_root.findall(f"{{{PKG_REL_NS}}}Relationship")
-        ):
-            rel_type = relationship.attrib.get("Type", "")
-            relationship_id = relationship.attrib.get("Id", "")
-            target = relationship.attrib.get("Target", "")
-
-            if (
-                rel_type.endswith("/worksheet")
-                and relationship_id not in selected_relationship_ids
-            ):
-                rels_root.remove(relationship)
-            elif rel_type.endswith("/calcChain"):
-                removed_parts.add(part_name(target))
-                rels_root.remove(relationship)
-
-        removed_parts.add("xl/calcChain.xml")
-
-        for override in list(
-            types_root.findall(f"{{{CONTENT_TYPES_NS}}}Override")
-        ):
-            part = override.attrib.get("PartName", "").lstrip("/")
-            if part in removed_parts or part == "xl/calcChain.xml":
-                types_root.remove(override)
-
-        replacements = {
-            "xl/workbook.xml": serialize_xml(workbook_root),
-            "xl/_rels/workbook.xml.rels": serialize_xml(rels_root),
-            "[Content_Types].xml": serialize_xml(types_root),
-        }
-
-        output = BytesIO()
-        with ZipFile(
-            output,
-            "w",
-            compression=ZIP_DEFLATED,
-            compresslevel=6,
-        ) as result_zip:
-            for info in source_zip.infolist():
-                name = info.filename
-
-                if name in removed_parts:
-                    continue
-
-                if name in replacements:
-                    result_zip.writestr(info, replacements[name])
-                    continue
-
-                if info.is_dir():
-                    result_zip.writestr(info, b"")
-                    continue
-
-                with source_zip.open(info, "r") as input_stream:
-                    with result_zip.open(info, "w") as output_stream:
-                        shutil.copyfileobj(
-                            input_stream,
-                            output_stream,
-                            length=1024 * 1024,
-                        )
-
-        return output.getvalue()
-
-
-def find_header_row(
-    file_content,
-    required_groups,
-    sheet_name=0,
-    max_scan=40,
-    file_label="file Excel",
-):
-    try:
-        raw = pd.read_excel(
-            BytesIO(file_content),
-            sheet_name=sheet_name,
-            header=None,
-            nrows=max_scan,
-            engine="openpyxl",
-        )
-    except Exception as exc:
-        raise ReconciliationError(
-            f"Không đọc được phần đầu của {file_label}."
-        ) from exc
-
-    folded_groups = [
-        [fold(keyword) for keyword in group]
-        for group in required_groups
-    ]
-
-    for row_index, row in raw.iterrows():
-        row_text = " ".join(
-            fold(value)
-            for value in row.values
-            if not pd.isna(value)
-        )
-
-        if all(
-            any(keyword in row_text for keyword in group)
-            for group in folded_groups
-        ):
-            return int(row_index)
-
-    requirements = " và ".join(
-        "/".join(group) for group in required_groups
-    )
-    raise ReconciliationError(
-        f"Không tìm thấy dòng tiêu đề gồm {requirements} trong {file_label}."
-    )
-
-
-def read_table(
-    file_content,
-    required_groups,
-    sheet_name=0,
-    file_label="file Excel",
-):
-    header_row = find_header_row(
-        file_content,
-        required_groups,
-        sheet_name=sheet_name,
-        file_label=file_label,
-    )
-    try:
-        return pd.read_excel(
-            BytesIO(file_content),
-            sheet_name=sheet_name,
-            skiprows=header_row,
-            engine="openpyxl",
-        )
-    except Exception as exc:
-        raise ReconciliationError(
-            f"Không đọc được bảng dữ liệu trong {file_label}."
-        ) from exc
-
-
-def find_column(
-    columns,
-    label,
-    aliases=(),
-    contains=(),
-    excludes=(),
-    required=True,
-):
-    columns = list(columns)
-    aliases = [fold(value) for value in aliases]
-    contains = [fold(value) for value in contains]
-    excludes = [fold(value) for value in excludes]
-
-    for alias in aliases:
-        for column in columns:
-            current = fold(column)
-            if (current == alias or alias in current) and not any(
-                item in current for item in excludes
-            ):
-                return column
-
-    for column in columns:
-        current = fold(column)
-        if not contains or not all(item in current for item in contains):
-            continue
-        if any(item in current for item in excludes):
-            continue
-        return column
-
-    if required:
-        raise ReconciliationError(
-            f"Không tìm thấy cột “{label}”. Hãy kiểm tra dòng tiêu đề của file."
-        )
-    return None
-
-
-def read_protection_records(file_content):
-    df = read_table(
-        file_content,
-        required_groups=(
-            ("MÃ PHIẾU CÂN", "PHIẾU CÂN"),
-            ("KHỐI LƯỢNG",),
-        ),
-        file_label="file Bảo vệ",
-    )
-
-    ticket_col = find_column(
-        df.columns,
-        label="Mã phiếu cân trong file Bảo vệ",
-        aliases=("MÃ PHIẾU CÂN", "PHIẾU CÂN"),
-        contains=("PHIẾU CÂN",),
-    )
-    weight_col = find_column(
-        df.columns,
-        label="Khối lượng trong file Bảo vệ",
-        contains=("KHỐI LƯỢNG",),
-    )
-    code_col = find_column(
-        df.columns,
-        label="Mã hàng hóa trong file Bảo vệ",
-        aliases=("MÃ HÀNG HÓA",),
-        required=False,
-    )
-    name_col = find_column(
-        df.columns,
-        label="Tên hàng hóa trong file Bảo vệ",
-        aliases=("TÊN HÀNG HÓA",),
-        required=False,
-    )
-
-    if code_col is None and name_col is None:
-        raise ReconciliationError(
-            "File Bảo vệ cần có cột Mã hàng hóa hoặc Tên hàng hóa."
-        )
-
-    records = []
-    for _, row in df.iterrows():
-        description = " ".join(
-            clean_id(row.get(column, ""))
-            for column in (code_col, name_col)
-            if column is not None
-        )
-        ticket = normalize_ticket(row.get(ticket_col))
-
-        if description and ticket:
-            records.append(
-                (description, ticket, as_number(row.get(weight_col), 0.0))
-            )
-
-    return records
-
-
-def read_scale_data(file_content):
-    df = read_table(
-        file_content,
-        required_groups=(("PHIẾU CÂN",), ("KHỐI LƯỢNG",)),
-        file_label="file Trạm cân",
-    )
-
-    ticket_col = find_column(
-        df.columns,
-        label="Phiếu cân trong file Trạm cân",
-        aliases=("PHIẾU CÂN",),
-    )
-    weight_col = find_column(
-        df.columns,
-        label="Khối lượng trong file Trạm cân",
-        contains=("KHỐI LƯỢNG",),
-    )
-    class_col = find_column(
-        df.columns,
-        label="Phân loại trong file Trạm cân",
-        contains=("PHÂN LOẠI",),
-        required=False,
-    )
-
-    weights = {}
-    classifications = {}
-
-    for _, row in df.iterrows():
-        ticket = normalize_ticket(row.get(ticket_col))
-        if not ticket:
-            continue
-
-        weights[ticket] = as_number(row.get(weight_col), 0.0)
-
-        if class_col is not None:
-            classifications[ticket] = (
-                clean_id(row.get(class_col)) or "Nhập hàng"
-            )
-
-    return weights, classifications
-
-
-def read_opm_data(file_content):
-    df = read_table(
-        file_content,
-        required_groups=(("LOẠI GIAO DỊCH",), ("MÃ LÔ",)),
-        file_label="file ERP OPM 105",
-    )
-
-    transaction_col = find_column(
-        df.columns,
-        label="Loại giao dịch trong file OPM",
-        contains=("LOẠI GIAO DỊCH",),
-    )
-    lot_col = find_column(
-        df.columns,
-        label="Mã lô trong file OPM",
-        contains=("MÃ LÔ",),
-    )
-    weight_col = find_column(
-        df.columns,
-        label="Khối lượng net trong file OPM",
-        contains=("KHỐI LƯỢNG",),
-        excludes=("GROSS",),
-    )
-    warehouse_col = find_column(
-        df.columns,
-        label="Mã kho trong file OPM",
-        aliases=("MÃ KHO", "MĂ KHO"),
-    )
-
-    # Một số file OPM có dòng hướng dẫn bắt đầu bằng dấu "[" ngay dưới tiêu đề.
-    if len(df) > 0 and len(df.columns) > 1 and "[" in str(df.iloc[0, 1]):
-        df = df.iloc[1:]
-
-    po_035 = defaultdict(float)
-    rtv_035 = defaultdict(float)
-    intransit_031 = defaultdict(float)
-    po_03g = defaultdict(float)
-    rtv_03g = defaultdict(float)
-
-    for _, row in df.iterrows():
-        key = normalize_lot(row.get(lot_col))
-        if not key:
-            continue
-
-        transaction = clean_id(row.get(transaction_col)).casefold()
-        warehouse = normalize_warehouse(row.get(warehouse_col))
-        weight = as_number(row.get(weight_col), 0.0)
-
-        if warehouse == "035" and "po receipt" in transaction:
-            po_035[key] += weight
-        if warehouse == "035" and "return to vendor" in transaction:
-            rtv_035[key] += weight
-        if warehouse in ("03G", "03H") and "intransit receipt" in transaction:
-            intransit_031[key] += weight
-        if warehouse == "03G" and "po receipt" in transaction:
-            po_03g[key] += weight
-        if warehouse == "03G" and "return to vendor" in transaction:
-            rtv_03g[key] += weight
-
-    return (
-        dict(po_035),
-        dict(rtv_035),
-        dict(intransit_031),
-        dict(po_03g),
-        dict(rtv_03g),
-    )
-
-
-def read_packing_list(file_content, selected_sheet, available_sheets):
-    sheet_map = {fold(sheet): sheet for sheet in available_sheets}
-    matched_sheet = sheet_map.get(fold(selected_sheet))
-
-    if matched_sheet is None:
-        raise ReconciliationError(
-            f"Không tìm thấy sheet “{selected_sheet}” trong Packing List."
-        )
-
-    df = read_table(
-        file_content,
-        required_groups=(
-            ("MÃ SỐ NSX", "MÃ SỐ HSPM", "MÃ SỐ"),
-            ("NET",),
-        ),
-        sheet_name=matched_sheet,
-        file_label=f"sheet Packing List “{matched_sheet}”",
-    )
-
-    lot_col = find_column(
-        df.columns,
-        label="Mã số cuộn trong Packing List",
-        aliases=("MÃ SỐ NSX", "MÃ SỐ HSPM"),
-        contains=("MÃ SỐ",),
-    )
-    net_col = find_column(
-        df.columns,
-        label="Khối lượng net trong Packing List",
-        contains=("NET",),
-    )
-
-    weights = defaultdict(float)
-    for _, row in df.iterrows():
-        key = normalize_lot(row.get(lot_col))
-        if key:
-            weights[key] += as_number(row.get(net_col), 0.0)
-
-    return dict(weights)
-
-
-def find_bbnt_header_row(worksheet):
-    for row_number in range(1, min(worksheet.max_row or 14, 20) + 1):
-        value = worksheet.cell(row=row_number, column=4).value
-        if value and "CUỘN" in str(value).upper():
-            return row_number
-
-    raise ReconciliationError(
-        f"Không tìm thấy tiêu đề “Mã số cuộn” trong sheet “{worksheet.title}”."
-    )
-
-
-def first_protection_match(coil_code, protection_records):
-    needle = coil_code.casefold()
-
-    for description, ticket, weight in protection_records:
-        if needle in description.casefold():
-            return ticket, weight
-
-    return "", 0.0
-
-
-def write_result_headers(worksheet, header_row):
-    yellow_fill = PatternFill(
-        start_color="FFFFFF00",
-        end_color="FFFFFF00",
-        fill_type="solid",
-    )
-
-    for column, label in RESULT_HEADERS:
-        cell = worksheet.cell(row=header_row, column=column)
-        cell.value = label
-        cell.fill = yellow_fill
-        cell.font = Font(bold=True)
-        cell.alignment = Alignment(
-            wrap_text=True,
-            horizontal="center",
-            vertical="center",
-        )
-
-
-def process_workbooks(
-    bbnt_file,
-    packing_file,
-    scale_file,
-    protection_file,
-    opm_file,
-    selected_sheets,
-):
-    if not selected_sheets:
-        raise ReconciliationError("Bạn cần chọn ít nhất một sheet BBNT.")
-
-    bbnt_bytes = as_bytes(bbnt_file)
-    packing_bytes = as_bytes(packing_file)
-    scale_bytes = as_bytes(scale_file)
-    protection_bytes = as_bytes(protection_file)
-    opm_bytes = as_bytes(opm_file)
-
-    try:
-        with pd.ExcelFile(
-            BytesIO(packing_bytes),
-            engine="openpyxl",
-        ) as excel_file:
-            packing_sheets = list(excel_file.sheet_names)
-    except Exception as exc:
-        raise ReconciliationError(
-            "Không đọc được danh sách sheet trong Packing List."
-        ) from exc
-
-    packing_names = {fold(name) for name in packing_sheets}
-    missing_sheets = [
-        name for name in selected_sheets if fold(name) not in packing_names
-    ]
-
-    if missing_sheets:
-        raise ReconciliationError(
-            "Thiếu sheet Packing List trùng tên: "
-            + ", ".join(missing_sheets)
-        )
-
-    protection_records = read_protection_records(protection_bytes)
-    scale_weights, scale_classes = read_scale_data(scale_bytes)
-
-    (
-        opm_035_po,
-        opm_035_rtv,
-        opm_031,
-        opm_03g_po,
-        opm_03g_rtv,
-    ) = read_opm_data(opm_bytes)
-
-    # Chỉ giữ sheet được chọn trước khi openpyxl đọc dữ liệu,
-    # tránh nạp các sheet lớn không cần thiết vào bộ nhớ.
-    selected_workbook = select_workbook_sheets(
-        bbnt_bytes,
-        selected_sheets,
-    )
-
-    try:
-        workbook = load_workbook(
-            BytesIO(selected_workbook),
-            data_only=True,
-            keep_links=False,
-        )
-    except Exception as exc:
-        raise ReconciliationError(
-            "Không mở được sheet BBNT đã chọn. Hãy kiểm tra file có bị khóa hoặc hỏng không."
-        ) from exc
-
-    thin_border = Border(
-        left=Side(style="thin", color="D9D9D9"),
-        right=Side(style="thin", color="D9D9D9"),
-        top=Side(style="thin", color="D9D9D9"),
-        bottom=Side(style="thin", color="D9D9D9"),
-    )
-    red_fill = PatternFill(
-        start_color="FFFFC7CE",
-        end_color="FFFFC7CE",
-        fill_type="solid",
-    )
-    red_font = Font(color="9C0006", bold=True)
-
-    total_rows = 0
-    rows_with_issues = 0
-
-    try:
-        for sheet_name in selected_sheets:
-            if sheet_name not in workbook.sheetnames:
-                raise ReconciliationError(
-                    f"Không tìm thấy sheet “{sheet_name}” trong file BBNT."
-                )
-
-            worksheet = workbook[sheet_name]
-            packing_by_lot = read_packing_list(
-                packing_bytes,
-                sheet_name,
-                packing_sheets,
-            )
-
-            header_row = find_bbnt_header_row(worksheet)
-            data_rows = []
-
-            for row_number in range(
-                header_row + 1,
-                (worksheet.max_row or header_row) + 1,
-            ):
-                coil_code = clean_id(
-                    worksheet.cell(row=row_number, column=4).value
-                )
-                serial = clean_id(
-                    worksheet.cell(row=row_number, column=1).value
-                )
-
-                if not coil_code:
-                    continue
-                if "TỔNG" in serial.upper() or "KẾT LUẬN" in serial.upper():
-                    continue
-
-                data_rows.append((row_number, coil_code))
-
-            write_result_headers(worksheet, header_row)
-
-            for row_number, coil_code in data_rows:
-                key = normalize_lot(coil_code)
-
-                bbnt_ticket = normalize_ticket(
-                    worksheet.cell(row=row_number, column=5).value
-                )
-                net_document = as_number(
-                    worksheet.cell(row=row_number, column=8).value
-                )
-                gross_document = as_number(
-                    worksheet.cell(row=row_number, column=9).value
-                )
-                table_weight = as_number(
-                    worksheet.cell(row=row_number, column=10).value
-                )
-                allowed_difference = round(
-                    as_number(
-                        worksheet.cell(row=row_number, column=12).value
-                    ),
-                    6,
-                )
-
-                protection_ticket, protection_weight = first_protection_match(
-                    coil_code,
-                    protection_records,
-                )
-
-                weight_type = scale_classes.get(bbnt_ticket, "Nhập hàng")
-                net_packing = packing_by_lot.get(key, 0.0)
-                packing_difference = net_document - net_packing
-
-                ticket_matches = (
-                    bbnt_ticket == protection_ticket
-                    if protection_ticket
-                    else False
-                )
-
-                ticket_for_scale = protection_ticket or bbnt_ticket
-                scale_weight = scale_weights.get(ticket_for_scale, 0.0)
-
-                scale_matches_protection = (
-                    math.isclose(
-                        scale_weight,
-                        protection_weight,
-                        abs_tol=1e-6,
-                    )
-                    if protection_weight > 0
-                    else False
-                )
-                scale_matches_bbnt = (
-                    math.isclose(
-                        scale_weight,
-                        table_weight,
-                        abs_tol=1e-6,
-                    )
-                    if table_weight > 0
-                    else False
-                )
-
-                weight_difference = scale_weight - gross_document
-                tolerance_difference = (
-                    weight_difference / gross_document
-                    if gross_document != 0
-                    else 0.0
-                )
-                tolerance_matches = (
-                    round(tolerance_difference, 6) == allowed_difference
-                )
-                tolerance_status = (
-                    "VUOT DUNG SAI"
-                    if abs(tolerance_difference) > 0.003
-                    else "OK"
-                )
-
-                received_035 = (
-                    opm_035_po.get(key, 0.0)
-                    - abs(opm_035_rtv.get(key, 0.0))
-                )
-                difference_035 = net_packing - received_035
-
-                received_031 = opm_031.get(key, 0.0)
-                difference_031 = (
-                    0.0
-                    if received_031 == 0
-                    else net_packing - received_031
-                )
-
-                received_03g = (
-                    opm_03g_po.get(key, 0.0)
-                    - abs(opm_03g_rtv.get(key, 0.0))
-                )
-                difference_03g = net_packing - received_03g
-
-                row_values = {
-                    14: weight_type,
-                    15: key,
-                    16: net_packing,
-                    17: packing_difference,
-                    18: protection_weight,
-                    19: protection_ticket,
-                    20: ticket_matches,
-                    21: scale_weight,
-                    22: protection_ticket + "A" if protection_ticket else "",
-                    23: scale_matches_protection,
-                    24: scale_matches_bbnt,
-                    25: weight_difference,
-                    26: tolerance_difference,
-                    27: tolerance_matches,
-                    28: tolerance_status,
-                    29: received_035,
-                    30: difference_035,
-                    31: received_031,
-                    32: difference_031,
-                    33: received_03g,
-                    34: difference_03g,
-                }
-
-                row_has_issue = False
-
-                for column, value in row_values.items():
-                    cell = worksheet.cell(row=row_number, column=column)
-                    cell.value = value
-                    cell.border = thin_border
-
-                    is_issue = False
-
-                    if column in (20, 23, 24, 27) and value is False:
-                        is_issue = True
-                    elif column == 28 and value == "VUOT DUNG SAI":
-                        is_issue = True
-                    elif (
-                        column in (17, 30)
-                        and isinstance(value, (int, float))
-                        and value != 0
-                    ):
-                        is_issue = True
-
-                    if is_issue:
-                        cell.fill = red_fill
-                        cell.font = red_font
-                        row_has_issue = True
-
-                total_rows += 1
-                rows_with_issues += int(row_has_issue)
-
-        output = BytesIO()
-        workbook.save(output)
-
-        summary = {
-            "sheets": len(selected_sheets),
-            "rows": total_rows,
-            "rows_with_issues": rows_with_issues,
-        }
-        return output.getvalue(), summary
-
-    finally:
-        workbook.close()
-
-
-# -------------------- GIAO DIỆN STREAMLIT --------------------
-
+# -------------------------------------------------------------
+# CẤU HÌNH GIAO DIỆN CHUẨN APPLE & THANH TIỆN ÍCH CỐ ĐỊNH
+# -------------------------------------------------------------
 st.set_page_config(
-    page_title="Đối Chiếu Nghiệm Thu HRC",
-    page_icon="📑",
-    layout="wide",
+    page_title='Đối Chiếu Nghiệm Thu HRC - KSNB',
+    page_icon='🛡️',
+    layout='wide',
 )
 
-st.title("Đối Chiếu Nghiệm Thu HRC")
-st.write(
-    "Tải lên 5 file Excel nguồn, chọn sheet BBNT cần đối chiếu, "
-    "rồi tải file kết quả."
+# CSS ẩn menu sidebar và tùy chỉnh giao diện Apple
+st.markdown(
+    """
+<style>
+    /* Ẩn sidebar */
+    [data-testid="stSidebar"] { display: none !important; }
+    [data-testid="collapsedControl"] { display: none !important; }
+
+    /* Nền trang */
+    .stApp {
+        background-color: #f5f5f7;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+        color: #1d1d1f;
+    }
+    
+    /* Header */
+    .apple-header-box {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        padding: 20px 0 10px 0;
+        margin-bottom: 5px;
+    }
+    .apple-main-title {
+        font-size: 40px;
+        font-weight: 700;
+        color: #1d1d1f;
+        letter-spacing: -0.025em;
+        margin: 0;
+    }
+    
+    /* Nút bấm Apple Style */
+    div.stButton > button:first-child {
+        background: #0071e3 !important;
+        color: #ffffff !important;
+        border-radius: 980px !important;
+        border: none !important;
+        padding: 10px 20px !important;
+        font-weight: 600 !important;
+        font-size: 14px !important;
+        box-shadow: 0 4px 12px rgba(0, 113, 227, 0.2) !important;
+    }
+    div.stButton > button:first-child:hover {
+        background: #0077ed !important;
+        color: #ffffff !important;
+    }
+
+    /* Container Streamlit Thẻ Apple */
+    [data-testid="stVerticalBlockBorderWrapper"] {
+        background: #ffffff;
+        border-radius: 16px;
+        padding: 15px;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
+    }
+
+    /* Thành phần chữ trong thẻ */
+    .upload-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: #1d1d1f;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .guide-box {
+        background: #fbfbfd;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 16px;
+        border: 1px solid rgba(0,0,0,0.04);
+    }
+    .guide-header {
+        font-weight: 700;
+        color: #0071e3;
+        font-size: 14px;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .guide-text {
+        font-size: 13px;
+        color: #515154;
+        line-height: 1.6;
+        margin: 0;
+    }
+</style>
+""",
+    unsafe_allow_html=True,
 )
 
-left, right = st.columns(2, gap="large")
+# Thanh điều hướng (Nút Trang chủ)
+col_home, _ = st.columns([1.5, 8.5])
+with col_home:
+    if st.button('🏠 Trang chủ', use_container_width=True):
+        st.switch_page('app_ksnb.py')
 
-with left:
-    bbnt_file = st.file_uploader(
-        "1. Biên bản nghiệm thu (BBNT)",
-        type=["xlsx"],
-        key="bbnt",
-        help="Workbook có thể chứa nhiều sheet.",
-    )
-    packing_file = st.file_uploader(
-        "2. Packing List nhà cung cấp",
-        type=["xlsx"],
-        key="packing",
-    )
-    scale_file = st.file_uploader(
-        "3. Dữ liệu trạm cân",
-        type=["xlsx"],
-        key="scale",
-    )
+st.markdown(
+    "<hr style='border: none; border-top: 1px solid #e2e8f0; margin: 10px 0 20px 0;'>",
+    unsafe_allow_html=True,
+)
 
-with right:
-    protection_file = st.file_uploader(
-        "4. Dữ liệu bảo vệ",
-        type=["xlsx"],
-        key="protection",
-    )
-    opm_file = st.file_uploader(
-        "5. ERP OPM 105",
-        type=["xlsx"],
-        key="opm",
-    )
-    st.caption(
-        "File được xử lý trong bộ nhớ của phiên làm việc; "
-        "ứng dụng không ghi bản tải lên vào kho lưu trữ."
-    )
+# Header Trang
+st.markdown(
+    """
+<div class="apple-header-box">
+    <div>
+        <h1 class="apple-main-title">📑 Đối Chiếu Nghiệm Thu HRC</h1>
+    </div>
+</div>
+""",
+    unsafe_allow_html=True,
+)
+
+st.markdown(
+    "<hr style='border: none; border-top: 1px solid #e2e8f0; margin: 15px 0 25px 0;'>",
+    unsafe_allow_html=True,
+)
 
 
-selected_sheets = []
-bbnt_bytes = bbnt_file.getvalue() if bbnt_file else None
-packing_bytes = packing_file.getvalue() if packing_file else None
-
-if bbnt_bytes and packing_bytes:
-    try:
-        bbnt_sheets = workbook_sheet_names(bbnt_bytes)
-        packing_sheets = workbook_sheet_names(packing_bytes)
-
-        packing_keys = {name.strip().casefold() for name in packing_sheets}
-        matching_sheets = [
-            name
-            for name in bbnt_sheets
-            if name.strip().casefold() in packing_keys
-        ]
-
-        if not matching_sheets:
-            st.error(
-                "Không tìm thấy sheet Packing List trùng tên với sheet BBNT. "
-                "Hãy kiểm tra lại hai workbook."
-            )
+# -------------------------------------------------------------
+# CÁC HÀM XỬ LÝ DỮ LIỆU TỰ ĐỘNG
+# -------------------------------------------------------------
+def read_auto_header(file_obj, keywords, sheet_name=0, max_scan=25, match_all=False):
+    """Tự động tìm dòng header thực tế dựa trên danh sách từ khóa."""
+    file_obj.seek(0)
+    df_raw = pd.read_excel(file_obj, sheet_name=sheet_name, header=None, nrows=max_scan)
+    header_idx = 0
+    for idx, row in df_raw.iterrows():
+        row_str = " ".join([str(val).upper() for val in row.values if pd.notna(val)])
+        if match_all:
+            if all(k.upper() in row_str for k in keywords):
+                header_idx = idx
+                break
         else:
-            selected_sheets = st.multiselect(
-                "Chọn sheet BBNT cần đối chiếu",
-                options=matching_sheets,
-                default=[],
-                help="Chỉ các sheet có tên trùng với Packing List mới được chọn.",
-            )
-    except Exception as exc:
-        st.error(f"Không đọc được danh sách sheet: {exc}")
-elif bbnt_bytes:
-    try:
-        bbnt_sheets = workbook_sheet_names(bbnt_bytes)
-        selected_sheets = st.multiselect(
-            "Chọn sheet BBNT cần đối chiếu",
-            options=bbnt_sheets,
-            default=[],
-        )
-    except Exception as exc:
-        st.error(f"Không đọc được danh sách sheet BBNT: {exc}")
-else:
-    st.info("Tải file BBNT lên để hiển thị danh sách sheet.")
+            if any(k.upper() in row_str for k in keywords):
+                header_idx = idx
+                break
+    file_obj.seek(0)
+    df = pd.read_excel(file_obj, sheet_name=sheet_name, skiprows=header_idx)
+    return df
 
 
-all_files_uploaded = all(
-    file is not None
-    for file in (
-        bbnt_file,
-        packing_file,
-        scale_file,
-        protection_file,
-        opm_file,
+def doi_chieu_mot_sheet(f_bbnt, sheet_bbnt, f_pl, sheet_pl, dict_tc_kl, dict_tc_phanloai, dict_bv_phieu, dict_bv_kl, opm_035_po, opm_035_rtv, opm_031, opm_03g_po, opm_03g_rtv):
+    # Chuẩn hóa mã để tránh mã cuộn/phiếu cân bị lệch do Excel lưu dạng số.
+    def clean_value(value):
+        if pd.isna(value):
+            return ''
+        return re.sub(r'\.0+$', '', str(value).strip())
+
+    def lot_key(value):
+        value = clean_value(value).upper()
+        if not value:
+            return ''
+        return value if value.endswith('A') else value + 'A'
+
+    # 1. ĐỌC BBNT
+    df_bbnt = read_auto_header(
+        f_bbnt,
+        ['MÃ SỐ CUỘN', 'MÃ CUỘN', 'SỐ PHIẾU CÂN'],
+        sheet_name=sheet_bbnt,
     )
-)
+    col_cuon = next(
+        (c for c in df_bbnt.columns if 'CUỘN' in str(c).upper()),
+        df_bbnt.columns[3],
+    )
+    col_pcan = next(
+        (c for c in df_bbnt.columns if 'PHIẾU CÂN' in str(c).upper()),
+        df_bbnt.columns[4],
+    )
+    col_net = next(
+        (
+            c for c in df_bbnt.columns
+            if 'CHỨNG TỪ GIAO HÀNG' in str(c).upper()
+            and 'GROSS' not in str(c).upper()
+        ),
+        df_bbnt.columns[7],
+    )
+    col_gross = next(
+        (c for c in df_bbnt.columns if 'GROSS' in str(c).upper()),
+        df_bbnt.columns[8],
+    )
+    col_canban = next(
+        (c for c in df_bbnt.columns if 'CÂN BÀN' in str(c).upper()),
+        df_bbnt.columns[9],
+    )
+    col_dsai = next(
+        (
+            c for c in df_bbnt.columns
+            if 'CHÊNH LỆCH' in str(c).upper() and '%' in str(c)
+        ),
+        df_bbnt.columns[11],
+    )
 
-if not all_files_uploaded:
-    st.caption("Cần đủ 5 file Excel để chạy đối chiếu.")
+    df_bbnt = df_bbnt.dropna(subset=[col_cuon]).copy()
+    df_bbnt = df_bbnt[
+        df_bbnt[col_cuon].astype(str).str.strip().ne('')
+    ].copy()
+    df_bbnt = df_bbnt[
+        ~df_bbnt[df_bbnt.columns[0]].astype(str).str.contains(
+            'Tổng cộng|Kết luận',
+            case=False,
+            na=False,
+        )
+    ].copy()
 
-if st.button(
-    "Bắt đầu đối chiếu",
-    type="primary",
-    use_container_width=True,
-    disabled=not all_files_uploaded or not selected_sheets,
-):
-    try:
-        with st.spinner(
-            f"Đang đối chiếu {len(selected_sheets)} sheet..."
-        ):
-            result_bytes, summary = process_workbooks(
-                bbnt_file=bbnt_bytes,
-                packing_file=packing_bytes,
-                scale_file=scale_file.getvalue(),
-                protection_file=protection_file.getvalue(),
-                opm_file=opm_file.getvalue(),
-                selected_sheets=selected_sheets,
-            )
-
-        st.success(
-            f"Đã đối chiếu {summary['rows']} dòng trong "
-            f"{summary['sheets']} sheet."
+    base_cols = df_bbnt.columns[:13].tolist()
+    if len(base_cols) != 13:
+        raise ValueError(
+            f"Sheet '{sheet_bbnt}' cần có 13 cột BBNT gốc A:M, "
+            f"nhưng hiện có {len(base_cols)} cột."
         )
 
-        if summary["rows_with_issues"]:
-            st.warning(
-                f"Có {summary['rows_with_issues']} dòng cần kiểm tra; "
-                "các ô sai lệch đã được tô đỏ trong file kết quả."
+    res_df = df_bbnt[base_cols].copy()
+
+    ma_cuon = df_bbnt[col_cuon].map(
+        lambda value: clean_value(value).upper()
+    )
+    phieu_can_bbnt = df_bbnt[col_pcan].map(clean_value)
+    ma_hoa = ma_cuon.map(lot_key)
+
+    # 2. ĐỌC PACKING LIST
+    dict_pl = {}
+    if f_pl is not None and sheet_pl is not None:
+        try:
+            df_pl = read_auto_header(
+                f_pl,
+                ['MÃ SỐ NSX', 'MÃ SỐ HSPM', 'KL(NET)'],
+                sheet_name=sheet_pl,
             )
+            c_pl_ma = next(
+                (
+                    c for c in df_pl.columns
+                    if 'MÃ SỐ NSX' in str(c).upper()
+                    or 'MÃ SỐ' in str(c).upper()
+                ),
+                None,
+            )
+            c_pl_kl = next(
+                (c for c in df_pl.columns if 'NET' in str(c).upper()),
+                None,
+            )
+
+            if c_pl_ma is not None and c_pl_kl is not None:
+                df_pl_clean = df_pl.dropna(
+                    subset=[c_pl_ma, c_pl_kl]
+                ).copy()
+                pl_key = df_pl_clean[c_pl_ma].map(lot_key)
+                pl_val = pd.to_numeric(
+                    df_pl_clean[c_pl_kl],
+                    errors='coerce',
+                ).fillna(0)
+                dict_pl = (
+                    pd.DataFrame({'Key': pl_key, 'Net': pl_val})
+                    .groupby('Key')['Net']
+                    .sum()
+                    .to_dict()
+                )
+        except Exception:
+            dict_pl = {}
+
+    # 3. TÍNH CÁC CỘT ĐỐI SOÁT
+    nhap_xuat = phieu_can_bbnt.map(
+        lambda value: dict_tc_phanloai.get(value, 'Nhập hàng')
+    )
+    net_pl = ma_hoa.map(dict_pl).fillna(0).astype(float)
+    net_ct = pd.to_numeric(
+        df_bbnt[col_net],
+        errors='coerce',
+    ).fillna(0).astype(float)
+    doi_chieu_pl = net_ct - net_pl
+
+    bv_weight = pd.to_numeric(
+        ma_cuon.map(dict_bv_kl),
+        errors='coerce',
+    ).fillna(0).astype(float)
+    bv_ticket = ma_cuon.map(dict_bv_phieu).map(clean_value).fillna('')
+    chk_pcan = bv_ticket.ne('') & phieu_can_bbnt.eq(bv_ticket)
+
+    scale_weight = pd.to_numeric(
+        bv_ticket.map(dict_tc_kl),
+        errors='coerce',
+    ).fillna(0).astype(float)
+    chk_tc_bv = (
+        bv_weight.gt(0)
+        & (scale_weight.sub(bv_weight).abs() <= 0.000001)
+    )
+
+    can_ban = pd.to_numeric(
+        df_bbnt[col_canban],
+        errors='coerce',
+    ).fillna(0).astype(float)
+    chk_tc_bbnt = (
+        can_ban.gt(0)
+        & (scale_weight.sub(can_ban).abs() <= 0.000001)
+    )
+
+    gross_ct = pd.to_numeric(
+        df_bbnt[col_gross],
+        errors='coerce',
+    ).fillna(0).astype(float)
+    chenh_lech_kg = scale_weight - gross_ct
+    gross_safe = gross_ct.where(gross_ct.ne(0))
+    chenh_lech_ds = (
+        chenh_lech_kg.div(gross_safe)
+        .replace([float('inf'), float('-inf')], 0)
+        .fillna(0)
+    )
+
+    dsai_bbnt = pd.to_numeric(
+        df_bbnt[col_dsai],
+        errors='coerce',
+    ).fillna(0).astype(float)
+    chk_dsai = chenh_lech_ds.round(6) == dsai_bbnt.round(6)
+    so_quy_dinh = chenh_lech_ds.apply(
+        lambda value: 'VUOT DUNG SAI' if abs(value) > 0.003 else 'OK'
+    )
+
+    kl_035 = ma_hoa.map(
+        lambda key: opm_035_po.get(key, 0)
+        - abs(opm_035_rtv.get(key, 0))
+    )
+    chenh_035 = net_pl - kl_035
+
+    kl_031 = ma_hoa.map(lambda key: opm_031.get(key, 0))
+    chenh_031 = (net_pl - kl_031).where(kl_031.ne(0), 0)
+
+    kl_03g = ma_hoa.map(
+        lambda key: opm_03g_po.get(key, 0)
+        - abs(opm_03g_rtv.get(key, 0))
+    )
+    chenh_03g = net_pl - kl_03g
+
+    # Cột V trong mẫu có tiêu đề trống nhưng vẫn chứa phiếu cân + hậu tố A.
+    # Ghép theo vị trí để giữ cột "Số phiếu cân" gốc ở E
+    # và cột "Số phiếu cân" kết quả ở S.
+    result_columns = [
+        ('NHẬP/XUẤT', nhap_xuat),
+        ('Mã hóa', ma_hoa),
+        ('Khối lượng net theo PL', net_pl),
+        ('Đối chiếu', doi_chieu_pl),
+        ('KL theo bc nhập hàng', bv_weight),
+        ('Số phiếu cân', bv_ticket),
+        ('Đối chiếu số phiếu cân', chk_pcan),
+        ('KL theo bc trạm cân', scale_weight),
+        ('', bv_ticket.map(lambda value: value + 'A' if value else '')),
+        ('Đối chiếu KL TC & KL BCBV', chk_tc_bv),
+        ('Đối chiếu KL TC & KL BBNT', chk_tc_bbnt),
+        ('Chênh lệch (kg)', chenh_lech_kg),
+        ('Chênh lệch dung sai', chenh_lech_ds),
+        ('Đối chiếu dung sai', chk_dsai),
+        ('So với quy định ( >+-0.3%)', so_quy_dinh),
+        ('KL Nhập kho 035', kl_035),
+        ('Chênh lệch ', chenh_035),
+        ('KL Nhập kho 031', kl_031),
+        ('Chênh lệch  ', chenh_031),
+        ('KL Nhập kho 03G-3H', kl_03g),
+        ('Chênh lệch   ', chenh_03g),
+    ]
+
+    result_df = pd.concat(
+        [values.rename(name) for name, values in result_columns],
+        axis=1,
+    )
+    res_df = pd.concat([res_df, result_df], axis=1)
+
+    return res_df
+
+
+# -------------------------------------------------------------
+# CHỨC NĂNG CHÍNH
+# -------------------------------------------------------------
+def doi_chieu_hrc_tung_file():
+    st.caption('Kiểm soát nội bộ • Tự động đối soát 4 bên và tô đỏ ô sai phạm dữ liệu')
+    st.markdown("### 📥 Nạp Dữ Liệu Nguồn")
+
+    col_upload1, col_upload2 = st.columns(2, gap="large")
+
+    with col_upload1:
+        with st.container(border=True):
+            st.markdown("""
+<div class="upload-title">1️⃣ Dữ liệu Nghiệm thu & Trạm cân</div>
+<div class="guide-box">
+<div class="guide-header">📌 1. Biên bản nghiệm thu (BBNT)</div>
+<div class="guide-text">Đường dẫn: Nguyen Thi Thu Thuong > Biên bản nghiệm thu (BBNT)</div>
+</div>
+""", unsafe_allow_html=True)
+
+            f_bbnt = st.file_uploader('1. File Biên bản nghiệm thu (BBNT)', type=['xlsx', 'xls'])
+
+            # Ô CHỌN NHIỀU SHEET
+            selected_sheets = []
+            if f_bbnt is not None:
+                try:
+                    f_bbnt.seek(0)
+                    xl_bb = pd.ExcelFile(f_bbnt)
+                    sheet_names_bb = xl_bb.sheet_names
+                    selected_sheets = st.multiselect(
+                        '🎯 Chọn Sheet cần đối chiếu:',
+                        options=sheet_names_bb,
+                        default=[sheet_names_bb[0]] if sheet_names_bb else [],
+                        help='Các sheet không được chọn sẽ tự động bị loại bỏ khỏi file kết quả'
+                    )
+                except Exception as e:
+                    st.error(f"Lỗi đọc danh sách sheet: {e}")
+            else:
+                st.caption("ℹ️ Nạp file BBNT để hiện danh sách sheet.")
+
+            st.markdown("""
+<div class="guide-box" style="margin-top: 15px;">
+<div class="guide-header">📌 2. Packing List nhà cung cấp</div>
+<div class="guide-text">Đường dẫn: Nguyen Thi Thu Thuong > Packing List nhà cung cấp</div>
+</div>
+""", unsafe_allow_html=True)
+            f_pl = st.file_uploader('2. File Packing List nhà cung cấp', type=['xlsx', 'xls'])
+
+            st.markdown("""
+<div class="guide-box">
+<div class="guide-header">📌 3. Dữ liệu Trạm cân</div>
+<div class="guide-text">
+Truy cập hệ thống trạm cân nội bộ (thông tin đăng nhập lưu riêng)<br>
+Quản lý truy cập > Tra cứu trạm cân<br>
+Thời gian: 1 tháng rưỡi
+</div>
+</div>
+""", unsafe_allow_html=True)
+            f_tc = st.file_uploader('3. File Dữ liệu Trạm cân', type=['xlsx', 'xls'])
+
+    with col_upload2:
+        with st.container(border=True):
+            st.markdown("""
+<div class="upload-title">2️⃣ Dữ liệu Bảo vệ & ERP</div>
+<div class="guide-box">
+<div class="guide-header">📌 4. Dữ liệu Nhập Bảo vệ</div>
+<div class="guide-text">
+Quản lý truy cập > Tra cứu xuất nhập hàng > Chọn Nhập hàng<br>
+Thời gian: Giống mốc Tra cứu trạm cân
+</div>
+</div>
+<div class="guide-box">
+<div class="guide-header">📌 5. Báo cáo ERP OPM 105</div>
+<div class="guide-text">
+Chọn: HSG_OPM_105_BCKiemSoatThongTinGDTheoLo_GD2<br>
+Tích chọn kho: 035, 03G, 03H<br>
+Nghiệp vụ: Inventory, Job or Schedule, Purchase order<br>
+Thời gian: 1 tháng cần kiểm tra
+</div>
+</div>
+""", unsafe_allow_html=True)
+            f_bv = st.file_uploader('4. File Dữ liệu Nhập Bảo vệ', type=['xlsx', 'xls'])
+            f_opm = st.file_uploader('5. File Báo cáo ERP OPM 105', type=['xlsx', 'xls'])
+
+    # TIẾN HÀNH XỬ LÝ
+    st.write("")
+    if f_bbnt is not None:
+        if not selected_sheets:
+            st.warning("⚠️ Vui lòng chọn ít nhất 1 sheet ở khung bên trái để bắt đầu đối chiếu.")
         else:
-            st.info("Không phát hiện dòng cần cảnh báo theo các tiêu chí hiện tại.")
+            if st.button('🚀 Bắt đầu đối chiếu tự động', use_container_width=True):
+                with st.spinner(f'Đang đối soát {len(selected_sheets)} sheet dữ liệu và định dạng màu...'):
+                    try:
+                        # 1. QUÉT DỮ LIỆU BẢO VỆ
+                        bv_raw_list = []
+                        if f_bv is not None:
+                            try:
+                                df_bv = read_auto_header(f_bv, ['MÃ PHIẾU CÂN', 'KHỐI LƯỢNG PHIẾU CÂN'])
+                                col_bv_hang = next((c for c in df_bv.columns if 'TÊN HÀNG HÓA' in str(c).upper() or 'MÃ HÀNG HÓA' in str(c).upper()), None)
+                                col_bv_pcan = next((c for c in df_bv.columns if 'MÃ PHIẾU CÂN' in str(c).upper() or 'PHIẾU CÂN' in str(c).upper()), None)
+                                col_bv_kl = next((c for c in df_bv.columns if 'KHỐI LƯỢNG' in str(c).upper()), None)
 
-        st.download_button(
-            "Tải file Excel kết quả",
-            data=result_bytes,
-            file_name="BBNT_Doi_Chieu_Ket_Qua.xlsx",
-            mime=(
-                "application/vnd.openxmlformats-officedocument."
-                "spreadsheetml.sheet"
-            ),
-            use_container_width=True,
-        )
+                                if col_bv_hang and col_bv_pcan and col_bv_kl:
+                                    for _, r in df_bv.iterrows():
+                                        txt = f"{r.get('MÃ HÀNG HÓA', '')} {r.get('TÊN HÀNG HÓA', '')}"
+                                        p = str(r.get(col_bv_pcan, '')).replace('.0', '').strip()
+                                        kl = r.get(col_bv_kl, 0)
+                                        bv_raw_list.append((txt, p, kl))
+                            except Exception:
+                                bv_raw_list = []
 
-    except ReconciliationError as exc:
-        st.error(str(exc))
-    except Exception as exc:
-        st.error(
-            "Có lỗi khi đối chiếu. Hãy kiểm tra các workbook và tiêu đề cột."
-        )
-        st.exception(exc)
-```
+                        # 2. QUÉT DỮ LIỆU TRẠM CÂN
+                        dict_tc_kl, dict_tc_phanloai = {}, {}
+                        if f_tc is not None:
+                            try:
+                                df_tc = read_auto_header(f_tc, ['PHIẾU CÂN', 'KHỐI LƯỢNG PHIẾU CÂN'])
+                                col_tc_p = next((c for c in df_tc.columns if str(c).strip().upper() == 'PHIẾU CÂN'), df_tc.columns[0])
+                                col_tc_kl = next((c for c in df_tc.columns if 'KHỐI LƯỢNG' in str(c).upper()), None)
+                                col_tc_pl = next((c for c in df_tc.columns if 'PHÂN LOẠI' in str(c).upper()), None)
+
+                                tc_p = df_tc[col_tc_p].astype(str).str.replace(r'\.0$', '', regex=True).str.strip()
+                                tc_kl = pd.to_numeric(df_tc[col_tc_kl], errors='coerce').fillna(0) if col_tc_kl else 0
+                                dict_tc_kl = dict(zip(tc_p, tc_kl))
+                                if col_tc_pl:
+                                    dict_tc_phanloai = dict(zip(tc_p, df_tc[col_tc_pl].fillna('Nhập hàng').astype(str)))
+                            except Exception:
+                                dict_tc_kl, dict_tc_phanloai = {}, {}
+
+                        # 3. QUÉT DỮ LIỆU ERP OPM 105 (Đồng nhất tên biến)
+                        opm_035_po, opm_035_rtv, opm_031, opm_03g_po, opm_03g_rtv = {}, {}, {}, {}, {}
+                        if f_opm is not None:
+                            try:
+                                df_opm = read_auto_header(f_opm, ['LOẠI GIAO DỊCH', 'MÃ LÔ'], match_all=True)
+                                if len(df_opm) > 0 and '[' in str(df_opm.iloc[0, 1]):
+                                    df_opm = df_opm.iloc[1:].copy()
+
+                                c_opm_loai = next((c for c in df_opm.columns if 'LOẠI GIAO DỊCH' in str(c).upper()), None)
+                                c_opm_malo = next((c for c in df_opm.columns if 'MÃ LÔ' in str(c).upper()), None)
+                                c_opm_kl = next((c for c in df_opm.columns if 'KHỐI LƯỢNG' in str(c).upper() and 'GROSS' not in str(c).upper()), None)
+                                c_opm_kho = next((c for c in df_opm.columns if any(k in str(c).upper() for k in ['MĂ KHO', 'MÃ KHO', 'MA KHO', 'KHO']) and 'KHU VỰC' not in str(c).upper()), None)
+
+                                if c_opm_loai and c_opm_malo and c_opm_kl and c_opm_kho:
+                                    df_opm_clean = df_opm.dropna(subset=[c_opm_malo, c_opm_loai]).copy()
+                                    lo_str = df_opm_clean[c_opm_malo].astype(str).str.strip().str.upper()
+                                    df_opm_clean['Key'] = lo_str.apply(lambda x: x if x.endswith('A') else x + 'A')
+                                    df_opm_clean['KL'] = pd.to_numeric(df_opm_clean[c_opm_kl], errors='coerce').fillna(0)
+                                    df_opm_clean['Kho_Clean'] = df_opm_clean[c_opm_kho].astype(str).str.strip().str.upper()
+
+                                    opm_035_po = df_opm_clean[(df_opm_clean['Kho_Clean'] == '035') & (df_opm_clean[c_opm_loai].str.contains('PO Receipt', case=False, na=False))].groupby('Key')['KL'].sum().to_dict()
+                                    opm_035_rtv = df_opm_clean[(df_opm_clean['Kho_Clean'] == '035') & (df_opm_clean[c_opm_loai].str.contains('Return to Vendor', case=False, na=False))].groupby('Key')['KL'].sum().to_dict()
+                                    opm_031 = df_opm_clean[(df_opm_clean['Kho_Clean'].isin(['03G', '03H'])) & (df_opm_clean[c_opm_loai].str.contains('Intransit Receipt', case=False, na=False))].groupby('Key')['KL'].sum().to_dict()
+                                    opm_03g_po = df_opm_clean[(df_opm_clean['Kho_Clean'] == '03G') & (df_opm_clean[c_opm_loai].str.contains('PO Receipt', case=False, na=False))].groupby('Key')['KL'].sum().to_dict()
+                                    opm_03g_rtv = df_opm_clean[(df_opm_clean['Kho_Clean'] == '03G') & (df_opm_clean[c_opm_loai].str.contains('Return to Vendor', case=False, na=False))].groupby('Key')['KL'].sum().to_dict()
+                            except Exception:
+                                opm_035_po, opm_035_rtv, opm_031, opm_03g_po, opm_03g_rtv = {}, {}, {}, {}, {}
+
+                        # 4. DANH SÁCH SHEET CỦA PACKING LIST ĐỂ BẮT CẶP
+                        pl_sheet_names = []
+                        if f_pl is not None:
+                            try:
+                                f_pl.seek(0)
+                                pl_sheet_names = pd.ExcelFile(f_pl).sheet_names
+                            except Exception:
+                                pl_sheet_names = []
+
+                        # 5. TIẾN HÀNH XỬ LÝ VÀ GHI TỪNG SHEET VÀO EXCEL
+                        output = io.BytesIO()
+                        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                            for s_name in selected_sheets:
+                                matched_pl = next((p for p in pl_sheet_names if p.strip().upper() == s_name.strip().upper()), None)
+                                
+                                f_bbnt.seek(0)
+                                df_temp = read_auto_header(f_bbnt, ['MÃ SỐ CUỘN', 'MÃ CUỘN'], sheet_name=s_name)
+                                col_c_temp = next((c for c in df_temp.columns if 'CUỘN' in str(c).upper()), df_temp.columns[3])
+                                cuon_list = df_temp[col_c_temp].dropna().astype(str).str.replace(r'\.0$', '', regex=True).str.strip().str.upper().tolist()
+
+                                dict_bv_p_sheet = {}
+                                dict_bv_kl_sheet = {}
+                                if bv_raw_list:
+                                    for txt, p, kl in bv_raw_list:
+                                        for m in cuon_list:
+                                            if m in txt and m not in dict_bv_p_sheet:
+                                                dict_bv_p_sheet[m] = p
+                                                dict_bv_kl_sheet[m] = kl
+
+                                res_df = doi_chieu_mot_sheet(
+                                    f_bbnt, s_name, f_pl, matched_pl,
+                                    dict_tc_kl, dict_tc_phanloai,
+                                    dict_bv_p_sheet, dict_bv_kl_sheet,
+                                    opm_035_po, opm_035_rtv, opm_031, opm_03g_po, opm_03g_rtv
+                                )
+
+                                clean_sname = re.sub(r'[\\/*?:\[\]]', '_', s_name)[:31]
+                                res_df.to_excel(writer, index=False, sheet_name=clean_sname)
+                                ws = writer.sheets[clean_sname]
+
+                                # Định dạng màu
+                                yellow_fill = PatternFill(start_color='FFFFFF00', end_color='FFFFFF00', fill_type='solid')
+                                red_fill = PatternFill(start_color='FFFFC7CE', end_color='FFFFC7CE', fill_type='solid')
+                                red_font = Font(color='9C0006', bold=True)
+                                border_thin = Border(
+                                    left=Side(style='thin', color='D9D9D9'),
+                                    right=Side(style='thin', color='D9D9D9'),
+                                    top=Side(style='thin', color='D9D9D9'),
+                                    bottom=Side(style='thin', color='D9D9D9'),
+                                )
+
+                                for c in range(14, len(res_df.columns) + 1):
+                                    cell = ws.cell(row=1, column=c)
+                                    cell.fill = yellow_fill
+                                    cell.font = Font(bold=True)
+
+                                col_names = list(res_df.columns)
+                                for r_idx in range(2, len(res_df) + 2):
+                                    for c_idx in range(1, len(col_names) + 1):
+                                        cell = ws.cell(row=r_idx, column=c_idx)
+                                        c_name = col_names[c_idx - 1]
+                                        val = cell.value
+                                        cell.border = border_thin
+                                        is_error = False
+
+                                        if c_name in [
+                                            'Đối chiếu số phiếu cân',
+                                            'Đối chiếu KL TC & KL BCBV',
+                                            'Đối chiếu KL TC & KL BBNT',
+                                            'Đối chiếu dung sai',
+                                        ] and val is False:
+                                            is_error = True
+                                        elif c_name == 'So với quy định ( >+-0.3%)' and str(val).strip() == 'VUOT DUNG SAI':
+                                            is_error = True
+                                        elif c_name in ['Đối chiếu', 'Chênh lệch '] and isinstance(val, (int, float)) and val != 0:
+                                            is_error = True
+
+                                        if is_error:
+                                            cell.fill = red_fill
+                                            cell.font = red_font
+
+                        st.success(f'✅ Đã đối soát thành công {len(selected_sheets)} sheet đã chọn!')
+                        st.download_button(
+                            f'📥 Tải File Kết Quả Nghiệm Thu ({len(selected_sheets)} Sheet)',
+                            data=output.getvalue(),
+                            file_name='BBNT_Nghiem_Thu_Da_Doi_Chieu.xlsx',
+                            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                            use_container_width=True,
+                        )
+                    except Exception as e:
+                        st.error(f'Lỗi xử lý: {e}')
+    else:
+        st.info('👉 Hãy nạp tối thiểu File BBNT để bắt đầu đối chiếu.')
+
+
+doi_chieu_hrc_tung_file()
