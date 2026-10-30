@@ -113,17 +113,17 @@ st.markdown(
 st.markdown("<hr style='border: none; border-top: 1px solid #e2e8f0; margin: 15px 0 25px 0;'>", unsafe_allow_html=True)
 
 # ==============================================================================
-# HÀM HỖ TRỢ
+# HÀM BỔ TRỢ 
 # ==============================================================================
 def to_float(v):
     if v is None: return 0.0
     v_str = str(v).strip().upper()
-    if v_str in ['', 'NONE', '#N/A', 'NAN']: return 0.0
+    if v_str in ['', 'NONE', '#N/A', 'NAN', 'N/A']: return 0.0
     try: return float(v)
     except: return 0.0
 
 # ==============================================================================
-# CHỨC NĂNG LÕI: ĐỌC DỮ LIỆU PANDAS & BƠM TRỰC TIẾP VÀO FILE GỐC (BẢO LƯU 100% TEMPLATE)
+# CHỨC NĂNG LÕI: ĐỌC DỮ LIỆU PANDAS & GHI TRỰC TIẾP LÊN FILE GỐC
 # ==============================================================================
 def doi_chieu_hrc_tung_file():
     st.caption('Kiểm soát nội bộ • Đọc số liệu chuẩn Pandas, giữ nguyên biểu mẫu gốc và kiểm toán dòng Tổng Cộng')
@@ -211,11 +211,12 @@ def doi_chieu_hrc_tung_file():
                     if f_tc is not None:
                         try:
                             df_tc = pd.read_excel(f_tc)
-                            tc_p = df_tc['PHIẾU CÂN'].astype(str).str.replace(r'\.0$', '', regex=True).str.strip()
-                            tc_kl = pd.to_numeric(df_tc['KHỐI LƯỢNG PHIẾU CÂN'], errors='coerce').fillna(0)
-                            tc_pl = df_tc['PHÂN LOẠI'].fillna('Nhập hàng').astype(str).str.strip() if 'PHÂN LOẠI' in df_tc.columns else 'Nhập hàng'
-                            dict_tc_kl = dict(zip(tc_p, tc_kl))
-                            dict_tc_phanloai = dict(zip(tc_p, tc_pl)) if not isinstance(tc_pl, str) else {k: tc_pl for k in tc_p}
+                            if 'PHIẾU CÂN' in df_tc.columns and 'KHỐI LƯỢNG PHIẾU CÂN' in df_tc.columns:
+                                tc_p = df_tc['PHIẾU CÂN'].astype(str).str.replace(r'\.0$', '', regex=True).str.strip()
+                                tc_kl = pd.to_numeric(df_tc['KHỐI LƯỢNG PHIẾU CÂN'], errors='coerce').fillna(0)
+                                tc_pl = df_tc['PHÂN LOẠI'].fillna('Nhập hàng').astype(str).str.strip() if 'PHÂN LOẠI' in df_tc.columns else 'Nhập hàng'
+                                dict_tc_kl = dict(zip(tc_p, tc_kl))
+                                dict_tc_phanloai = dict(zip(tc_p, tc_pl)) if not isinstance(tc_pl, str) else {k: tc_pl for k in tc_p}
                         except Exception: pass
 
                     dict_bv_phieu, dict_bv_kl = {}, {}
@@ -234,19 +235,20 @@ def doi_chieu_hrc_tung_file():
                     if f_opm is not None:
                         try:
                             df_opm = pd.read_excel(f_opm, skiprows=8)
-                            df_opm_clean = df_opm.dropna(subset=[df_opm.columns[0], df_opm.columns[1], df_opm.columns[10]]).copy()
-                            df_opm_clean['Mã Lô'] = df_opm_clean[df_opm.columns[0]].astype(str).str.strip().str.upper()
-                            df_opm_clean['Khối Lượng'] = pd.to_numeric(df_opm_clean[df_opm.columns[10]], errors='coerce').fillna(0)
-                            df_opm_clean['Mã Kho'] = df_opm_clean[df_opm.columns[35]].astype(str).str.strip()
-                            
-                            opm_035_po = df_opm_clean[(df_opm_clean['Mã Kho'] == '035') & (df_opm_clean[df_opm.columns[1]] == 'PO Receipt')].groupby('Mã Lô')['Khối Lượng'].sum().to_dict()
-                            opm_035_rtv = df_opm_clean[(df_opm_clean['Mã Kho'] == '035') & (df_opm_clean[df_opm.columns[1]] == 'Return to Vendor')].groupby('Mã Lô')['Khối Lượng'].sum().to_dict()
-                            opm_031 = df_opm_clean[(df_opm_clean['Mã Kho'].isin(['03G', '03H'])) & (df_opm_clean[df_opm.columns[1]] == 'Intransit Receipt')].groupby('Mã Lô')['Khối Lượng'].sum().to_dict()
-                            opm_03g = df_opm_clean[(df_opm_clean['Mã Kho'] == '03G') & (df_opm_clean[df_opm.columns[1]] == 'PO Receipt')].groupby('Mã Lô')['Khối Lượng'].sum().to_dict()
+                            if len(df_opm.columns) > 35:
+                                df_opm_clean = df_opm.dropna(subset=[df_opm.columns[0], df_opm.columns[1], df_opm.columns[10]]).copy()
+                                df_opm_clean['Mã Lô'] = df_opm_clean[df_opm.columns[0]].astype(str).str.strip().str.upper()
+                                df_opm_clean['Khối Lượng'] = pd.to_numeric(df_opm_clean[df_opm.columns[10]], errors='coerce').fillna(0)
+                                df_opm_clean['Mã Kho'] = df_opm_clean[df_opm.columns[35]].astype(str).str.strip()
+                                
+                                opm_035_po = df_opm_clean[(df_opm_clean['Mã Kho'] == '035') & (df_opm_clean[df_opm.columns[1]] == 'PO Receipt')].groupby('Mã Lô')['Khối Lượng'].sum().to_dict()
+                                opm_035_rtv = df_opm_clean[(df_opm_clean['Mã Kho'] == '035') & (df_opm_clean[df_opm.columns[1]] == 'Return to Vendor')].groupby('Mã Lô')['Khối Lượng'].sum().to_dict()
+                                opm_031 = df_opm_clean[(df_opm_clean['Mã Kho'].isin(['03G', '03H'])) & (df_opm_clean[df_opm.columns[1]] == 'Intransit Receipt')].groupby('Mã Lô')['Khối Lượng'].sum().to_dict()
+                                opm_03g = df_opm_clean[(df_opm_clean['Mã Kho'] == '03G') & (df_opm_clean[df_opm.columns[1]] == 'PO Receipt')].groupby('Mã Lô')['Khối Lượng'].sum().to_dict()
                         except Exception: pass
 
                     # =========================================================
-                    # BƯỚC 2: MỞ FILE GỐC (ĐỂ GIỮ TEMPLATE) VÀ BƠM DỮ LIỆU
+                    # BƯỚC 2: MỞ FILE GỐC VÀ BƠM DỮ LIỆU
                     # =========================================================
                     my_bar.progress(50, text="🧠 Đang phân tích kép biểu mẫu BBNT...")
                     
@@ -276,10 +278,10 @@ def doi_chieu_hrc_tung_file():
                             continue
                             
                         processed_count += 1
-                        current_progress = 50 + int((processed_count / total_sheets) * 40)
+                        current_progress = 50 + int((processed_count / total_sheets) * 45)
                         my_bar.progress(min(current_progress, 95), text=f"🔍 Đang đối chiếu Sheet: {sheet_name}...")
 
-                        # --- ĐỌC SỐ LIỆU BẰNG PANDAS (Dùng nguyên logic cũ của bạn) ---
+                        # --- ĐỌC SỐ LIỆU BẰNG PANDAS ---
                         df_raw = pd.read_excel(f_bbnt, sheet_name=sheet_name, skiprows=7)
                         
                         # Tìm dòng Tổng cộng
@@ -297,7 +299,7 @@ def doi_chieu_hrc_tung_file():
                         # Loại bỏ các dòng trống
                         df_bbnt = df_bbnt.dropna(subset=[df_bbnt.columns[3]]).copy()
 
-                        # Logic cốt lõi (Không thay đổi)
+                        # Logic cốt lõi (Chuẩn như Code gốc của bạn)
                         base_cols = df_bbnt.columns[:13].tolist()
                         res_df = df_bbnt[base_cols].copy()
                         
@@ -345,7 +347,7 @@ def doi_chieu_hrc_tung_file():
                         res_df['KL Nhập kho 03G-3H'] = ma_hoa.map(lambda x: opm_03g.get(x, 0))
                         res_df['Chênh lệch   '] = res_df['Khối lượng net theo PL'] - res_df['KL Nhập kho 03G-3H']
 
-                        # --- BƠM KẾT QUẢ VÀO FILE GỐC (OPENPYXL) ---
+                        # --- BƠM KẾT QUẢ VÀO FILE GỐC BẰNG OPENPYXL ---
                         ws = wb[sheet_name]
                         
                         # Tô vàng Header Cột đối chiếu (Dòng 8)
@@ -358,12 +360,21 @@ def doi_chieu_hrc_tung_file():
 
                         # Ghi Data vào đúng hàng của Excel
                         for idx in res_df.index:
-                            excel_row = idx + 9 # Vì Pandas skiprows=7, Index 0 tương đương dòng 9 Excel
+                            excel_row = idx + 9 # Khớp tuyệt đối tọa độ dòng của Pandas và Excel
                             
                             for c_idx, col_name in enumerate(new_cols):
                                 val = res_df.loc[idx, col_name]
+                                
+                                # Safeguard dữ liệu chống văng lỗi openpyxl
+                                if pd.isna(val):
+                                    write_val = ""
+                                elif hasattr(val, "item"):
+                                    write_val = val.item()
+                                else:
+                                    write_val = val
+                                    
                                 cell = ws.cell(row=excel_row, column=14+c_idx)
-                                cell.value = val
+                                cell.value = write_val
                                 cell.border = border_thin
                                 
                                 # Check lỗi tô đỏ
@@ -383,7 +394,7 @@ def doi_chieu_hrc_tung_file():
                         if tong_idx != -1:
                             tong_excel_row = tong_idx + 9
                             
-                            # Tự tính tổng từ dữ liệu chuẩn
+                            # Kế toán tự tính (Pandas chắt lọc)
                             chenh_lech_kg_file = pd.to_numeric(res_df.iloc[:, 10], errors='coerce').fillna(0)
                             manual_net = net_ct_val.sum()
                             manual_gross = gross_ct_val.sum()
@@ -391,7 +402,7 @@ def doi_chieu_hrc_tung_file():
                             manual_chenhlech = chenh_lech_kg_file.sum()
                             manual_pct = (manual_chenhlech / manual_gross) if manual_gross != 0 else 0
                             
-                            # Lấy số Tổng Cộng mà file đang tính
+                            # Số đang nằm chình ình trên file Excel
                             file_net = to_float(df_raw.iloc[tong_idx, 7])
                             file_gross = to_float(df_raw.iloc[tong_idx, 8])
                             file_canban = to_float(df_raw.iloc[tong_idx, 9])
@@ -419,7 +430,7 @@ def doi_chieu_hrc_tung_file():
                     wb.save(output)
                     
                     my_bar.progress(100, text="✅ Hoàn tất 100%!")
-                    st.success(f'🎉 Đã đối chiếu hoàn tất {len(selected_sheets)} lô hàng (File gốc được bảo lưu trọn vẹn)!')
+                    st.success(f'🎉 Kế toán đã rà soát xong {len(selected_sheets)} lô hàng (File gốc được bảo lưu trọn vẹn)!')
                     st.download_button(
                         '📥 Tải File Biên Bản Đối Chiếu',
                         data=output.getvalue(),
