@@ -14,13 +14,12 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- CSS TỔNG HỢP: Ẩn sidebar, làm đẹp nút bấm và các thẻ Upload ---
+# CSS gom gọn 1 chỗ: Ẩn sidebar và làm đẹp nút bấm
 st.markdown("""
 <style>
-/* Ẩn thanh Sidebar mặc định */
-[data-testid="stSidebar"], [data-testid="collapsedControl"] { display: none !important; }
-
-/* Nút bấm Apple Style */
+[data-testid="stSidebar"], [data-testid="collapsedControl"] {
+    display: none !important;
+}
 div.stButton > button:first-child {
     background: #0071e3 !important;
     color: #ffffff !important;
@@ -35,52 +34,10 @@ div.stButton > button:first-child:hover {
     background: #0077ed !important;
     color: #ffffff !important;
 }
-
-/* CSS cho Thẻ Upload & Hướng Dẫn (Đã fix lỗi Markdown) */
-.upload-card {
-    background: #ffffff;
-    border-radius: 16px;
-    padding: 24px;
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
-    margin-bottom: 20px;
-    min-height: 250px;
-}
-.upload-title {
-    font-size: 18px;
-    font-weight: 700;
-    color: #1d1d1f;
-    margin-bottom: 16px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-.guide-box {
-    background: #fbfbfd;
-    border-radius: 12px;
-    padding: 16px;
-    margin-bottom: 16px;
-    border: 1px solid rgba(0,0,0,0.04);
-}
-.guide-header {
-    font-weight: 700;
-    color: #0071e3;
-    font-size: 14px;
-    margin-bottom: 8px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-.guide-text {
-    font-size: 13px;
-    color: #515154;
-    line-height: 1.6;
-    margin: 0;
-}
 </style>
 """, unsafe_allow_html=True)
 
-# --- HEADER TRANG CHỦ ---
+# Nút quay về Trang chủ
 col_home, _ = st.columns([1.5, 8.5])
 with col_home:
     if st.button('🏠 Trang chủ', use_container_width=True):
@@ -323,6 +280,7 @@ def export_to_excel(df_tb1, df_tb2, df_tb3, df_tb4, ngay_str):
     apply_box(1, 9, 1, 24)
     apply_box(11, 19, 1, 24)
 
+    # Chèn Logo vào Excel từ Base64
     try:
         from openpyxl.drawing.image import Image as OpenpyxlImage
         img_bytes = base64.b64decode(HOASEN_LOGO_B64)
@@ -340,16 +298,6 @@ def export_to_excel(df_tb1, df_tb2, df_tb3, df_tb4, ngay_str):
     wb.save(output)
     return output.getvalue()
 
-# --- 2. HÀM XỬ LÝ INV 110 ---
-# BẠN HÃY CHÈN CODE CỦA HÀM `process_inv110` CŨ CỦA BẠN VÀO ĐÂY NHÉ!
-# (Vì trong file bạn gửi cho mình lúc nãy bạn đã lỡ xóa mất hàm này nên mình đặt tạm hàm báo lỗi để tránh sập web)
-@st.cache_data
-def process_inv110(files):
-    st.error("⚠️ Bạn đang quên chưa chép lại code của hàm process_inv110. Vui lòng mở lại file cũ để copy hàm này dán vào mã nguồn!")
-    # Dataframe giả để không bị văng lỗi
-    df_tb1 = pd.DataFrame({"Tên hàng": ["HRC", "PO", "CM", "Tổng"], "Số lượng (Cuộn)": [0,0,0,0], "Khối lượng (Tấn)": [0,0,0,0], "Ghi chú": ["","","",""]})
-    df_tb2 = pd.DataFrame({"Tên hàng": ["Nhôm", "Kẽm", "Tổng"], "Khối lượng (Tấn)": [0,0,0], "Ghi chú": ["","",""]})
-    return df_tb1, df_tb2, "DD/MM/YYYY"
 
 # --- 3. HÀM XỬ LÝ OPM 105 (GIAO DỊCH SỬ DỤNG NVL) KHỚP CHUẨN 100% HÀM EXCEL ---
 @st.cache_data
@@ -458,60 +406,64 @@ def process_105(files):
     })
 
     return tb3, tb4
-
 # --- 4. GIAO DIỆN HƯỚNG DẪN & UPLOAD ---
 st.markdown("### 📥 Nạp Dữ Liệu Nguồn")
 
-# Bọc phần Upload và Hướng dẫn vào 2 cột
-col_upload1, col_upload2 = st.columns(2, gap="large")
+with st.expander("📖 Bấm vào đây để xem Hướng dẫn lấy file từ hệ thống"):
+    col_huongdan1, col_huongdan2 = st.columns(2)
+    with col_huongdan1:
+        st.markdown("""
+        **INV 110**
+        INV_110_GD2
+
+        **HSG_KS_INV_Cung Ứng**
+        - 031,035,03G,03H,041,046
+        - Chọn mốc thời gian ngày thứ 5 tuần báo cáo
+
+        **HSG_KS_INV_Vật tư**
+        - 03B
+        - Chọn mốc thời gian ngày thứ 5 tuần báo cáo
+
+        **NMBD_KS_PO_ADMIN**
+        - 047
+        - Chọn mốc thời gian ngày thứ 5 tuần báo cáo
+        - Xóa dữ liệu (Hợp kim kẽm nhôm magie (dạng xỉ))
+        """)
+
+    with col_huongdan2:
+        st.markdown("""
+        **OMP 105**
+        HSG_OPM_105_BCKiemSoatThongTinGDTheoLo_GD2
+
+        **HSG_KS_INV_Cung Ứng**
+        - 031,03G,03H,046
+        - Loại nghiệp vụ: Inventory, Job or Schedule, Move order
+        - Chọn mốc thời gian từ thứ 6 tuần trước đến thứ 5 tuần này.
+
+        **HSG_KS_INV_Vật tư**
+        - 03B
+        - Loại nghiệp vụ: Inventory, Job or Schedule, Move order
+        - Chọn mốc thời gian từ thứ 6 tuần trước đến thứ 5 tuần này.
+
+        **NMBD_KS_PO_ADMIN**
+        - 047
+        - Loại nghiệp vụ: Inventory, Job or Schedule, Move order
+        - Chọn mốc thời gian từ thứ 6 tuần trước đến thứ 5 tuần này.
+        """)
+
+col_upload1, col_upload2 = st.columns(2)
 
 with col_upload1:
-    st.markdown("""
-<div class="upload-card">
-<div class="upload-title">1️⃣ Hướng dẫn tải file INV 110</div>
-<div class="guide-box">
-<div class="guide-header">📌 HSG_KS_INV_Cung Ứng</div>
-<div class="guide-text">Kho: 031, 035, 03G, 03H, 041, 046<br>Thời gian: Chọn ngày thứ 5 của tuần báo cáo</div>
-</div>
-<div class="guide-box">
-<div class="guide-header">📌 HSG_KS_INV_Vật tư</div>
-<div class="guide-text">Kho: 03B<br>Thời gian: Chọn ngày thứ 5 của tuần báo cáo</div>
-</div>
-<div class="guide-box">
-<div class="guide-header">📌 NMBD_KS_PO_ADMIN</div>
-<div class="guide-text">Kho: 047<br>Thời gian: Chọn ngày thứ 5 của tuần báo cáo<br><i>*Lưu ý: Xóa dữ liệu (Hợp kim kẽm nhôm magie dạng xỉ)</i></div>
-</div>
-</div>
-""", unsafe_allow_html=True)
-    
     inv110_files = st.file_uploader(
-        "Nạp các file INV 110 tại đây:",
+        "1️⃣ Tải lên các file INV 110",
         type=["xlsx"],
         accept_multiple_files=True,
         help="Nạp cùng lúc các file INV 110 lấy từ Cung ứng, Vật tư, Admin."
     )
 
 with col_upload2:
-    st.markdown("""
-<div class="upload-card">
-<div class="upload-title">2️⃣ Hướng dẫn tải file OPM 105 (Giao dịch SX)</div>
-<div class="guide-box">
-<div class="guide-header">📌 HSG_KS_INV_Cung Ứng</div>
-<div class="guide-text">Kho: 031, 03G, 03H, 046<br>Nghiệp vụ: Inventory, Job or Schedule, Move order<br>Thời gian: Thứ 6 tuần trước đến Thứ 5 tuần này</div>
-</div>
-<div class="guide-box">
-<div class="guide-header">📌 HSG_KS_INV_Vật tư</div>
-<div class="guide-text">Kho: 03B<br>Nghiệp vụ: Inventory, Job or Schedule, Move order<br>Thời gian: Thứ 6 tuần trước đến Thứ 5 tuần này</div>
-</div>
-<div class="guide-box">
-<div class="guide-header">📌 NMBD_KS_PO_ADMIN</div>
-<div class="guide-text">Kho: 047<br>Nghiệp vụ: Inventory, Job or Schedule, Move order<br>Thời gian: Thứ 6 tuần trước đến Thứ 5 tuần này</div>
-</div>
-</div>
-""", unsafe_allow_html=True)
-
     file105_files = st.file_uploader(
-        "Nạp các file OPM 105 tại đây:",
+        "2️⃣ Tải lên các file 105 (Giao dịch sản xuất)",
         type=["xlsx"],
         accept_multiple_files=True,
         help="Nạp cùng lúc các file 105 lấy từ Cung ứng, Vật tư, Admin."
@@ -541,6 +493,7 @@ if inv110_files and file105_files:
     if df_tb1 is not None and df_tb3 is not None:
         col_left, col_right = st.columns(2)
 
+        # TỐI ƯU: Dùng trực tiếp Base64 nội bộ, không phụ thuộc đường truyền mạng
         logo_html = f'<img src="data:image/png;base64,{HOASEN_LOGO_B64}" width="45" style="vertical-align: middle; margin-bottom: 6px;">'
 
         with col_left:
@@ -574,6 +527,7 @@ if inv110_files and file105_files:
             st.dataframe(style_table(df_tb4, is_weight_only=True), use_container_width=True, hide_index=True)
 
         st.write("")
+        # Gọi hàm xuất Excel (đã được cache, không bị sinh lại khi rerun)
         excel_data = export_to_excel(df_tb1, df_tb2, df_tb3, df_tb4, report_date_str)
         st.download_button(
             label="📥 Tải Báo Cáo Ra File Excel (.xlsx)",
