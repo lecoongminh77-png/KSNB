@@ -407,69 +407,149 @@ def process_105(files):
 
     return tb3, tb4
 # --- 4. GIAO DIỆN HƯỚNG DẪN & UPLOAD ---
+
+# Thêm CSS riêng cho các thẻ Hướng dẫn tải file
+st.markdown("""
+<style>
+    .upload-card {
+        background: #ffffff;
+        border-radius: 16px;
+        padding: 24px;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
+        margin-bottom: 20px;
+        min-height: 250px;
+    }
+    .upload-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: #1d1d1f;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .guide-box {
+        background: #fbfbfd;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 16px;
+        border: 1px solid rgba(0,0,0,0.04);
+    }
+    .guide-header {
+        font-weight: 700;
+        color: #0071e3;
+        font-size: 14px;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .guide-text {
+        font-size: 13px;
+        color: #515154;
+        line-height: 1.6;
+        margin: 0;
+    }
+    .guide-text ul {
+        margin-top: 4px;
+        margin-bottom: 0;
+        padding-left: 20px;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 st.markdown("### 📥 Nạp Dữ Liệu Nguồn")
 
-with st.expander("📖 Bấm vào đây để xem Hướng dẫn lấy file từ hệ thống"):
-    col_huongdan1, col_huongdan2 = st.columns(2)
-    with col_huongdan1:
-        st.markdown("""
-        **INV 110**
-        INV_110_GD2
-
-        **HSG_KS_INV_Cung Ứng**
-        - 031,035,03G,03H,041,046
-        - Chọn mốc thời gian ngày thứ 5 tuần báo cáo
-
-        **HSG_KS_INV_Vật tư**
-        - 03B
-        - Chọn mốc thời gian ngày thứ 5 tuần báo cáo
-
-        **NMBD_KS_PO_ADMIN**
-        - 047
-        - Chọn mốc thời gian ngày thứ 5 tuần báo cáo
-        - Xóa dữ liệu (Hợp kim kẽm nhôm magie (dạng xỉ))
-        """)
-
-    with col_huongdan2:
-        st.markdown("""
-        **OMP 105**
-        HSG_OPM_105_BCKiemSoatThongTinGDTheoLo_GD2
-
-        **HSG_KS_INV_Cung Ứng**
-        - 031,03G,03H,046
-        - Loại nghiệp vụ: Inventory, Job or Schedule, Move order
-        - Chọn mốc thời gian từ thứ 6 tuần trước đến thứ 5 tuần này.
-
-        **HSG_KS_INV_Vật tư**
-        - 03B
-        - Loại nghiệp vụ: Inventory, Job or Schedule, Move order
-        - Chọn mốc thời gian từ thứ 6 tuần trước đến thứ 5 tuần này.
-
-        **NMBD_KS_PO_ADMIN**
-        - 047
-        - Loại nghiệp vụ: Inventory, Job or Schedule, Move order
-        - Chọn mốc thời gian từ thứ 6 tuần trước đến thứ 5 tuần này.
-        """)
-
-col_upload1, col_upload2 = st.columns(2)
+# Bọc phần Upload và Hướng dẫn vào 2 cột
+col_upload1, col_upload2 = st.columns(2, gap="large")
 
 with col_upload1:
+    st.markdown("""
+    <div class="upload-card">
+        <div class="upload-title">1️⃣ Hướng dẫn tải file INV 110</div>
+        
+        <div class="guide-box">
+            <div class="guide-header">📌 HSG_KS_INV_Cung Ứng</div>
+            <div class="guide-text">
+                Kho: 031, 035, 03G, 03H, 041, 046<br>
+                Thời gian: Chọn ngày thứ 5 của tuần báo cáo
+            </div>
+        </div>
+        
+        <div class="guide-box">
+            <div class="guide-header">📌 HSG_KS_INV_Vật tư</div>
+            <div class="guide-text">
+                Kho: 03B<br>
+                Thời gian: Chọn ngày thứ 5 của tuần báo cáo
+            </div>
+        </div>
+        
+        <div class="guide-box">
+            <div class="guide-header">📌 NMBD_KS_PO_ADMIN</div>
+            <div class="guide-text">
+                Kho: 047<br>
+                Thời gian: Chọn ngày thứ 5 của tuần báo cáo<br>
+                <i>*Lưu ý: Xóa dữ liệu (Hợp kim kẽm nhôm magie dạng xỉ)</i>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Nút upload đặt ngay dưới thẻ hướng dẫn tương ứng
     inv110_files = st.file_uploader(
-        "1️⃣ Tải lên các file INV 110",
+        "Nạp các file INV 110 tại đây:",
         type=["xlsx"],
         accept_multiple_files=True,
         help="Nạp cùng lúc các file INV 110 lấy từ Cung ứng, Vật tư, Admin."
     )
 
 with col_upload2:
+    st.markdown("""
+    <div class="upload-card">
+        <div class="upload-title">2️⃣ Hướng dẫn tải file OPM 105 (Giao dịch SX)</div>
+        
+        <div class="guide-box">
+            <div class="guide-header">📌 HSG_KS_INV_Cung Ứng</div>
+            <div class="guide-text">
+                Kho: 031, 03G, 03H, 046<br>
+                Nghiệp vụ: Inventory, Job or Schedule, Move order<br>
+                Thời gian: Thứ 6 tuần trước đến Thứ 5 tuần này
+            </div>
+        </div>
+        
+        <div class="guide-box">
+            <div class="guide-header">📌 HSG_KS_INV_Vật tư</div>
+            <div class="guide-text">
+                Kho: 03B<br>
+                Nghiệp vụ: Inventory, Job or Schedule, Move order<br>
+                Thời gian: Thứ 6 tuần trước đến Thứ 5 tuần này
+            </div>
+        </div>
+        
+        <div class="guide-box">
+            <div class="guide-header">📌 NMBD_KS_PO_ADMIN</div>
+            <div class="guide-text">
+                Kho: 047<br>
+                Nghiệp vụ: Inventory, Job or Schedule, Move order<br>
+                Thời gian: Thứ 6 tuần trước đến Thứ 5 tuần này
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Nút upload đặt ngay dưới thẻ hướng dẫn tương ứng
     file105_files = st.file_uploader(
-        "2️⃣ Tải lên các file 105 (Giao dịch sản xuất)",
+        "Nạp các file OPM 105 tại đây:",
         type=["xlsx"],
         accept_multiple_files=True,
         help="Nạp cùng lúc các file 105 lấy từ Cung ứng, Vật tư, Admin."
     )
 
-
+# --- 5. HIỂN THỊ KẾT QUẢ VÀ NÚT TẢI EXCEL ---
+# ... (Phần hiển thị kết quả của bạn giữ nguyên không thay đổi)
+if inv110_files and file105_files:
+# ...
 # --- 5. HIỂN THỊ KẾT QUẢ VÀ NÚT TẢI EXCEL ---
 if inv110_files and file105_files:
     st.divider()
