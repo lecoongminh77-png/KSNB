@@ -1,538 +1,318 @@
-import streamlit as st
+import io
 import pandas as pd
 import numpy as np
-import io
-import base64
-import openpyxl
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-from openpyxl.utils import get_column_letter
+import streamlit as st
 
-# --- CẤU HÌNH TRANG ---
-st.set_page_config(
-    page_title="Báo Cáo NXT NVL Chính",
-    page_icon="📊",
-    layout="wide"
-)
+st.set_page_config(page_title="Kiểm Tra Hàng Ra Cổng - KSNB", page_icon="🚛", layout="wide")
 
-# CSS gom gọn 1 chỗ: Ẩn sidebar và làm đẹp nút bấm
+# CSS Giao diện
 st.markdown("""
 <style>
-[data-testid="stSidebar"], [data-testid="collapsedControl"] {
-    display: none !important;
-}
-div.stButton > button:first-child {
-    background: #0071e3 !important;
-    color: #ffffff !important;
-    border-radius: 980px !important;
-    border: none !important;
-    padding: 10px 20px !important;
-    font-weight: 600 !important;
-    font-size: 14px !important;
-    box-shadow: 0 4px 12px rgba(0, 113, 227, 0.2) !important;
-}
-div.stButton > button:first-child:hover {
-    background: #0077ed !important;
-    color: #ffffff !important;
-}
+    [data-testid="stSidebarNav"] { display: none !important; }
+    .stApp { background-color: #f5f5f7; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif; color: #1d1d1f; }
+    .apple-header-box { display: flex; justify-content: space-between; align-items: flex-end; padding: 20px 0 10px 0; margin-bottom: 5px; }
+    .apple-main-title { font-size: 38px; font-weight: 700; letter-spacing: -0.025em; margin: 0; }
+    .apple-sub-text { font-size: 16px; font-weight: 600; text-align: right; margin: 0; line-height: 1.35; }
+    .apple-sub-text span { color: #0071e3; font-size: 14px; display: block; margin-top: 2px; font-weight: 500; }
+    div.stButton > button { background: #0071e3 !important; color: #ffffff !important; border-radius: 980px !important; border: none !important; padding: 10px 24px !important; font-weight: 600 !important; font-size: 15px !important; box-shadow: 0 4px 12px rgba(0, 113, 227, 0.2) !important; }
+    .upload-box { background-color: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.03); margin-bottom: 15px; border: 1px solid #e2e8f0; }
+    .section-title { font-size: 18px; font-weight: 600; margin-bottom: 10px; color: #1d1d1f; }
+    .progress-text { font-size: 15px; font-weight: 600; color: #0071e3; margin-bottom: 8px; }
 </style>
 """, unsafe_allow_html=True)
 
-# Nút quay về Trang chủ
 col_home, _ = st.columns([1.5, 8.5])
 with col_home:
-    if st.button('🏠 Trang chủ', use_container_width=True):
-        st.switch_page('app_ksnb.py')
+    if st.button("🏠 Trang chủ", use_container_width=True):
+        st.switch_page("app_ksnb.py")
 
 st.markdown("<hr style='border: none; border-top: 1px solid #e2e8f0; margin: 10px 0 20px 0;'>", unsafe_allow_html=True)
-st.title("📊 BÁO CÁO TỔNG HỢP NXT NVL CHÍNH")
 
-HOASEN_LOGO_B64 = "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"
+st.markdown("""
+<div class="apple-header-box">
+    <div><h1 class="apple-main-title">🚛 Kiểm Tra Hàng Ra Cổng (Trạm Cân)</h1></div>
+    <div><div class="apple-sub-text">Đối soát dung sai & Chênh lệch Net/Gross.<span>Lê Công Minh Workspace ›</span></div></div>
+</div>
+<hr style='border: none; border-top: 1px solid #e2e8f0; margin: 15px 0 25px 0;'>
+""", unsafe_allow_html=True)
 
-# --- 1. TỐI ƯU: GẮN CACHE ĐỂ KHÔNG PHẢI TẠO LẠI EXCEL KHI RERUN ---
-@st.cache_data(show_spinner=False)
-def export_to_excel(df_tb1, df_tb2, df_tb3, df_tb4, ngay_str):
-    output = io.BytesIO()
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "NXT Tong Hop"
-    ws.views.sheetView[0].showGridLines = True
+# KHU VỰC TẢI FILE
+st.markdown('<div class="section-title">📥 1. Dữ liệu Trạm Cân (Thực tế)</div>', unsafe_allow_html=True)
+f_tramcan_nm = st.file_uploader("File Trạm Cân (Nhà Máy)", type=["xlsx", "xls", "xlsb"], key="tc_nm")
 
-    col_widths = {
-        'A': 6.5, 'B': 3.5, 'C': 41.3, 'D': 15.2, 'E': 17.8, 'F': 25.8, 'G': 5.8, 'H': 5.3, 'I': 3.2,
-        'J': 1.5, 'K': 1.3, 'L': 8.8, 'M': 17.7, 'N': 17.0, 'O': 19.8, 'P': 20.5, 'Q': 29.5, 'R': 14.3, 'S': 5.5
-    }
-    for col, w in col_widths.items():
-        ws.column_dimensions[col].width = w
+st.markdown('<div class="section-title" style="margin-top: 20px;">📥 2. Dữ liệu ERP (Lý thuyết)</div>', unsafe_allow_html=True)
+col1, col2 = st.columns(2)
+with col1:
+    st.markdown('<div class="upload-box">', unsafe_allow_html=True)
+    f_105_cu = st.file_uploader("1. OPM 105 (HSG_KS_INV_Cung Ứng)", type=["xlsx", "xls"])
+    f_021_cu = st.file_uploader("3. INV 021 (HSG_KS_INV_Cung Ứng)", type=["xlsx", "xls"])
+    st.markdown('</div>', unsafe_allow_html=True)
+with col2:
+    st.markdown('<div class="upload-box">', unsafe_allow_html=True)
+    f_105_admin = st.file_uploader("2. OPM 105 (HSH_HSSC... Admin)", type=["xlsx", "xls"])
+    f_021_admin = st.file_uploader("4. INV 021 (HSH_HSSC... Admin)", type=["xlsx", "xls"])
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    row_heights = {
-        1: 27.75, 2: 16.5, 3: 46.5, 4: 21.75, 5: 16.0, 6: 27.75, 7: 17.0, 8: 23.25, 9: 21.75,
-        10: 25.5, 11: 25.5, 12: 25.5, 13: 25.5, 14: 21.75, 15: 17.0, 16: 23.25, 17: 18.0,
-        18: 22.5, 19: 21.75, 20: 26.25, 21: 26.25, 22: 26.25, 23: 26.25, 24: 18.0
-    }
-    for r, h in row_heights.items():
-        ws.row_dimensions[r].height = h
-
-    merges = [
-        "C1:I2", "M1:S2", "A3:I3", "K3:S3", "A4:I4", "K4:S4",
-        "B8:C9", "M8:N9", "Q8:Q9",
-        "B10:C10", "M10:N10", "B11:C11", "M11:N11",
-        "B12:C12", "M12:N12", "B13:C13", "M13:N13", "B14:C14", "M14:N14",
-        "B18:C19", "D18:E18", "M18:N19", "P18:P19", "D19:E19",
-        "D20:E20", "M20:N20", "D21:E21", "M21:N21",
-        "B22:C22", "D22:E22", "M22:N22", "D23:E23", "M23:N23"
-    ]
-    for m in merges:
-        ws.merge_cells(m)
-
-    f_factory = Font(name="Times New Roman", size=16, bold=True)
-    f_title = Font(name="Times New Roman", size=21, bold=True)
-    f_date = Font(name="Times New Roman", size=12, bold=True, color="FF0000")
-    f_section = Font(name="Times New Roman", size=13.5, bold=True, color="FF0000")
-    f_header = Font(name="Times New Roman", size=13, bold=True)
-    f_subhead = Font(name="Times New Roman", size=13, bold=False)
-    f_data = Font(name="Times New Roman", size=13, bold=True)
-    f_total = Font(name="Times New Roman", size=13.5, bold=True, color="FF0000")
-
-    fill_header = PatternFill(start_color="C5D9F1", end_color="C5D9F1", fill_type="solid")
-    fill_total = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
-
-    al_center = Alignment(horizontal="center", vertical="center")
-    al_left = Alignment(horizontal="left", vertical="center")
-    al_right = Alignment(horizontal="right", vertical="center")
-
-    thin_border = Side(border_style="thin", color="000000")
-    border_cell = Border(left=thin_border, right=thin_border, top=thin_border, bottom=thin_border)
-    medium_border = Side(border_style="medium", color="000000")
-
-    ws["C1"] = "NHÀ MÁY TÔN HOA SEN PHÚ MỸ"
-    ws["C1"].font = f_factory
-    ws["C1"].alignment = al_center
-
-    ws["M1"] = "NHÀ MÁY TÔN HOA SEN PHÚ MỸ"
-    ws["M1"].font = f_factory
-    ws["M1"].alignment = al_center
-
-    ws["A3"] = "BÁO CÁO KHỐI LƯỢNG NLC, NPL TẠI CTC/NM"
-    ws["A3"].font = f_title
-    ws["A3"].alignment = al_center
-
-    ws["K3"] = "BÁO CÁO KHỐI LƯỢNG SỬ DỤNG NLC, NPL TẠI CTC/NM"
-    ws["K3"].font = f_title
-    ws["K3"].alignment = al_center
-
-    ws["A4"] = f"Đến 23 giờ 59 phút ngày {ngay_str}"
-    ws["A4"].font = f_date
-    ws["A4"].alignment = al_center
-
-    ws["K4"] = f"Đến 23 giờ 59 phút ngày {ngay_str}"
-    ws["K4"].font = f_date
-    ws["K4"].alignment = al_center
-
-    ws["A6"] = "1. Tồn kho HRC-PO-CR-CM"
-    ws["A6"].font = f_section
-    ws["A6"].alignment = al_left
-
-    ws["K6"] = "3. Tình hình sử dụng NVL chính :"
-    ws["K6"].font = f_section
-    ws["K6"].alignment = al_left
-
-    for prefix, start_c in [("", "B"), ("", "M")]:
-        p_q = "D" if start_c == "B" else "O"
-        p_w = "E" if start_c == "B" else "P"
-        p_n = "F" if start_c == "B" else "Q"
-        ws[f"{start_c}8"] = "Tên hàng"
-        ws[f"{start_c}8"].font = f_header
-        ws[f"{start_c}8"].alignment = al_center
-        ws[f"{p_q}8"] = "Số lượng"
-        ws[f"{p_q}8"].font = f_header
-        ws[f"{p_q}8"].alignment = al_center
-        ws[f"{p_q}9"] = "Cuộn"
-        ws[f"{p_q}9"].font = f_subhead
-        ws[f"{p_q}9"].alignment = al_center
-        ws[f"{p_w}8"] = "Khối lượng"
-        ws[f"{p_w}8"].font = f_header
-        ws[f"{p_w}8"].alignment = al_center
-        ws[f"{p_w}9"] = "Tấn"
-        ws[f"{p_w}9"].font = f_subhead
-        ws[f"{p_w}9"].alignment = al_center
-        ws[f"{p_n}8"] = "Ghi chú"
-        ws[f"{p_n}8"].font = f_header
-        ws[f"{p_n}8"].alignment = al_center
-
-    for r in [8, 9]:
-        for c in ["B", "C", "D", "E", "F", "M", "N", "O", "P", "Q"]:
-            ws[f"{c}{r}"].fill = fill_header
-            ws[f"{c}{r}"].border = border_cell
-
-    for i, r in df_tb1.iterrows():
-        idx = 10 + i
-        is_tot = (r['Tên hàng'] == 'Tổng')
-        ws[f"B{idx}"] = r['Tên hàng']
-        ws[f"B{idx}"].font = f_total if is_tot else f_data
-        ws[f"B{idx}"].alignment = al_center if is_tot else al_left
-        ws[f"D{idx}"] = r['Số lượng (Cuộn)']
-        ws[f"D{idx}"].font = f_total if is_tot else f_data
-        ws[f"D{idx}"].alignment = al_center
-        ws[f"D{idx}"].number_format = "#,##0"
-        ws[f"E{idx}"] = r['Khối lượng (Tấn)']
-        ws[f"E{idx}"].font = f_total if is_tot else f_data
-        ws[f"E{idx}"].alignment = al_center
-        ws[f"E{idx}"].number_format = "#,##0.00"
-        for c in ["B", "C", "D", "E", "F"]:
-            ws[f"{c}{idx}"].border = border_cell
-            if is_tot:
-                ws[f"{c}{idx}"].fill = fill_total
-
-    for i, r in df_tb3.iterrows():
-        idx = 10 + i
-        is_tot = (r['Tên hàng'] == 'Tổng')
-        ws[f"M{idx}"] = r['Tên hàng']
-        ws[f"M{idx}"].font = f_total if is_tot else f_data
-        ws[f"M{idx}"].alignment = al_center if is_tot else al_left
-        if pd.notnull(r['Số lượng (Cuộn)']):
-            ws[f"O{idx}"] = r['Số lượng (Cuộn)']
-            ws[f"O{idx}"].number_format = "#,##0"
-        ws[f"O{idx}"].font = f_total if is_tot else f_data
-        ws[f"O{idx}"].alignment = al_center
-        ws[f"P{idx}"] = r['Khối lượng (Tấn)']
-        ws[f"P{idx}"].font = f_total if is_tot else f_data
-        ws[f"P{idx}"].alignment = al_center
-        ws[f"P{idx}"].number_format = "#,##0.00"
-        for c in ["M", "N", "O", "P", "Q"]:
-            ws[f"{c}{idx}"].border = border_cell
-            if is_tot:
-                ws[f"{c}{idx}"].fill = fill_total
-
-    ws["A16"] = "2. Kim loại màu tại nhà máy NH"
-    ws["A16"].font = f_section
-    ws["A16"].alignment = al_left
-
-    ws["K16"] = "4. Tình hình sử dụng NPL :"
-    ws["K16"].font = f_section
-    ws["K16"].alignment = al_left
-
-    ws["B18"] = "Tên hàng"
-    ws["B18"].font = f_header
-    ws["B18"].alignment = al_center
-    ws["D18"] = "Khối lượng"
-    ws["D18"].font = f_header
-    ws["D18"].alignment = al_center
-    ws["D19"] = "Tấn"
-    ws["D19"].font = f_subhead
-    ws["D19"].alignment = al_center
-    ws["F18"] = "Ghi chú"
-    ws["F18"].font = f_header
-    ws["F18"].alignment = al_center
-
-    ws["M18"] = "Tên hàng"
-    ws["M18"].font = f_header
-    ws["M18"].alignment = al_center
-    ws["O18"] = "Khối lượng"
-    ws["O18"].font = f_header
-    ws["O18"].alignment = al_center
-    ws["O19"] = "Tấn"
-    ws["O19"].font = f_subhead
-    ws["O19"].alignment = al_center
-    ws["P18"] = "Ghi chú"
-    ws["P18"].font = f_header
-    ws["P18"].alignment = al_center
-
-    for r in [18, 19]:
-        for c in ["B", "C", "D", "E", "F", "M", "N", "O", "P"]:
-            ws[f"{c}{r}"].fill = fill_header
-            ws[f"{c}{r}"].border = border_cell
-
-    for i, r in df_tb2.iterrows():
-        idx = 20 + i
-        ws[f"B{idx}"] = r['Tên hàng']
-        ws[f"B{idx}"].font = f_data
-        ws[f"B{idx}"].alignment = al_left
-        ws[f"D{idx}"] = r['Khối lượng (Tấn)']
-        ws[f"D{idx}"].font = f_data
-        ws[f"D{idx}"].alignment = al_right
-        ws[f"D{idx}"].number_format = "#,##0.00"
-        for c in ["B", "C", "D", "E", "F"]:
-            ws[f"{c}{idx}"].border = border_cell
-
-    for i, r in df_tb4.iterrows():
-        idx = 20 + i
-        ws[f"M{idx}"] = r['Tên hàng']
-        ws[f"M{idx}"].font = f_data
-        ws[f"M{idx}"].alignment = al_left
-        ws[f"O{idx}"] = r['Khối lượng (Tấn)']
-        ws[f"O{idx}"].font = f_data
-        ws[f"O{idx}"].alignment = al_right
-        ws[f"O{idx}"].number_format = "#,##0.00"
-        for c in ["M", "N", "O", "P"]:
-            ws[f"{c}{idx}"].border = border_cell
-
-    def apply_box(min_c, max_c, min_r, max_r):
-        for r in range(min_r, max_r + 1):
-            for c in range(min_c, max_c + 1):
-                col_let = get_column_letter(c)
-                cell = ws[f"{col_let}{r}"]
-                top = medium_border if r == min_r else cell.border.top
-                bot = medium_border if r == max_r else cell.border.bottom
-                left = medium_border if c == min_c else cell.border.left
-                right = medium_border if c == max_c else cell.border.right
-                cell.border = Border(top=top, bottom=bot, left=left, right=right)
-
-    apply_box(1, 9, 1, 24)
-    apply_box(11, 19, 1, 24)
-
-    # Chèn Logo vào Excel từ Base64
+# HÀM LỌC DỮ LIỆU ERP
+def xuly_105(df, is_cungung=True):
     try:
-        from openpyxl.drawing.image import Image as OpenpyxlImage
-        img_bytes = base64.b64decode(HOASEN_LOGO_B64)
+        header_idx = df.astype(str).apply(lambda row: row.str.contains('Loại Giao Dịch', case=False, na=False).any(), axis=1).idxmax()
+        if pd.isna(header_idx): return pd.DataFrame()
+        df.columns = df.iloc[header_idx]
+        df = df.iloc[header_idx + 1:].reset_index(drop=True)
+        df = df.loc[:, df.columns.notna()]
+        df = df.loc[:, ~df.columns.duplicated()]
         
-        img1 = OpenpyxlImage(io.BytesIO(img_bytes))
-        img1.width, img1.height = 42, 42
-        ws.add_image(img1, "B1")
-
-        img2 = OpenpyxlImage(io.BytesIO(img_bytes))
-        img2.width, img2.height = 42, 42
-        ws.add_image(img2, "M1")
-    except Exception:
-        pass
-
-    wb.save(output)
-    return output.getvalue()
-
-
-# --- 3. HÀM XỬ LÝ OPM 105 (GIAO DỊCH SỬ DỤNG NVL) KHỚP CHUẨN 100% HÀM EXCEL ---
-@st.cache_data
-def process_105(files):
-    df_list = []
-    
-    for f in files:
-        try:
-            # Lấy 4 cột: LoaiGD, DayChuyen, MaMatHang, TenHang, KhoiLuong
-            df = pd.read_excel(f, skiprows=9, usecols=[0, 2, 3, 4, 9])
-            df.columns = ['LoaiGD', 'DayChuyen', 'MaMatHang', 'TenHang', 'KhoiLuong']
-            df = df[~df['LoaiGD'].astype(str).str.contains(r'\[', na=False)]
-            df['KhoiLuong'] = pd.to_numeric(df['KhoiLuong'], errors='coerce').fillna(0)
-            df = df[~df['TenHang'].isin(['nan', '', 'None'])]
-            df_list.append(df)
-        except Exception as e:
-            st.error(f"Lỗi đọc file 105: {e}")
-
-    if not df_list:
-        return None, None
-
-    data = pd.concat(df_list, ignore_index=True)
-
-    # 1. TẠO CỘT B (Lọc Dây Chuyền) - Sao chép y hệt logic Excel
-    def get_col_b(row):
-        day_chuyen = str(row['DayChuyen']).lower()
-        if 'xử lý' in day_chuyen or 'gia công' in day_chuyen or 'tái sinh' in day_chuyen:
-            return ""
-        
-        loai_gd = str(row['LoaiGD']).strip()
-        if loai_gd in ['WIP Issue', 'WIP Return']:
-            return "1"
-        elif loai_gd in ['WIP Byproduct Completion', 'WIP Byproduct Return', 'WIP Completion', 'WIP Completion Return']:
-            return "2"
-        elif loai_gd == 'Move Order Issue':
-            return "3"
-        elif loai_gd == 'Miscellaneous receipt':
-            return "4"
-        return ""
-    
-    data['ColB'] = data.apply(get_col_b, axis=1)
-
-    # 2. TẠO CỘT A (Phân nhóm Hàng) - Sao chép y hệt logic Excel
-    def get_col_a(row):
-        if row['ColB'] == "":
-            return ""
-        
-        ma_hang = str(row['MaMatHang']).strip()
-        # Phế liệu là Mã hàng bắt đầu bằng A
-        if ma_hang.startswith('A'):
-            return "A"
-            
-        ten_hang = str(row['TenHang']).lower()
-        if 'thép cán nguội' in ten_hang:
-            return "CM"
-        if 'thép cán nóng tẩy rỉ' in ten_hang:
-            return "PO"
-        if 'thép cán nóng' in ten_hang:
-            return "HRC"
-        if 'hợp kim nhôm - kẽm' in ten_hang:
-            return "Hợp kim nhôm kẽm"
-        if 'kẽm không hợp kim' in ten_hang:
-            return "Kẽm không hợp kim"
-        if 'hợp kim kẽm nhôm magie' in ten_hang:
-            return "Hợp kim Kẽm Nhôm Magie"
-        if 'antimon' in ten_hang:
-            return "Nguyên liệu pha chế"
-        return ""
-
-    data['ColA'] = data.apply(get_col_a, axis=1)
-
-    # Hàm tính cuộn và khối lượng ròng (dựa trên ColA và ColB)
-    def get_stats(col_a_name, col_b_name):
-        subset = data[(data['ColA'] == col_a_name) & (data['ColB'] == col_b_name)]
-        issue = subset[subset['LoaiGD'] == 'WIP Issue']
-        ret = subset[subset['LoaiGD'] == 'WIP Return']
-        qty = len(issue) - len(ret)
-        weight = abs(subset['KhoiLuong'].sum()) / 1000
-        return qty, weight
-
-    # BẢNG 3:
-    hrc_q, hrc_w = get_stats("HRC", "1")
-    po_q, po_w = get_stats("PO", "1")
-    cm_q, cm_w = get_stats("CM", "1")
-    
-    # Phế liệu (Nhóm A, giao dịch 2)
-    scrap_w = data[(data['ColA'] == 'A') & (data['ColB'] == '2')]['KhoiLuong'].sum() / 1000
-
-    tb3 = pd.DataFrame({
-        'Tên hàng': ['HRC', 'PO', 'CM', 'Hao hụt+ phế liệu'],
-        'Số lượng (Cuộn)': [hrc_q, po_q, cm_q, np.nan],
-        'Khối lượng (Tấn)': [hrc_w, po_w, cm_w, scrap_w],
-        'Ghi chú': ['', '', '', '']
-    })
-    tb3.loc[len(tb3)] = ['Tổng', tb3['Số lượng (Cuộn)'].sum(), tb3['Khối lượng (Tấn)'].sum(), '']
-
-    # BẢNG 4: NPL (Dùng giao dịch 3 và 4)
-    def get_npl(name):
-        npl_sub = data[(data['ColA'] == name) & (data['ColB'].isin(["3", "4"]))]
-        return abs(npl_sub['KhoiLuong'].sum()) / 1000
-
-    tb4 = pd.DataFrame({
-        'Tên hàng': ['Hợp kim nhôm kẽm', 'Kẽm không hợp kim', 'Hợp kim kẽm Magie', 'Nguyên liệu pha chế'],
-        'Khối lượng (Tấn)': [get_npl("Hợp kim nhôm kẽm"), get_npl("Kẽm không hợp kim"), get_npl("Hợp kim Kẽm Nhôm Magie"), get_npl("Nguyên liệu pha chế")],
-        'Ghi chú': ['', '', '', '']
-    })
-
-    return tb3, tb4
-# --- 4. GIAO DIỆN HƯỚNG DẪN & UPLOAD ---
-st.markdown("### 📥 Nạp Dữ Liệu Nguồn")
-
-with st.expander("📖 Bấm vào đây để xem Hướng dẫn lấy file từ hệ thống"):
-    col_huongdan1, col_huongdan2 = st.columns(2)
-    with col_huongdan1:
-        st.markdown("""
-        **INV 110**
-        INV_110_GD2
-
-        **HSG_KS_INV_Cung Ứng**
-        - 031,035,03G,03H,041,046
-        - Chọn mốc thời gian ngày thứ 5 tuần báo cáo
-
-        **HSG_KS_INV_Vật tư**
-        - 03B
-        - Chọn mốc thời gian ngày thứ 5 tuần báo cáo
-
-        **NMBD_KS_PO_ADMIN**
-        - 047
-        - Chọn mốc thời gian ngày thứ 5 tuần báo cáo
-        - Xóa dữ liệu (Hợp kim kẽm nhôm magie (dạng xỉ))
-        """)
-
-    with col_huongdan2:
-        st.markdown("""
-        **OMP 105**
-        HSG_OPM_105_BCKiemSoatThongTinGDTheoLo_GD2
-
-        **HSG_KS_INV_Cung Ứng**
-        - 031,03G,03H,046
-        - Loại nghiệp vụ: Inventory, Job or Schedule, Move order
-        - Chọn mốc thời gian từ thứ 6 tuần trước đến thứ 5 tuần này.
-
-        **HSG_KS_INV_Vật tư**
-        - 03B
-        - Loại nghiệp vụ: Inventory, Job or Schedule, Move order
-        - Chọn mốc thời gian từ thứ 6 tuần trước đến thứ 5 tuần này.
-
-        **NMBD_KS_PO_ADMIN**
-        - 047
-        - Loại nghiệp vụ: Inventory, Job or Schedule, Move order
-        - Chọn mốc thời gian từ thứ 6 tuần trước đến thứ 5 tuần này.
-        """)
-
-col_upload1, col_upload2 = st.columns(2)
-
-with col_upload1:
-    inv110_files = st.file_uploader(
-        "1️⃣ Tải lên các file INV 110",
-        type=["xlsx"],
-        accept_multiple_files=True,
-        help="Nạp cùng lúc các file INV 110 lấy từ Cung ứng, Vật tư, Admin."
-    )
-
-with col_upload2:
-    file105_files = st.file_uploader(
-        "2️⃣ Tải lên các file 105 (Giao dịch sản xuất)",
-        type=["xlsx"],
-        accept_multiple_files=True,
-        help="Nạp cùng lúc các file 105 lấy từ Cung ứng, Vật tư, Admin."
-    )
-
-
-# --- 5. HIỂN THỊ KẾT QUẢ VÀ NÚT TẢI EXCEL ---
-if inv110_files and file105_files:
-    st.divider()
-
-    def style_table(df, is_weight_only=False):
-        if is_weight_only:
-            return df.style.format({"Khối lượng (Tấn)": "{:,.2f}"}).apply(
-                lambda r: ['background-color: #ffff00; font-weight: bold; color: red' if r['Tên hàng'] == 'Tổng' else '' for _ in r], axis=1
-            )
+        if df.empty or 'Loại Giao Dịch' not in df.columns: return df
+        if is_cungung:
+            remove_gd = ['COGS Recognition', 'WIP Return', 'WIP Issue', 'WIP Completion Return', 'WIP Completion', 'WIP Byproduct Return', 'WIP Byproduct Completion', 'Residual Qty Receipt', 'Residual Qty Issue']
+            df = df[~df['Loại Giao Dịch'].isin(remove_gd)]
+            if 'Mã Mặt Hàng' in df.columns: df = df[df['Mã Mặt Hàng'].astype(str).str.startswith(('3', '4'), na=False)]
         else:
-            return df.style.format({
-                "Số lượng (Cuộn)": lambda x: f"{x:,.0f}" if pd.notnull(x) else "",
-                "Khối lượng (Tấn)": "{:,.2f}"
-            }).apply(
-                lambda r: ['background-color: #ffff00; font-weight: bold; color: red' if r['Tên hàng'] == 'Tổng' else '' for _ in r], axis=1
+            df = df[~df['Loại Giao Dịch'].isin(['COGS Recognition'])]
+            
+        df = df[df['Loại Giao Dịch'].notna()]
+        if all(col in df.columns for col in ['Mă Kho', 'Khu Vực Kho', 'Locator', 'LPN', 'Loại Giao Dịch']):
+            df['Chuỗi'] = df['Mă Kho'].astype(str) + df['Khu Vực Kho'].astype(str) + df['Locator'].astype(str) + df['LPN'].astype(str) + df['Loại Giao Dịch'].astype(str)
+        else: df['Chuỗi'] = ""
+        return df
+    except: return pd.DataFrame()
+
+def xuly_021(df, is_cungung=True):
+    try:
+        header_idx = df.astype(str).apply(lambda row: row.str.contains('Số chứng từ', case=False, na=False).any(), axis=1).idxmax()
+        if pd.isna(header_idx): return pd.DataFrame()
+        df.columns = df.iloc[header_idx]
+        df = df.iloc[header_idx + 1:].reset_index(drop=True)
+        df = df.loc[:, df.columns.notna()]
+        df = df.loc[:, ~df.columns.duplicated()]
+        
+        if df.empty or 'Loại giao dịch' not in df.columns: return df
+        if is_cungung: remove_gd = ['WIP Issue', 'WIP Completion Return', 'Return to vender', 'Return to vendor']
+        else: remove_gd = ['Return to Vendor', 'Return to vender']
+        df = df[~df['Loại giao dịch'].isin(remove_gd)]
+        return df
+    except: return pd.DataFrame()
+
+# HÀM TÔ MÀU EXCEL
+def style_excel_cells(val):
+    val_str = str(val).strip()
+    if '🔴' in val_str or val_str in ['Vượt dung sai']:
+        return 'background-color: #FFC7CE; color: #9C0006' 
+    elif '🟢' in val_str or val_str in ['OK']:
+        return 'background-color: #C6EFCE; color: #006100' 
+    return ''
+
+# XỬ LÝ CHÍNH
+if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_width=True):
+    if not f_tramcan_nm:
+        st.warning("⚠️ Vui lòng nạp File Trạm Cân Nhà Máy!")
+    else:
+        progress_text = st.empty()
+        progress_bar = st.progress(0)
+        
+        try:
+            # --- BƯỚC 1: ĐỌC DỮ LIỆU TRẠM CÂN ---
+            progress_text.markdown('<div class="progress-text">⏳ Đang dọn dẹp dữ liệu Trạm Cân (Loại bỏ dòng trống)... (10%)</div>', unsafe_allow_html=True)
+            progress_bar.progress(10)
+            xls_tc = pd.ExcelFile(f_tramcan_nm)
+            sheet_tc = 'tramcan' if 'tramcan' in xls_tc.sheet_names else 0
+            df_tc_raw = pd.read_excel(f_tramcan_nm, sheet_name=sheet_tc)
+            
+            # Quét rác: Xóa bỏ 100% các dòng không có SỐ PHIẾU CÂN
+            df_tc_full = df_tc_raw.dropna(subset=['PHIẾU CÂN']).copy()
+            
+            # Quét dữ liệu 4 cổng chéo nhau (Dùng df_tc_full để nhặt được mọi lần cân)
+            dict_cong_can = {}
+            for _, row in df_tc_full.iterrows():
+                ct = str(row.get('Lấy phiếu xuất.1', row.get('SỐ CHỨNG TỪ', ''))).strip().upper()
+                cong = str(row.get('BÀN CÂN RA', '')).strip().upper()
+                kl = pd.to_numeric(row.get('KHỐI LƯỢNG PHIẾU CÂN', np.nan), errors='coerce')
+                if ct and ct != 'NAN' and pd.notna(kl):
+                    if ct not in dict_cong_can: dict_cong_can[ct] = {}
+                    dict_cong_can[ct][cong] = kl
+
+            # Tạo form báo cáo chính bằng cách Bỏ trùng (Giống file gốc KSKT)
+            if 'Bỏ trùng' in df_tc_full.columns:
+                df_tc_main = df_tc_full[df_tc_full['Bỏ trùng'] == 1].copy()
+            else:
+                df_tc_main = df_tc_full.drop_duplicates(subset=['PHIẾU CÂN']).copy()
+            
+            tc_chungtu_list = []
+            if 'Lấy phiếu xuất.1' in df_tc_main.columns: tc_chungtu_list = [str(x).strip().upper() for x in df_tc_main['Lấy phiếu xuất.1'].tolist() if pd.notna(x)]
+            elif 'SỐ CHỨNG TỪ' in df_tc_main.columns: tc_chungtu_list = [str(x).strip().upper() for x in df_tc_main['SỐ CHỨNG TỪ'].tolist() if pd.notna(x)]
+
+            # --- BƯỚC 2: ĐỌC VÀ LỌC ERP ---
+            progress_text.markdown('<div class="progress-text">⏳ Đang xử lý bộ lọc cho ERP 105 và 021... (30%)</div>', unsafe_allow_html=True)
+            progress_bar.progress(30)
+            
+            frames_105, frames_021 = [], []
+            if f_105_cu: frames_105.append(xuly_105(pd.read_excel(f_105_cu, header=None), True))
+            if f_105_admin: frames_105.append(xuly_105(pd.read_excel(f_105_admin, header=None), False))
+            df_105_all = pd.concat(frames_105, ignore_index=True) if frames_105 else pd.DataFrame()
+            
+            if f_021_cu: frames_021.append(xuly_021(pd.read_excel(f_021_cu, header=None), True))
+            if f_021_admin: frames_021.append(xuly_021(pd.read_excel(f_021_admin, header=None), False))
+            df_021_all = pd.concat(frames_021, ignore_index=True) if frames_021 else pd.DataFrame()
+
+            # --- TÍNH TOÁN SHEET 021 ---
+            progress_text.markdown('<div class="progress-text">⏳ Đang tự động hóa VLOOKUP đa tầng cho bảng 021... (55%)</div>', unsafe_allow_html=True)
+            progress_bar.progress(55)
+            
+            df_021_export = pd.DataFrame()
+            if not df_021_all.empty:
+                df_021_export = df_021_all.copy()
+                def safe_str(col): return df_021_export[col].astype(str).replace('nan', '') if col in df_021_export.columns else ""
+                
+                df_021_export['Chuỗi 2 '] = safe_str('Mă kho') + safe_str('Subinventory') + safe_str('Locator') + safe_str('LPN') + safe_str('Loại giao dịch')
+                df_021_export['Chuỗi Pick'] = safe_str('Mă kho') + safe_str('Subinventory') + safe_str('Locator') + safe_str('LPN') + "Sales Order Pick"
+
+                if not df_105_all.empty and 'Chuỗi' in df_105_all.columns:
+                    map_105 = df_105_all[df_105_all['Chuỗi'] != ""].drop_duplicates(subset=['Chuỗi'], keep='first').set_index('Chuỗi')
+                    df_021_export['Ngày xuất'] = df_021_export['Chuỗi 2 '].map(map_105['Ngày Giao Dịch'] if 'Ngày Giao Dịch' in map_105.columns else {})
+                    df_021_export['Thời gian thao tác'] = df_021_export['Chuỗi 2 '].map(map_105['Creation Date'] if 'Creation Date' in map_105.columns else {})
+                    df_021_export['Người thực hiện'] = df_021_export['Chuỗi 2 '].map(map_105['Created by User'] if 'Created by User' in map_105.columns else {})
+                    df_021_export['Số Gross'] = df_021_export['Chuỗi 2 '].map(map_105['Khối lượng Gross'] if 'Khối lượng Gross' in map_105.columns else {})
+                    
+                    df_021_export['Thời gian pick SO'] = df_021_export['Chuỗi Pick'].map(map_105['Creation Date'] if 'Creation Date' in map_105.columns else {})
+                    df_021_export['Người Pick SO'] = df_021_export['Chuỗi Pick'].map(map_105['Created by User'] if 'Created by User' in map_105.columns else {})
+                else:
+                    df_021_export['Ngày xuất'] = df_021_export['Thời gian thao tác'] = df_021_export['Người thực hiện'] = df_021_export['Số Gross'] = ""
+                    df_021_export['Thời gian pick SO'] = df_021_export['Người Pick SO'] = ""
+
+                df_021_export['Chuyển text'] = safe_str('Số chứng từ') + "A" 
+                df_021_export['Chuỗi 1'] = df_021_export['Chuyển text'] + safe_str('Loại giao dịch')
+                
+                df_021_export['Check ra cổng'] = df_021_export['Số chứng từ'].apply(lambda x: 1 if any(str(x).strip().upper() in str(tc_val) for tc_val in tc_chungtu_list) else 0)
+                
+                cols_10_first = ['Check ra cổng', 'Thời gian pick SO', 'Người Pick SO', 'Ngày xuất', 'Thời gian thao tác', 'Người thực hiện', 'Số Gross', 'Chuỗi 2 ', 'Chuỗi 1', 'Chuyển text']
+                final_021_cols = cols_10_first + [c for c in df_021_all.columns if c not in cols_10_first and c != 'Chuỗi 2 ' and c != 'Chuỗi Pick']
+                df_021_export = df_021_export[final_021_cols]
+
+            # --- TÍNH TOÁN SHEET KSKT (GOM 4 CỔNG CHÉO) ---
+            progress_text.markdown('<div class="progress-text">⏳ Đang ráp dữ liệu 4 cổng chéo nhau & VLOOKUP Net/Gross... (75%)</div>', unsafe_allow_html=True)
+            progress_bar.progress(75)
+            
+            dict_net, dict_gross = {}, {}
+            if not df_021_export.empty:
+                df_calc = df_021_export.copy()
+                if 'Số chứng từ' in df_calc.columns:
+                    phieu_series = df_calc['Số chứng từ'].astype(str).str.replace('.0', '', regex=False).str.strip().str.upper()
+                    if 'Số lượng' in df_calc.columns: dict_net = pd.to_numeric(df_calc['Số lượng'], errors='coerce').groupby(phieu_series).sum().to_dict()
+                    if 'Số Gross' in df_calc.columns: dict_gross = pd.to_numeric(df_calc['Số Gross'], errors='coerce').groupby(phieu_series).sum().to_dict()
+
+            # Form chuẩn (Đã xóa thời gian lưu bãi và check net gross)
+            final_cols = ['STT', 'Số phiếu cân', 'Bàn cân', 'Số xe', 'Giờ vào', 'Giờ ra', 'Tên hàng hóa', 'Khối lượng vào', 'Khối lượng ra', 'Khối lượng hàng hóa', 'Số chứng từ', '1', '2', '3', '4', '5', 'Khối lượng Net', 'Khối lượng Gross', '1-CỔNG TRƯỚC', '2-CỔNG TRƯỚC', '1-CỔNG SAU', '2-CỔNG SAU', 'KL bàn cân lớn nhất', 'Chênh lệch', 'Dung sai', 'Chênh lệch Max - Min', 'Đánh giá KSNB', 'Ghi chú']
+            df_out = pd.DataFrame(columns=final_cols)
+            
+            def get_tc_main_col(col_names):
+                for c in col_names:
+                    if c in df_tc_main.columns: return df_tc_main[c]
+                return ""
+
+            df_out['STT'] = range(1, len(df_tc_main) + 1)
+            df_out['Số phiếu cân'] = get_tc_main_col(['PHIẾU CÂN', 'Số phiếu cân'])
+            df_out['Bàn cân'] = get_tc_main_col(['BÀN CÂN RA', 'CỔNG'])
+            df_out['Số xe'] = get_tc_main_col(['BS RA 1', 'BS VÀO 1', 'Số xe'])
+            df_out['Giờ vào'] = get_tc_main_col(['NGÀY GIỜ VÀO', 'Giờ vào'])
+            df_out['Giờ ra'] = get_tc_main_col(['NGÀY GIỜ RA', 'Giờ ra'])
+            df_out['Tên hàng hóa'] = get_tc_main_col(['TÊN HÀNG HÓA'])
+            df_out['Khối lượng vào'] = pd.to_numeric(get_tc_main_col(['KL VÀO']), errors='coerce').fillna(0)
+            df_out['Khối lượng ra'] = pd.to_numeric(get_tc_main_col(['KL RA']), errors='coerce').fillna(0)
+            df_out['Khối lượng hàng hóa'] = pd.to_numeric(get_tc_main_col(['KHỐI LƯỢNG PHIẾU CÂN']), errors='coerce').fillna(0)
+            
+            if 'Lấy phiếu xuất.1' in df_tc_main.columns: df_out['Số chứng từ'] = df_tc_main['Lấy phiếu xuất.1']
+            else: df_out['Số chứng từ'] = get_tc_main_col(['SỐ CHỨNG TỪ'])
+            
+            for i in range(1, 6): df_out[str(i)] = ""
+                
+            split_vouchers = df_out['Số chứng từ'].astype(str).replace('nan', '').str.replace('+', ',', regex=False).str.split(',', expand=True)
+            for i in range(min(5, len(split_vouchers.columns))):
+                df_out[str(i+1)] = split_vouchers[i].str.strip()
+
+            df_out['Khối lượng Net'] = 0.0
+            df_out['Khối lượng Gross'] = 0.0
+            df_out['1-CỔNG TRƯỚC'] = np.nan
+            df_out['2-CỔNG TRƯỚC'] = np.nan
+            df_out['1-CỔNG SAU'] = np.nan
+            df_out['2-CỔNG SAU'] = np.nan
+
+            # Quét mã và nhặt số liệu
+            for idx, row in df_out.iterrows():
+                net_sum = 0
+                gross_sum = 0
+                c1t, c2t, c1s, c2s = np.nan, np.nan, np.nan, np.nan
+                
+                for i in range(1, 6):
+                    v = str(row[str(i)]).replace('.0', '').strip().upper()
+                    if v and v != 'NAN':
+                        net_sum += dict_net.get(v, 0)
+                        gross_sum += dict_gross.get(v, 0)
+                        
+                        if v in dict_cong_can:
+                            c1t = dict_cong_can[v].get('1-CỔNG TRƯỚC', c1t)
+                            c2t = dict_cong_can[v].get('2-CỔNG TRƯỚC', c2t)
+                            c1s = dict_cong_can[v].get('1-CỔNG SAU', c1s)
+                            c2s = dict_cong_can[v].get('2-CỔNG SAU', c2s)
+
+                df_out.at[idx, 'Khối lượng Net'] = net_sum
+                df_out.at[idx, 'Khối lượng Gross'] = gross_sum
+                df_out.at[idx, '1-CỔNG TRƯỚC'] = c1t
+                df_out.at[idx, '2-CỔNG TRƯỚC'] = c2t
+                df_out.at[idx, '1-CỔNG SAU'] = c1s
+                df_out.at[idx, '2-CỔNG SAU'] = c2s
+
+            cong_cols = ['1-CỔNG TRƯỚC', '2-CỔNG TRƯỚC', '1-CỔNG SAU', '2-CỔNG SAU']
+            temp_cong = df_out[cong_cols].replace(0, np.nan)
+            df_out['KL bàn cân lớn nhất'] = temp_cong.max(axis=1).fillna(df_out['Khối lượng hàng hóa'])
+            df_out['Chênh lệch Max - Min'] = temp_cong.max(axis=1) - temp_cong.min(axis=1)
+
+            df_out['Chênh lệch'] = df_out['Khối lượng Gross'] - df_out['KL bàn cân lớn nhất']
+            df_out['Dung sai'] = np.where(df_out['Khối lượng Gross'] != 0, (df_out['Chênh lệch'] / df_out['Khối lượng Gross']).round(4), 0)
+            df_out['Dung sai'] = df_out['Dung sai'].apply(lambda x: 'Vượt dung sai' if abs(x) > 0.003 else 'OK')
+            
+            def danh_gia_rui_ro(row):
+                if row['Khối lượng Gross'] == 0 and row['Khối lượng Net'] == 0: return '🔴 Rủi ro (Thiếu dữ liệu ERP)'
+                if pd.notna(row['Chênh lệch Max - Min']) and row['Chênh lệch Max - Min'] > 30: return '🔴 Rủi ro (Bất thường bàn cân)'
+                if row['Dung sai'] == 'Vượt dung sai': return '🔴 Rủi ro Cao (Vượt dung sai)'
+                return '🟢 An toàn'
+                    
+            df_out['Đánh giá KSNB'] = df_out.apply(danh_gia_rui_ro, axis=1)
+
+            # --- BƯỚC 6: XUẤT FILE & AUTO FILTER ---
+            progress_text.markdown('<div class="progress-text">⏳ Đang đóng gói & Cài đặt bộ lọc Excel tự động... (95%)</div>', unsafe_allow_html=True)
+            progress_bar.progress(95)
+            
+            try:
+                style_out = df_out.style.map(style_excel_cells, subset=['Dung sai', 'Đánh giá KSNB'])
+                style_021 = df_021_export.style.map(style_excel_cells, subset=['Check ra cổng']) if not df_021_export.empty else df_021_export
+            except AttributeError:
+                style_out = df_out.style.applymap(style_excel_cells, subset=['Dung sai', 'Đánh giá KSNB'])
+                style_021 = df_021_export.style.applymap(style_excel_cells, subset=['Check ra cổng']) if not df_021_export.empty else df_021_export
+            
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine="openpyxl") as writer:
+                style_out.to_excel(writer, index=False, sheet_name="KSKTDulieucan-NM")
+                ws1 = writer.sheets["KSKTDulieucan-NM"]
+                ws1.freeze_panes = "A2"
+                ws1.auto_filter.ref = ws1.dimensions
+                
+                if not df_021_export.empty:
+                    style_021.to_excel(writer, index=False, sheet_name="021")
+                    ws2 = writer.sheets["021"]
+                    ws2.freeze_panes = "A2"
+                    ws2.auto_filter.ref = ws2.dimensions
+
+            progress_text.markdown('<div class="progress-text" style="color: #28a745;">✅ Đã hoàn tất! Các cổng cân đã được điền số liệu. File Excel đã tích hợp sẵn bộ lọc (Filter).</div>', unsafe_allow_html=True)
+            progress_bar.progress(100)
+            
+            st.download_button(
+                label="📥 Tải File Báo Cáo Chuẩn KSNB (Đã Tô Màu)",
+                data=output.getvalue(),
+                file_name="Bao_Cao_KSNB_Ra_Cong.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
             )
 
-    df_tb1, df_tb2, report_date_str = process_inv110(inv110_files)
-    df_tb3, df_tb4 = process_105(file105_files)
-
-    if df_tb1 is not None and df_tb3 is not None:
-        col_left, col_right = st.columns(2)
-
-        # TỐI ƯU: Dùng trực tiếp Base64 nội bộ, không phụ thuộc đường truyền mạng
-        logo_html = f'<img src="data:image/png;base64,{HOASEN_LOGO_B64}" width="45" style="vertical-align: middle; margin-bottom: 6px;">'
-
-        with col_left:
-            st.markdown(f"""
-            <div style="text-align: center;">
-                {logo_html}
-                <h4 style="color: #b30000; margin: 0;">BÁO CÁO KHỐI LƯỢNG NLC, NPL TẠI CTC/NM</h4>
-                <p style="font-style: italic; font-size: 13px; color: #cc0000; margin-top: 3px;">Đến 23 giờ 59 phút ngày {report_date_str}</p>
-            </div>
-            """, unsafe_allow_html=True)
-
-            st.markdown("<b style='color: red;'>1. Tồn kho HRC-PO-CR-CM</b>", unsafe_allow_html=True)
-            st.dataframe(style_table(df_tb1), use_container_width=True, hide_index=True)
-
-            st.markdown("<b style='color: red;'>2. Kim loại màu tại nhà máy NH</b>", unsafe_allow_html=True)
-            st.dataframe(style_table(df_tb2, is_weight_only=True), use_container_width=True, hide_index=True)
-
-        with col_right:
-            st.markdown(f"""
-            <div style="text-align: center;">
-                {logo_html}
-                <h4 style="color: #b30000; margin: 0;">BÁO CÁO KHỐI LƯỢNG SỬ DỤNG NLC, NPL TẠI CTC/NM</h4>
-                <p style="font-style: italic; font-size: 13px; color: #cc0000; margin-top: 3px;">Đến 23 giờ 59 phút ngày {report_date_str}</p>
-            </div>
-            """, unsafe_allow_html=True)
-
-            st.markdown("<b style='color: red;'>3. Tình hình sử dụng NVL chính :</b>", unsafe_allow_html=True)
-            st.dataframe(style_table(df_tb3), use_container_width=True, hide_index=True)
-
-            st.markdown("<b style='color: red;'>4. Tình hình sử dụng NPL :</b>", unsafe_allow_html=True)
-            st.dataframe(style_table(df_tb4, is_weight_only=True), use_container_width=True, hide_index=True)
-
-        st.write("")
-        # Gọi hàm xuất Excel (đã được cache, không bị sinh lại khi rerun)
-        excel_data = export_to_excel(df_tb1, df_tb2, df_tb3, df_tb4, report_date_str)
-        st.download_button(
-            label="📥 Tải Báo Cáo Ra File Excel (.xlsx)",
-            data=excel_data,
-            file_name=f"BAO_CAO_NXT_{report_date_str.replace('/', '-')}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True
-        )
+        except Exception as e:
+            progress_text.markdown(f'<div class="progress-text" style="color: #dc3545;">❌ Lỗi trong quá trình xử lý: {e}</div>', unsafe_allow_html=True)
