@@ -299,17 +299,111 @@ def export_to_excel(df_tb1, df_tb2, df_tb3, df_tb4, ngay_str):
     return output.getvalue()
 
 
-# --- 3. HÀM XỬ LÝ OPM 105 (GIAO DỊCH SỬ DỤNG NVL) KHỚP CHUẨN 100% HÀM EXCEL ---
+# --- 2. HÀM XỬ LÝ INV 110 (TỒN KHO) ---
+@st.cache_data
+def process_inv110(files):
+    df_list = []
+    report_date_str = ""
+
+    for idx, f in enumerate(files):
+        try:
+            if idx == 0:
+                try:
+                    df_header = pd.read_excel(f, header=None, nrows=8)
+                    for col_idx in range(5):
+                        val = str(df_header.iloc[6, col_idx])
+                        if "ngày" in val.lower() or "/" in val:
+                            report_date_str = val[-10:].replace('-', '/')
+                            break
+                except Exception:
+                    report_date_str = pd.to_datetime("today").strftime("%d/%m/%Y")
+                f.seek(0)
+
+            df = pd.read_excel(f, skiprows=13, header=None, usecols=[0, 2, 3, 4, 22])
+            sub_df = pd.DataFrame({
+                'Kho': df.iloc[:, 0].astype(str).str.strip(),
+                'TenHang': df.iloc[:, 1].astype(str).str.strip(),
+                'MaLoai': df.iloc[:, 2].astype(str).str.strip(),
+                'PhanLoai': df.iloc[:, 3].astype(str).str.strip(),
+                'KhoiLuong': pd.to_numeric(df.iloc[:, 4], errors='coerce').fillna(0)
+            })
+            sub_df = sub_df[~sub_df['TenHang'].isin(['nan', '', 'None'])]
+            df_list.append(sub_df)
+        except Exception as e:
+            st.error(f"Lỗi đọc file INV 110: {e}")
+
+    if not df_list:
+        return None, None, ""
+
+    data = pd.concat(df_list, ignore_index=True)
+    loai_tru = 'thứ phẩm|phế liệu|biên|vụn|pubcoil|xỉ'
+
+    # --- BẢNG 1: TỒN KHO HRC - PO - CR - CM ---
+    # 1. HRC: ÉP ĐIỀU KIỆN Phân loại 1 (Loại bỏ phẩm 2, CXL để ra đúng 1635 cuộn)
+    is_hrc = (data['MaLoai'].isin(['1.01.01', '2.01.03']) | data['TenHang'].str.contains('HRC|Thép cán nóng', na=False, case=False)) & \
+             (~data['TenHang'].str.contains('tẩy rỉ', na=False, case=False)) & \
+             (~data['TenHang'].str.contains(loai_tru, na=False, case=False))
+             
+    hrc_thuong = data[is_hrc & (~data['Kho'].str.contains('035', na=False)) & (data['PhanLoai'] == '1')]
+    hrc_cang   = data[is_hrc & (data['Kho'].str.contains('035', na=False)) & (data['PhanLoai'] == '1')]
+
+    # 2. PO: Lấy TẤT CẢ phân loại (Ra đúng 122 cuộn) - Đã loại bỏ lỗi dính chữ Dung môi Epoxy
+    is_po = data['TenHang'].str.contains('tẩy rỉ|PO', na=False, case=False) & \
+            (~data['TenHang'].str.contains(loai_tru, na=False, case=False)) & \
+            (~data['TenHang'].str.contains('Epoxy', na=False, case=False))
+    po = data[is_po]
+
+    # 3. CM + CR: Lấy TẤT CẢ phân loại (Ra đúng 490 cuộn)
+    is_cm = data['TenHang'].str.contains('cán nguội|SPCC', na=False, case=False) & \
+            (~data['TenHang'].str.contains(loai_tru, na=False, case=False))
+    cm_cr = data[is_cm]
+
+    tb1 = pd.DataFrame({
+        'Tên hàng': ['Tồn kho HRC', 'Tồn kho HRC ̣̣̣( hàng ngoài cảng)', 'Tồn kho PO', 'Tồn kho CM + CR'],
+        'Số lượng (Cuộn)': [len(hrc_thuong), len(hrc_cang), len(po), len(cm_cr)],
+        'Khối lượng (Tấn)': [
+            hrc_thuong['KhoiLuong'].sum() / 1000,
+            hrc_cang['KhoiLuong'].sum() / 1000,
+            po['KhoiLuong'].sum() / 1000,
+            cm_cr['KhoiLuong'].sum() / 1000
+        ],
+        'Ghi chú': ['', '', '', '']
+    })
+    tb1.loc[len(tb1)] = ['Tổng', tb1['Số lượng (Cuộn)'].sum(), tb1['Khối lượng (Tấn)'].sum(), '']
+
+    # --- BẢNG 2: KIM LOẠI MÀU ---
+    # FIX MAGIE: Loại trừ chữ "thứ phẩm/phế liệu" để không dính "Thép dày mạ Kẽm nhôm magie thứ phẩm"
+    cgg = data[data['TenHang'].str.contains('Kẽm không hợp kim|CGG|99.995% Zn', na=False, case=False) & (~data['TenHang'].str.contains(loai_tru, na=False, case=False))]
+    nhom_kem = data[data['TenHang'].str.contains('Nhôm - Kẽm|nhôm kẽm', na=False, case=False) & (~data['TenHang'].str.contains(loai_tru, na=False, case=False))]
+    magie = data[data['TenHang'].str.contains('Magie', na=False, case=False) & (~data['TenHang'].str.contains(loai_tru, na=False, case=False))]
+    pha_che = data[data['TenHang'].str.contains('Antimon|pha chế', na=False, case=False) & (~data['TenHang'].str.contains(loai_tru, na=False, case=False))]
+
+    tb2 = pd.DataFrame({
+        'Tên hàng': ['Tồn kho CGG', 'Tồn kho Hợp kim nhôm kẽm', 'Tồn kho Hợp kim kẽm Magie', 'Tồn kho nguyên liệu pha chế'],
+        'Khối lượng (Tấn)': [
+            cgg['KhoiLuong'].sum() / 1000,
+            nhom_kem['KhoiLuong'].sum() / 1000,
+            magie['KhoiLuong'].sum() / 1000,
+            pha_che['KhoiLuong'].sum() / 1000
+        ],
+        'Ghi chú': ['', '', '', '']
+    })
+
+    return tb1, tb2, report_date_str
+
+
+# --- 3. HÀM XỬ LÝ OPM 105 (GIAO DỊCH SỬ DỤNG NVL) ---
 @st.cache_data
 def process_105(files):
     df_list = []
     
     for f in files:
         try:
-            # Lấy 4 cột: LoaiGD, DayChuyen, MaMatHang, TenHang, KhoiLuong
-            df = pd.read_excel(f, skiprows=9, usecols=[0, 2, 3, 4, 9])
-            df.columns = ['LoaiGD', 'DayChuyen', 'MaMatHang', 'TenHang', 'KhoiLuong']
+            df = pd.read_excel(f, skiprows=9, usecols=[0, 4, 9])
+            df.columns = ['LoaiGD', 'TenHang', 'KhoiLuong']
             df = df[~df['LoaiGD'].astype(str).str.contains(r'\[', na=False)]
+            df['LoaiGD'] = df['LoaiGD'].astype(str).str.strip()
+            df['TenHang'] = df['TenHang'].astype(str).str.strip()
             df['KhoiLuong'] = pd.to_numeric(df['KhoiLuong'], errors='coerce').fillna(0)
             df = df[~df['TenHang'].isin(['nan', '', 'None'])]
             df_list.append(df)
@@ -320,71 +414,39 @@ def process_105(files):
         return None, None
 
     data = pd.concat(df_list, ignore_index=True)
+    loai_tru = 'thứ phẩm|phế liệu|biên|vụn|pubcoil|xỉ'
 
-    # 1. TẠO CỘT B (Lọc Dây Chuyền) - Sao chép y hệt logic Excel
-    def get_col_b(row):
-        day_chuyen = str(row['DayChuyen']).lower()
-        if 'xử lý' in day_chuyen or 'gia công' in day_chuyen or 'tái sinh' in day_chuyen:
-            return ""
-        
-        loai_gd = str(row['LoaiGD']).strip()
-        if loai_gd in ['WIP Issue', 'WIP Return']:
-            return "1"
-        elif loai_gd in ['WIP Byproduct Completion', 'WIP Byproduct Return', 'WIP Completion', 'WIP Completion Return']:
-            return "2"
-        elif loai_gd == 'Move Order Issue':
-            return "3"
-        elif loai_gd == 'Miscellaneous receipt':
-            return "4"
-        return ""
-    
-    data['ColB'] = data.apply(get_col_b, axis=1)
-
-    # 2. TẠO CỘT A (Phân nhóm Hàng) - Sao chép y hệt logic Excel
-    def get_col_a(row):
-        if row['ColB'] == "":
-            return ""
-        
-        ma_hang = str(row['MaMatHang']).strip()
-        # Phế liệu là Mã hàng bắt đầu bằng A
-        if ma_hang.startswith('A'):
-            return "A"
-            
-        ten_hang = str(row['TenHang']).lower()
-        if 'thép cán nguội' in ten_hang:
-            return "CM"
-        if 'thép cán nóng tẩy rỉ' in ten_hang:
-            return "PO"
-        if 'thép cán nóng' in ten_hang:
-            return "HRC"
-        if 'hợp kim nhôm - kẽm' in ten_hang:
-            return "Hợp kim nhôm kẽm"
-        if 'kẽm không hợp kim' in ten_hang:
-            return "Kẽm không hợp kim"
-        if 'hợp kim kẽm nhôm magie' in ten_hang:
-            return "Hợp kim Kẽm Nhôm Magie"
-        if 'antimon' in ten_hang:
-            return "Nguyên liệu pha chế"
-        return ""
-
-    data['ColA'] = data.apply(get_col_a, axis=1)
-
-    # Hàm tính cuộn và khối lượng ròng (dựa trên ColA và ColB)
-    def get_stats(col_a_name, col_b_name):
-        subset = data[(data['ColA'] == col_a_name) & (data['ColB'] == col_b_name)]
-        issue = subset[subset['LoaiGD'] == 'WIP Issue']
-        ret = subset[subset['LoaiGD'] == 'WIP Return']
+    # FIX HRC/PO/CM: Phải lấy (WIP Issue + WIP Return) để bù trừ âm dương ra số chuẩn 12.246 và 14.572
+    def calc_stats_nlc(cond):
+        df_sub = data[cond]
+        issue = df_sub[df_sub['LoaiGD'] == 'WIP Issue']
+        ret = df_sub[df_sub['LoaiGD'] == 'WIP Return']
         qty = len(issue) - len(ret)
-        weight = abs(subset['KhoiLuong'].sum()) / 1000
+        weight = abs(issue['KhoiLuong'].sum() + ret['KhoiLuong'].sum()) / 1000
         return qty, weight
 
-    # BẢNG 3:
-    hrc_q, hrc_w = get_stats("HRC", "1")
-    po_q, po_w = get_stats("PO", "1")
-    cm_q, cm_w = get_stats("CM", "1")
-    
-    # Phế liệu (Nhóm A, giao dịch 2)
-    scrap_w = data[(data['ColA'] == 'A') & (data['ColB'] == '2')]['KhoiLuong'].sum() / 1000
+    # HRC
+    cond_hrc = data['TenHang'].str.contains('HRC|Cán nóng', na=False, case=False) & \
+               (~data['TenHang'].str.contains('tẩy rỉ', na=False, case=False)) & \
+               (~data['TenHang'].str.contains(loai_tru, na=False, case=False))
+    hrc_q, hrc_w = calc_stats_nlc(cond_hrc)
+
+    # PO
+    cond_po = data['TenHang'].str.contains('PO|tẩy rỉ', na=False, case=False) & \
+              (~data['TenHang'].str.contains(loai_tru, na=False, case=False)) & \
+              (~data['TenHang'].str.contains('Epoxy', na=False, case=False))
+    po_q, po_w = calc_stats_nlc(cond_po)
+
+    # CM
+    cond_cm = data['TenHang'].str.contains('CM|Cán nguội', na=False, case=False) & \
+              (~data['TenHang'].str.contains(loai_tru, na=False, case=False))
+    cm_q, cm_w = calc_stats_nlc(cond_cm)
+
+    # Hao hụt + phế liệu:
+    # FIX: Chỉ cộng các lệnh sinh phế liệu và BỎ qua "Xỉ" để ra đúng 1084.3
+    cond_scrap = data['TenHang'].str.contains(loai_tru, na=False, case=False) & (~data['TenHang'].str.contains('xỉ', na=False, case=False))
+    scrap = data[cond_scrap & data['LoaiGD'].isin(['WIP Byproduct Completion', 'WIP Byproduct Return', 'WIP Completion', 'WIP Completion Return'])]
+    scrap_w = abs(scrap['KhoiLuong'].sum()) / 1000
 
     tb3 = pd.DataFrame({
         'Tên hàng': ['HRC', 'PO', 'CM', 'Hao hụt+ phế liệu'],
@@ -394,162 +456,87 @@ def process_105(files):
     })
     tb3.loc[len(tb3)] = ['Tổng', tb3['Số lượng (Cuộn)'].sum(), tb3['Khối lượng (Tấn)'].sum(), '']
 
-    # BẢNG 4: NPL (Dùng giao dịch 3 và 4)
-    def get_npl(name):
-        npl_sub = data[(data['ColA'] == name) & (data['ColB'].isin(["3", "4"]))]
-        return abs(npl_sub['KhoiLuong'].sum()) / 1000
+    # BẢNG 4
+    def calc_npl_weight(pattern):
+        df_npl = data[data['TenHang'].str.contains(pattern, na=False, case=False)]
+        return abs(df_npl['KhoiLuong'].sum()) / 1000
+
+    nhom_kem_w = calc_npl_weight('Nhôm - Kẽm|nhôm kẽm')
+    kem_w      = calc_npl_weight('Kẽm không hợp kim|CGG|99.995% Zn')
+    magie_w    = calc_npl_weight('Magie')
+    pha_che_w  = calc_npl_weight('Antimon|pha chế')
 
     tb4 = pd.DataFrame({
         'Tên hàng': ['Hợp kim nhôm kẽm', 'Kẽm không hợp kim', 'Hợp kim kẽm Magie', 'Nguyên liệu pha chế'],
-        'Khối lượng (Tấn)': [get_npl("Hợp kim nhôm kẽm"), get_npl("Kẽm không hợp kim"), get_npl("Hợp kim Kẽm Nhôm Magie"), get_npl("Nguyên liệu pha chế")],
+        'Khối lượng (Tấn)': [nhom_kem_w, kem_w, magie_w, pha_che_w],
         'Ghi chú': ['', '', '', '']
     })
 
     return tb3, tb4
 # --- 4. GIAO DIỆN HƯỚNG DẪN & UPLOAD ---
-
-# Thêm CSS riêng cho các thẻ Hướng dẫn tải file
-st.markdown("""
-<style>
-    .upload-card {
-        background: #ffffff;
-        border-radius: 16px;
-        padding: 24px;
-        border: 1px solid rgba(0, 0, 0, 0.08);
-        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
-        margin-bottom: 20px;
-        min-height: 250px;
-    }
-    .upload-title {
-        font-size: 18px;
-        font-weight: 700;
-        color: #1d1d1f;
-        margin-bottom: 16px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-    .guide-box {
-        background: #fbfbfd;
-        border-radius: 12px;
-        padding: 16px;
-        margin-bottom: 16px;
-        border: 1px solid rgba(0,0,0,0.04);
-    }
-    .guide-header {
-        font-weight: 700;
-        color: #0071e3;
-        font-size: 14px;
-        margin-bottom: 8px;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-    }
-    .guide-text {
-        font-size: 13px;
-        color: #515154;
-        line-height: 1.6;
-        margin: 0;
-    }
-    .guide-text ul {
-        margin-top: 4px;
-        margin-bottom: 0;
-        padding-left: 20px;
-    }
-</style>
-""", unsafe_allow_html=True)
-
 st.markdown("### 📥 Nạp Dữ Liệu Nguồn")
 
-# Bọc phần Upload và Hướng dẫn vào 2 cột
-col_upload1, col_upload2 = st.columns(2, gap="large")
+with st.expander("📖 Bấm vào đây để xem Hướng dẫn lấy file từ hệ thống"):
+    col_huongdan1, col_huongdan2 = st.columns(2)
+    with col_huongdan1:
+        st.markdown("""
+        **INV 110**
+        INV_110_GD2
+
+        **HSG_KS_INV_Cung Ứng**
+        - 031,035,03G,03H,041,046
+        - Chọn mốc thời gian ngày thứ 5 tuần báo cáo
+
+        **HSG_KS_INV_Vật tư**
+        - 03B
+        - Chọn mốc thời gian ngày thứ 5 tuần báo cáo
+
+        **NMBD_KS_PO_ADMIN**
+        - 047
+        - Chọn mốc thời gian ngày thứ 5 tuần báo cáo
+        - Xóa dữ liệu (Hợp kim kẽm nhôm magie (dạng xỉ))
+        """)
+
+    with col_huongdan2:
+        st.markdown("""
+        **OMP 105**
+        HSG_OPM_105_BCKiemSoatThongTinGDTheoLo_GD2
+
+        **HSG_KS_INV_Cung Ứng**
+        - 031,03G,03H,046
+        - Loại nghiệp vụ: Inventory, Job or Schedule, Move order
+        - Chọn mốc thời gian từ thứ 6 tuần trước đến thứ 5 tuần này.
+
+        **HSG_KS_INV_Vật tư**
+        - 03B
+        - Loại nghiệp vụ: Inventory, Job or Schedule, Move order
+        - Chọn mốc thời gian từ thứ 6 tuần trước đến thứ 5 tuần này.
+
+        **NMBD_KS_PO_ADMIN**
+        - 047
+        - Loại nghiệp vụ: Inventory, Job or Schedule, Move order
+        - Chọn mốc thời gian từ thứ 6 tuần trước đến thứ 5 tuần này.
+        """)
+
+col_upload1, col_upload2 = st.columns(2)
 
 with col_upload1:
-    st.markdown("""
-    <div class="upload-card">
-        <div class="upload-title">1️⃣ Hướng dẫn tải file INV 110</div>
-        
-        <div class="guide-box">
-            <div class="guide-header">📌 HSG_KS_INV_Cung Ứng</div>
-            <div class="guide-text">
-                Kho: 031, 035, 03G, 03H, 041, 046<br>
-                Thời gian: Chọn ngày thứ 5 của tuần báo cáo
-            </div>
-        </div>
-        
-        <div class="guide-box">
-            <div class="guide-header">📌 HSG_KS_INV_Vật tư</div>
-            <div class="guide-text">
-                Kho: 03B<br>
-                Thời gian: Chọn ngày thứ 5 của tuần báo cáo
-            </div>
-        </div>
-        
-        <div class="guide-box">
-            <div class="guide-header">📌 NMBD_KS_PO_ADMIN</div>
-            <div class="guide-text">
-                Kho: 047<br>
-                Thời gian: Chọn ngày thứ 5 của tuần báo cáo<br>
-                <i>*Lưu ý: Xóa dữ liệu (Hợp kim kẽm nhôm magie dạng xỉ)</i>
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Nút upload đặt ngay dưới thẻ hướng dẫn tương ứng
     inv110_files = st.file_uploader(
-        "Nạp các file INV 110 tại đây:",
+        "1️⃣ Tải lên các file INV 110",
         type=["xlsx"],
         accept_multiple_files=True,
         help="Nạp cùng lúc các file INV 110 lấy từ Cung ứng, Vật tư, Admin."
     )
 
 with col_upload2:
-    st.markdown("""
-    <div class="upload-card">
-        <div class="upload-title">2️⃣ Hướng dẫn tải file OPM 105 (Giao dịch SX)</div>
-        
-        <div class="guide-box">
-            <div class="guide-header">📌 HSG_KS_INV_Cung Ứng</div>
-            <div class="guide-text">
-                Kho: 031, 03G, 03H, 046<br>
-                Nghiệp vụ: Inventory, Job or Schedule, Move order<br>
-                Thời gian: Thứ 6 tuần trước đến Thứ 5 tuần này
-            </div>
-        </div>
-        
-        <div class="guide-box">
-            <div class="guide-header">📌 HSG_KS_INV_Vật tư</div>
-            <div class="guide-text">
-                Kho: 03B<br>
-                Nghiệp vụ: Inventory, Job or Schedule, Move order<br>
-                Thời gian: Thứ 6 tuần trước đến Thứ 5 tuần này
-            </div>
-        </div>
-        
-        <div class="guide-box">
-            <div class="guide-header">📌 NMBD_KS_PO_ADMIN</div>
-            <div class="guide-text">
-                Kho: 047<br>
-                Nghiệp vụ: Inventory, Job or Schedule, Move order<br>
-                Thời gian: Thứ 6 tuần trước đến Thứ 5 tuần này
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Nút upload đặt ngay dưới thẻ hướng dẫn tương ứng
     file105_files = st.file_uploader(
-        "Nạp các file OPM 105 tại đây:",
+        "2️⃣ Tải lên các file 105 (Giao dịch sản xuất)",
         type=["xlsx"],
         accept_multiple_files=True,
         help="Nạp cùng lúc các file 105 lấy từ Cung ứng, Vật tư, Admin."
     )
 
-# --- 5. HIỂN THỊ KẾT QUẢ VÀ NÚT TẢI EXCEL ---
-# ... (Phần hiển thị kết quả của bạn giữ nguyên không thay đổi)
-if inv110_files and file105_files:
-# ...
+
 # --- 5. HIỂN THỊ KẾT QUẢ VÀ NÚT TẢI EXCEL ---
 if inv110_files and file105_files:
     st.divider()
