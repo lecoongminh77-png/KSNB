@@ -73,9 +73,10 @@ st.markdown(
 
 
 # -------------------------------------------------------------
-# 2. HÀM TÌM TIÊU ĐỀ & XỬ LÝ SCAN ĐỐI SOÁT
+# 2. CÁC HÀM XỬ LÝ SCAN DỮ LIỆU
 # -------------------------------------------------------------
 def tim_dong_tieu_de(file_obj, tu_khoa_list, sheet_name=0, max_scan=20):
+    """Tự tìm dòng header thực tế dựa vào từ khóa."""
     file_obj.seek(0)
     df_raw = pd.read_excel(
         file_obj, sheet_name=sheet_name, header=None, nrows=max_scan
@@ -88,13 +89,15 @@ def tim_dong_tieu_de(file_obj, tu_khoa_list, sheet_name=0, max_scan=20):
 
 
 def xu_ly_doi_chieu_da_sheet(f_bb, f_pl, f_tc, f_bv, f_opm, danh_sach_sheets):
+    # Đọc workbook BBNT (bản công thức để ghi đè và bản data_only để lấy số)
     f_bb.seek(0)
     wb = load_workbook(f_bb, data_only=False)
     f_bb.seek(0)
     wb_val = load_workbook(f_bb, data_only=True)
 
-    # 1. SCAN DỮ LIỆU BẢO VỆ
-    bv_records = []
+    # 1. SCAN DỮ LIỆU BẢO VỆ (Quét chung 1 lần)
+    dict_bv_phieu = {}
+    dict_bv_kl = {}
     if f_bv:
         f_bv.seek(0)
         df_bv = pd.read_excel(f_bv)
@@ -120,13 +123,15 @@ def xu_ly_doi_chieu_da_sheet(f_bb, f_pl, f_tc, f_bv, f_opm, danh_sach_sheets):
             None,
         )
 
+        # Gom toàn bộ dữ liệu bảo vệ để tra cứu nhanh
+        bv_records = []
         for _, r in df_bv.iterrows():
             txt = f"{r.get('MÃ HÀNG HÓA', '')} {r.get('TÊN HÀNG HÓA', '')}"
             p_can = str(r.get(col_pcan, "")).replace(".0", "").strip()
             kl_can = r.get(col_klcan, 0)
             bv_records.append((txt, p_can, kl_can))
 
-    # 2. SCAN DỮ LIỆU TRẠM CÂN
+    # 2. SCAN DỮ LIỆU TRẠM CÂN (Quét chung 1 lần)
     dict_tc_kl = {}
     dict_tc_pl = {}
     if f_tc:
@@ -153,7 +158,7 @@ def xu_ly_doi_chieu_da_sheet(f_bb, f_pl, f_tc, f_bv, f_opm, danh_sach_sheets):
                 zip(p_series, df_tc[col_pl].fillna("Nhập hàng").astype(str))
             )
 
-    # 3. SCAN DỮ LIỆU ERP OPM 105
+    # 3. SCAN DỮ LIỆU ERP OPM 105 (Quét chung 1 lần)
     opm_035_po, opm_035_rtv, opm_031, opm_03g_po, opm_03g_rtv = (
         {},
         {},
@@ -262,6 +267,7 @@ def xu_ly_doi_chieu_da_sheet(f_bb, f_pl, f_tc, f_bv, f_opm, danh_sach_sheets):
             .to_dict()
         )
 
+    # Đọc danh sách sheet của Packing List để bắt cặp
     f_pl.seek(0)
     xl_pl = pd.ExcelFile(f_pl)
     pl_sheets = xl_pl.sheet_names
@@ -309,6 +315,7 @@ def xu_ly_doi_chieu_da_sheet(f_bb, f_pl, f_tc, f_bv, f_opm, danh_sach_sheets):
         ws = wb[s_name]
         ws_val = wb_val[s_name]
 
+        # Scan Packing list của riêng sheet này
         dict_pl = {}
         matched_pl_sheet = next(
             (p for p in pl_sheets if p.strip().upper() == s_name.strip().upper()),
@@ -346,6 +353,7 @@ def xu_ly_doi_chieu_da_sheet(f_bb, f_pl, f_tc, f_bv, f_opm, danh_sach_sheets):
                 .to_dict()
             )
 
+        # Tìm dòng header
         row_header = 8
         for r in range(1, 15):
             if (
@@ -355,6 +363,7 @@ def xu_ly_doi_chieu_da_sheet(f_bb, f_pl, f_tc, f_bv, f_opm, danh_sach_sheets):
                 row_header = r
                 break
 
+        # Đọc dữ liệu dòng
         data_rows = []
         for r in range(row_header + 1, ws.max_row + 1):
             c_val = ws_val.cell(row=r, column=4).value
@@ -367,6 +376,7 @@ def xu_ly_doi_chieu_da_sheet(f_bb, f_pl, f_tc, f_bv, f_opm, danh_sach_sheets):
             ):
                 data_rows.append((r, str(c_val).replace(".0", "").strip()))
 
+        # Ghi header
         for col_idx, h_text in headers:
             cell = ws.cell(row=row_header, column=col_idx)
             cell.value = h_text
@@ -376,6 +386,7 @@ def xu_ly_doi_chieu_da_sheet(f_bb, f_pl, f_tc, f_bv, f_opm, danh_sach_sheets):
                 wrap_text=True, horizontal="center", vertical="center"
             )
 
+        # Điền dữ liệu đối chiếu
         for r, m in data_rows:
             m_hoa = m + "A"
             p_can_bbnt = str(ws_val.cell(row=r, column=5).value or "").strip()
@@ -384,6 +395,7 @@ def xu_ly_doi_chieu_da_sheet(f_bb, f_pl, f_tc, f_bv, f_opm, danh_sach_sheets):
             can_ban = float(ws_val.cell(row=r, column=10).value or 0)
             dsai_bbnt = round(float(ws_val.cell(row=r, column=12).value or 0), 6)
 
+            # Match bảo vệ
             p_can_bv, kl_bv = "", 0.0
             if f_bv:
                 for txt, p, kl in bv_records:
@@ -463,7 +475,7 @@ def xu_ly_doi_chieu_da_sheet(f_bb, f_pl, f_tc, f_bv, f_opm, danh_sach_sheets):
                     c.fill = red_fill
                     c.font = red_font
 
-    # 5. XÓA BỎ CÁC SHEET KHÔNG ĐƯỢC CHỌN
+    # 5. XÓA SẠCH TOÀN BỘ CÁC SHEET KHÔNG ĐƯỢC CHỌN
     for s_name in wb.sheetnames:
         if s_name not in danh_sach_sheets:
             wb.remove(wb[s_name])
@@ -486,27 +498,6 @@ with col1:
             type=["xlsx", "xls"],
             key="u_bb",
         )
-
-        # Ô CHỌN SHEET ĐƯỢC ĐẶT NGAY TẠI ĐÂY (DƯỚI Ô NẠP FILE BBNT)
-        sheets_selected = []
-        if f_bb is not None:
-            f_bb.seek(0)
-            xl_bb = pd.ExcelFile(f_bb)
-            available_sheets = xl_bb.sheet_names
-
-            st.markdown("---")
-            sheets_selected = st.multiselect(
-                "🎯 Chọn Sheet Biên Bản Cần Đối Chiếu:",
-                options=available_sheets,
-                default=[available_sheets[0]] if available_sheets else [],
-                help="Các sheet không được tick chọn sẽ tự động bị xóa bỏ khỏi file kết quả",
-            )
-            if not sheets_selected:
-                st.warning("⚠️ Hãy chọn ít nhất 1 sheet để chạy.")
-            st.markdown("---")
-        else:
-            st.caption("ℹ️ Nạp file BBNT để hiện danh sách chọn sheet.")
-
         f_pl = st.file_uploader(
             "2. File Packing List NCC", type=["xlsx", "xls"], key="u_pl"
         )
@@ -524,27 +515,44 @@ with col2:
             "5. File ERP OPM 105", type=["xlsx", "xls"], key="u_opm"
         )
 
-# NÚT BẮT ĐẦU ĐỐI SOÁT & TẢI FILE
-st.write("")
-if f_bb is not None and len(sheets_selected) > 0:
-    if st.button("🚀 Bắt đầu đối chiếu tự động", use_container_width=True):
-        with st.spinner(f"Đang đối soát {len(sheets_selected)} sheet đã chọn..."):
-            try:
-                excel_bytes = xu_ly_doi_chieu_da_sheet(
-                    f_bb, f_pl, f_tc, f_bv, f_opm, sheets_selected
-                )
-                st.success(
-                    f"✅ Đã đối soát thành công {len(sheets_selected)} sheet!"
-                )
+# XỬ LÝ CHỌN SHEET
+if f_bb is not None:
+    # Lấy danh sách sheets trong file BBNT
+    f_bb.seek(0)
+    xl_bb_temp = pd.ExcelFile(f_bb)
+    available_sheets = xl_bb_temp.sheet_names
 
-                st.download_button(
-                    label=f"📥 TẢI FILE EXCEL KẾT QUẢ ({len(sheets_selected)} SHEET)",
-                    data=excel_bytes,
-                    file_name="BBNT_Doi_Chieu_Ket_Qua.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True,
-                )
-            except Exception as e:
-                st.error(f"❌ Có lỗi trong quá trình xử lý: {e}")
-elif f_bb is None:
-    st.info("👉 Hãy nạp file Biên bản nghiệm thu (1) để bắt đầu.")
+    st.markdown("### 🎯 Chọn Sheet Cần Đối Chiếu")
+    sheets_selected = st.multiselect(
+        "Chọn một hoặc nhiều sheet (những sheet không chọn sẽ tự động bị loại bỏ khỏi file kết quả):",
+        options=available_sheets,
+        default=[available_sheets[0]] if available_sheets else [],
+    )
+
+    if not sheets_selected:
+        st.warning("⚠️ Vui lòng chọn ít nhất 1 sheet để tiếp tục.")
+    else:
+        st.write("")
+        if st.button("🚀 Bắt đầu đối chiếu tự động", use_container_width=True):
+            with st.spinner(
+                f"Đang xử lý {len(sheets_selected)} sheet đã chọn và lọc bỏ các sheet thừa..."
+            ):
+                try:
+                    excel_bytes = xu_ly_doi_chieu_da_sheet(
+                        f_bb, f_pl, f_tc, f_bv, f_opm, sheets_selected
+                    )
+                    st.success(
+                        f"✅ Đã đối soát thành công {len(sheets_selected)} sheet!"
+                    )
+
+                    st.download_button(
+                        label=f"📥 TẢI FILE EXCEL KẾT QUẢ ({len(sheets_selected)} SHEET)",
+                        data=excel_bytes,
+                        file_name="BBNT_Doi_Chieu_Ket_Qua.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True,
+                    )
+                except Exception as e:
+                    st.error(f"❌ Có lỗi trong quá trình xử lý: {e}")
+else:
+    st.info("👉 Hãy nạp file Biên bản nghiệm thu (BBNT) để chọn sheet cần chạy.")
