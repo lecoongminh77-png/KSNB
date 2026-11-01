@@ -544,7 +544,7 @@ Thời gian: 1 tháng cần kiểm tra
 
                                 if col_bv_hang and col_bv_pcan and col_bv_kl:
                                     for _, r in df_bv.iterrows():
-                                        txt = f"{r.get('MÃ HÀNG HÓA', '')} {r.get('TÊN HÀNG HÓA', '')}"
+                                        txt = str(r.get('MÃ HÀNG HÓA', '')).upper()
                                         p = str(r.get(col_bv_pcan, '')).replace('.0', '').strip()
                                         kl = r.get(col_bv_kl, 0)
                                         bv_raw_list.append((txt, p, kl))
