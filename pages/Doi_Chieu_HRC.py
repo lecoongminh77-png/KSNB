@@ -1,6 +1,8 @@
 import io
 import re
+import openpyxl
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.utils import get_column_letter
 import pandas as pd
 import streamlit as st
 
@@ -158,27 +160,86 @@ def read_auto_header(file_obj, keywords, sheet_name=0, max_scan=25, match_all=Fa
     return df
 
 
-def doi_chieu_mot_sheet(f_bbnt, sheet_bbnt, f_pl, sheet_pl, dict_tc_kl, dict_tc_phanloai, dict_bv_phieu, dict_bv_kl, opm_035_po, opm_035_rtv, opm_031, opm_03g_po, opm_03g_rtv):
-    # 1. ĐỌC BBNT
-    df_bbnt = read_auto_header(f_bbnt, ['MÃ SỐ CUỘN', 'MÃ CUỘN', 'SỐ PHIẾU CÂN'], sheet_name=sheet_bbnt)
-    col_cuon = next((c for c in df_bbnt.columns if 'CUỘN' in str(c).upper()), df_bbnt.columns[3])
-    col_pcan = next((c for c in df_bbnt.columns if 'PHIẾU CÂN' in str(c).upper()), df_bbnt.columns[4])
-    col_net = next((c for c in df_bbnt.columns if 'CHỨNG TỪ GIAO HÀNG' in str(c).upper() and 'GROSS' not in str(c).upper()), df_bbnt.columns[7])
-    col_gross = next((c for c in df_bbnt.columns if 'GROSS' in str(c).upper()), df_bbnt.columns[8])
-    col_canban = next((c for c in df_bbnt.columns if 'CÂN BÀN' in str(c).upper()), df_bbnt.columns[9])
-    col_dsai = next((c for c in df_bbnt.columns if 'CHÊNH LỆCH' in str(c).upper() and '%' in str(c)), df_bbnt.columns[11])
+def to_float(val, default=0.0):
+    """Chuyển đổi giá trị ô Excel sang số thực an toàn."""
+    if val is None or val == "":
+        return default
+    try:
+        return float(val)
+    except Exception:
+        return default
 
-    df_bbnt = df_bbnt.dropna(subset=[col_cuon]).copy()
-    df_bbnt = df_bbnt[~df_bbnt[df_bbnt.columns[0]].astype(str).str.contains('Tổng cộng|Kết luận', case=False, na=False)]
 
-    base_cols = df_bbnt.columns[:13].tolist()
-    res_df = df_bbnt[base_cols].copy()
+def clean_str_code(val):
+    """Làm sạch mã cuộn / số phiếu cân (bỏ đuôi .0 và khoảng trắng)."""
+    if val is None:
+        return ""
+    s = str(val).strip()
+    s = re.sub(r'\.0$', '', s)
+    return s.strip()
 
-    ma_cuon = df_bbnt[col_cuon].astype(str).str.replace(r'\.0$', '', regex=True).str.strip().str.upper()
-    phieu_can_bbnt = df_bbnt[col_pcan].astype(str).str.replace(r'\.0$', '', regex=True).str.strip()
-    ma_hoa = ma_cuon + 'A'
 
-    # 2. ĐỌC PACKING LIST
+def ghi_doi_chieu_vao_worksheet(
+    ws,
+    f_pl,
+    sheet_pl,
+    bv_raw_list,
+    dict_tc_kl,
+    dict_tc_phanloai,
+    opm_035_po,
+    opm_035_rtv,
+    opm_031,
+    opm_03g_po,
+    opm_03g_rtv,
+):
+    """
+    Giữ nguyên 100% cấu trúc dòng 1-9 và phần chân BBNT của worksheet gốc (cột A->M),
+    đồng thời ghi tiếp các cột đối chiếu từ cột N (cột 14) sang phải khớp từng dòng.
+    """
+    # 1. Xác định dòng tiêu đề bảng (mặc định là dòng 8)
+    header_row = 8
+    for r in range(1, 20):
+        row_vals = [str(ws.cell(row=r, column=c).value or '').upper() for c in range(1, 14)]
+        if any('MÃ SỐ CUỘN' in v or 'MÃ CUỘN' in v for v in row_vals):
+            header_row = r
+            break
+
+    # Kiểm tra xem tiêu đề có gộp 2 dòng (dòng 8 và dòng 9) như mẫu chuẩn hay không
+    header_end_row = header_row
+    for m_range in ws.merged_cells.ranges:
+        if m_range.min_row == header_row and m_range.min_col <= 13 and m_range.max_row > header_row:
+            header_end_row = m_range.max_row
+            break
+
+    # 2. Tìm danh sách các dòng dữ liệu cuộn thép và dòng Tổng cộng
+    data_rows = []
+    total_row = None
+    for r in range(header_end_row + 1, ws.max_row + 1):
+        val_a = str(ws.cell(row=r, column=1).value or '').strip()
+        val_d = clean_str_code(ws.cell(row=r, column=4).value).upper()
+
+        if 'TỔNG CỘNG' in val_a.upper():
+            total_row = r
+            break
+        if any(k in val_a.upper() for k in ['KẾT LUẬN', 'GHI CHÚ', 'BAN GIÁM ĐỐC']):
+            break
+
+        # Dòng hợp lệ khi có Mã số cuộn ở cột D
+        if val_d != '' and val_d != 'NONE':
+            data_rows.append(r)
+
+    # 3. Quét danh sách mã cuộn của sheet này để tra cứu dữ liệu Bảo vệ
+    cuon_list = [clean_str_code(ws.cell(row=r, column=4).value).upper() for r in data_rows]
+    dict_bv_p_sheet = {}
+    dict_bv_kl_sheet = {}
+    if bv_raw_list:
+        for txt, p, kl in bv_raw_list:
+            for m in cuon_list:
+                if m and m in txt and m not in dict_bv_p_sheet:
+                    dict_bv_p_sheet[m] = p
+                    dict_bv_kl_sheet[m] = kl
+
+    # 4. Đọc Packing List tương ứng
     dict_pl = {}
     if f_pl is not None and sheet_pl is not None:
         try:
@@ -194,42 +255,190 @@ def doi_chieu_mot_sheet(f_bbnt, sheet_bbnt, f_pl, sheet_pl, dict_tc_kl, dict_tc_
         except Exception:
             dict_pl = {}
 
-    # 3. TÍNH CÁC CỘT ĐỐI SOÁT
-    res_df['NHẬP/XUẤT'] = phieu_can_bbnt.map(lambda x: dict_tc_phanloai.get(x, 'Nhập hàng'))
-    res_df['Mã hóa'] = ma_hoa
-    res_df['Khối lượng net theo PL'] = ma_hoa.map(dict_pl).fillna(0).astype(float)
+    # 5. Danh sách 20 cột đối chiếu (Bắt đầu từ Cột N = Cột 14)
+    extra_headers = [
+        'NHẬP/XUẤT',                      # N (14)
+        'Mã hóa',                         # O (15)
+        'Khối lượng net theo PL',         # P (16)
+        'Đối chiếu',                      # Q (17)
+        'KL theo bc nhập hàng',           # R (18)
+        'Số phiếu cân',                   # S (19)
+        'Đối chiếu số phiếu cân',         # T (20)
+        'KL theo bc trạm cân',            # U (21)
+        'Đối chiếu KL TC & KL BCBV',      # V (22)
+        'Đối chiếu KL TC & KL BBNT',      # W (23)
+        'Chênh lệch (kg)',                # X (24)
+        'Chênh lệch dung sai',            # Y (25)
+        'Đối chiếu dung sai',             # Z (26)
+        'So với quy định ( >+-0.3%)',     # AA (27)
+        'KL Nhập kho\n035',               # AB (28)
+        'Chênh lệch',                     # AC (29)
+        'KL Nhập kho\n031',               # AD (30)
+        'Chênh lệch ',                    # AE (31)
+        'KL Nhập kho\n03G-3H',            # AF (32)
+        'Chênh lệch  ',                   # AG (33)
+    ]
 
-    net_ct = pd.to_numeric(df_bbnt[col_net], errors='coerce').fillna(0).astype(float)
-    res_df['Đối chiếu'] = net_ct - res_df['Khối lượng net theo PL']
+    # Định dạng chuẩn đồng bộ với BBNT gốc
+    font_header = Font(name='Times New Roman', size=11, bold=True, color='000000')
+    font_data = Font(name='Times New Roman', size=11, bold=False, color='000000')
+    font_total = Font(name='Times New Roman', size=11, bold=True, color='000000')
+    font_error = Font(name='Times New Roman', size=11, bold=True, color='9C0006')
 
-    res_df['KL theo bc nhập hàng'] = ma_cuon.map(dict_bv_kl).fillna(0).astype(float)
-    res_df['Số phiếu cân'] = ma_cuon.map(dict_bv_phieu).fillna('')
-    res_df['Đối chiếu số phiếu cân'] = phieu_can_bbnt == res_df['Số phiếu cân'].astype(str)
+    yellow_fill = PatternFill(start_color='FFFF00', end_color='FFFF00', fill_type='solid')
+    red_fill = PatternFill(start_color='FFC7CE', end_color='FFC7CE', fill_type='solid')
 
-    res_df['KL theo bc trạm cân'] = res_df['Số phiếu cân'].map(dict_tc_kl).fillna(0).astype(float)
-    res_df['Đối chiếu KL TC & KL BCBV'] = res_df['KL theo bc trạm cân'] == res_df['KL theo bc nhập hàng']
+    border_thin = Border(
+        left=Side(style='thin', color='000000'),
+        right=Side(style='thin', color='000000'),
+        top=Side(style='thin', color='000000'),
+        bottom=Side(style='thin', color='000000'),
+    )
 
-    can_ban = pd.to_numeric(df_bbnt[col_canban], errors='coerce').fillna(0).astype(float)
-    res_df['Đối chiếu KL TC & KL BBNT'] = res_df['KL theo bc trạm cân'] == can_ban
+    align_center = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    align_right = Alignment(horizontal='right', vertical='center')
 
-    gross_ct = pd.to_numeric(df_bbnt[col_gross], errors='coerce').replace(0, pd.NA).fillna(1).astype(float)
-    res_df['Chênh lệch (kg)'] = res_df['KL theo bc trạm cân'] - gross_ct
-    res_df['Chênh lệch dung sai'] = res_df['Chênh lệch (kg)'] / gross_ct
+    start_col = 14  # Cột N
 
-    dsai_bbnt = pd.to_numeric(df_bbnt[col_dsai], errors='coerce').fillna(0).astype(float)
-    res_df['Đối chiếu dung sai'] = res_df['Chênh lệch dung sai'].round(6) == dsai_bbnt.round(6)
-    res_df['So với quy định ( >+-0.3%)'] = res_df['Chênh lệch dung sai'].apply(lambda x: 'VUOT DUNG SAI' if abs(x) > 0.003 else 'OK')
+    # Hủy các vùng merge cũ từ cột N trở đi (nếu có) để tránh xung đột
+    merges_to_remove = [m for m in ws.merged_cells.ranges if m.min_col >= start_col]
+    for m in merges_to_remove:
+        ws.unmerge_cells(str(m))
 
-    res_df['KL Nhập kho 035'] = ma_hoa.map(lambda x: opm_035_po.get(x, 0) - abs(opm_035_rtv.get(x, 0)))
-    res_df['Chênh lệch '] = res_df['Khối lượng net theo PL'] - res_df['KL Nhập kho 035']
+    # 6. Ghi tiêu đề các cột Đối chiếu vào đúng dòng 8-9
+    for idx, h_title in enumerate(extra_headers):
+        col_idx = start_col + idx
+        cell_top = ws.cell(row=header_row, column=col_idx, value=h_title)
+        cell_top.font = font_header
+        cell_top.fill = yellow_fill
+        cell_top.alignment = align_center
+        cell_top.border = border_thin
 
-    res_df['KL Nhập kho 031'] = ma_hoa.map(lambda x: opm_031.get(x, 0))
-    res_df['Chênh lệch  '] = res_df.apply(lambda r: 0 if r['KL Nhập kho 031'] == 0 else r['Khối lượng net theo PL'] - r['KL Nhập kho 031'], axis=1)
+        if header_end_row > header_row:
+            for r_sub in range(header_row + 1, header_end_row + 1):
+                c_sub = ws.cell(row=r_sub, column=col_idx)
+                c_sub.fill = yellow_fill
+                c_sub.border = border_thin
+            ws.merge_cells(
+                start_row=header_row,
+                start_column=col_idx,
+                end_row=header_end_row,
+                end_column=col_idx,
+            )
 
-    res_df['KL Nhập kho 03G-3H'] = ma_hoa.map(lambda x: opm_03g_po.get(x, 0) - abs(opm_03g_rtv.get(x, 0)))
-    res_df['Chênh lệch   '] = res_df['Khối lượng net theo PL'] - res_df['KL Nhập kho 03G-3H']
+    # Bộ đếm tổng cho dòng Tổng cộng
+    sum_cols = {16: 0.0, 17: 0.0, 18: 0.0, 21: 0.0, 24: 0.0, 28: 0.0, 29: 0.0, 30: 0.0, 31: 0.0, 32: 0.0, 33: 0.0}
 
-    return res_df
+    # 7. Tính toán và ghi dữ liệu đối chiếu cho từng dòng cuộn thép
+    for r in data_rows:
+        ma_cuon = clean_str_code(ws.cell(row=r, column=4).value).upper()
+        phieu_can_bbnt = clean_str_code(ws.cell(row=r, column=5).value)
+        net_ct = to_float(ws.cell(row=r, column=8).value, 0.0)
+        gross_ct = to_float(ws.cell(row=r, column=9).value, 0.0)
+        can_ban = to_float(ws.cell(row=r, column=10).value, 0.0)
+        dsai_bbnt = to_float(ws.cell(row=r, column=12).value, 0.0)
+
+        ma_hoa = ma_cuon + 'A'
+        nhap_xuat = dict_tc_phanloai.get(phieu_can_bbnt, 'Nhập hàng')
+        kl_net_pl = float(dict_pl.get(ma_hoa, 0.0))
+        doi_chieu_pl = net_ct - kl_net_pl
+
+        kl_bv = float(to_float(dict_bv_kl_sheet.get(ma_cuon, 0.0), 0.0))
+        phieu_bv = str(dict_bv_p_sheet.get(ma_cuon, ''))
+        dc_phieu = (phieu_can_bbnt == phieu_bv)
+
+        kl_tc = float(to_float(dict_tc_kl.get(phieu_bv, 0.0), 0.0))
+        dc_tc_bv = (kl_tc == kl_bv)
+        dc_tc_bbnt = (kl_tc == can_ban)
+
+        chenh_lech_kg = kl_tc - gross_ct
+        chenh_lech_dsai = (chenh_lech_kg / gross_ct) if gross_ct != 0 else 0.0
+        dc_dsai = (round(chenh_lech_dsai, 6) == round(dsai_bbnt, 6))
+        so_quy_dinh = 'VUOT DUNG SAI' if abs(chenh_lech_dsai) > 0.003 else 'OK'
+
+        kl_035 = float(opm_035_po.get(ma_hoa, 0.0) - abs(opm_035_rtv.get(ma_hoa, 0.0)))
+        cl_035 = kl_net_pl - kl_035
+
+        kl_031 = float(opm_031.get(ma_hoa, 0.0))
+        cl_031 = 0.0 if kl_031 == 0 else (kl_net_pl - kl_031)
+
+        kl_03g = float(opm_03g_po.get(ma_hoa, 0.0) - abs(opm_03g_rtv.get(ma_hoa, 0.0)))
+        cl_03g = kl_net_pl - kl_03g
+
+        row_values = [
+            nhap_xuat,        # 14 (N)
+            ma_hoa,           # 15 (O)
+            kl_net_pl,        # 16 (P)
+            doi_chieu_pl,     # 17 (Q)
+            kl_bv,            # 18 (R)
+            phieu_bv,         # 19 (S)
+            dc_phieu,         # 20 (T)
+            kl_tc,            # 21 (U)
+            dc_tc_bv,         # 22 (V)
+            dc_tc_bbnt,       # 23 (W)
+            chenh_lech_kg,    # 24 (X)
+            chenh_lech_dsai,  # 25 (Y)
+            dc_dsai,          # 26 (Z)
+            so_quy_dinh,      # 27 (AA)
+            kl_035,           # 28 (AB)
+            cl_035,           # 29 (AC)
+            kl_031,           # 30 (AD)
+            cl_031,           # 31 (AE)
+            kl_03g,           # 32 (AF)
+            cl_03g,           # 33 (AG)
+        ]
+
+        for idx, val in enumerate(row_values):
+            col_idx = start_col + idx
+            cell = ws.cell(row=r, column=col_idx, value=val)
+            cell.font = font_data
+            cell.border = border_thin
+
+            # Căn lề & Định dạng số
+            if col_idx in sum_cols:
+                cell.alignment = align_right
+                cell.number_format = '#,##0'
+                sum_cols[col_idx] += float(val)
+            elif col_idx == 25:  # Chênh lệch dung sai (%)
+                cell.alignment = align_right
+                cell.number_format = '0.00%'
+            else:
+                cell.alignment = align_center
+
+            # Kiểm tra điều kiện tô đỏ ô sai phạm
+            is_error = False
+            if col_idx in [20, 22, 23, 26] and val is False:
+                is_error = True
+            elif col_idx == 27 and str(val).strip() == 'VUOT DUNG SAI':
+                is_error = True
+            elif col_idx in [17, 29] and isinstance(val, (int, float)) and val != 0:
+                is_error = True
+
+            if is_error:
+                cell.fill = red_fill
+                cell.font = font_error
+
+    # 8. Ghi dòng Tổng cộng (nếu có trong BBNT gốc)
+    if total_row is not None:
+        for idx in range(len(extra_headers)):
+            col_idx = start_col + idx
+            cell = ws.cell(row=total_row, column=col_idx)
+            cell.border = border_thin
+            cell.font = font_total
+            if col_idx in sum_cols:
+                cell.value = sum_cols[col_idx]
+                cell.alignment = align_right
+                cell.number_format = '#,##0'
+
+    # 9. Căn chỉnh độ rộng các cột đối chiếu từ N trở đi cho đẹp
+    col_widths = {
+        14: 14, 15: 16, 16: 18, 17: 12, 18: 16, 19: 14, 20: 16,
+        21: 16, 22: 18, 23: 18, 24: 14, 25: 14, 26: 15, 27: 18,
+        28: 15, 29: 12, 30: 15, 31: 12, 32: 15, 33: 12,
+    }
+    for col_idx, width in col_widths.items():
+        col_letter = get_column_letter(col_idx)
+        ws.column_dimensions[col_letter].width = width
 
 
 # -------------------------------------------------------------
@@ -322,7 +531,7 @@ Thời gian: 1 tháng cần kiểm tra
             st.warning("⚠️ Vui lòng chọn ít nhất 1 sheet ở khung bên trái để bắt đầu đối chiếu.")
         else:
             if st.button('🚀 Bắt đầu đối chiếu tự động', use_container_width=True):
-                with st.spinner(f'Đang đối soát {len(selected_sheets)} sheet dữ liệu và định dạng màu...'):
+                with st.spinner(f'Đang đối soát {len(selected_sheets)} sheet dữ liệu và giữ nguyên bố cục BBNT...'):
                     try:
                         # 1. QUÉT DỮ LIỆU BẢO VỆ
                         bv_raw_list = []
@@ -359,7 +568,7 @@ Thời gian: 1 tháng cần kiểm tra
                             except Exception:
                                 dict_tc_kl, dict_tc_phanloai = {}, {}
 
-                        # 3. QUÉT DỮ LIỆU ERP OPM 105 (Đồng nhất tên biến)
+                        # 3. QUÉT DỮ LIỆU ERP OPM 105
                         opm_035_po, opm_035_rtv, opm_031, opm_03g_po, opm_03g_rtv = {}, {}, {}, {}, {}
                         if f_opm is not None:
                             try:
@@ -396,79 +605,42 @@ Thời gian: 1 tháng cần kiểm tra
                             except Exception:
                                 pl_sheet_names = []
 
-                        # 5. TIẾN HÀNH XỬ LÝ VÀ GHI TỪNG SHEET VÀO EXCEL
-                        output = io.BytesIO()
-                        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                            for s_name in selected_sheets:
+                        # 5. MỞ TRỰC TIẾP FILE BBNT GỐC BẰNG OPENPYXL (data_only=True ĐỂ LẤY GIÁ TRỊ TĨNH & GIỮ NGUYÊN BỐ CỤC)
+                        f_bbnt.seek(0)
+                        wb = openpyxl.load_workbook(f_bbnt, data_only=True)
+
+                        # Loại bỏ các sheet không được chọn
+                        for s in list(wb.sheetnames):
+                            if s not in selected_sheets:
+                                del wb[s]
+
+                        # Ghi dữ liệu đối chiếu trực tiếp vào từng sheet đã chọn
+                        for s_name in selected_sheets:
+                            if s_name in wb.sheetnames:
+                                ws = wb[s_name]
                                 matched_pl = next((p for p in pl_sheet_names if p.strip().upper() == s_name.strip().upper()), None)
-                                
-                                f_bbnt.seek(0)
-                                df_temp = read_auto_header(f_bbnt, ['MÃ SỐ CUỘN', 'MÃ CUỘN'], sheet_name=s_name)
-                                col_c_temp = next((c for c in df_temp.columns if 'CUỘN' in str(c).upper()), df_temp.columns[3])
-                                cuon_list = df_temp[col_c_temp].dropna().astype(str).str.replace(r'\.0$', '', regex=True).str.strip().str.upper().tolist()
+                                # Nếu không trùng tên tuyệt đối mà file Packing List chỉ có 1 sheet thì lấy luôn sheet đó
+                                if matched_pl is None and len(pl_sheet_names) == 1:
+                                    matched_pl = pl_sheet_names[0]
 
-                                dict_bv_p_sheet = {}
-                                dict_bv_kl_sheet = {}
-                                if bv_raw_list:
-                                    for txt, p, kl in bv_raw_list:
-                                        for m in cuon_list:
-                                            if m in txt and m not in dict_bv_p_sheet:
-                                                dict_bv_p_sheet[m] = p
-                                                dict_bv_kl_sheet[m] = kl
-
-                                res_df = doi_chieu_mot_sheet(
-                                    f_bbnt, s_name, f_pl, matched_pl,
-                                    dict_tc_kl, dict_tc_phanloai,
-                                    dict_bv_p_sheet, dict_bv_kl_sheet,
-                                    opm_035_po, opm_035_rtv, opm_031, opm_03g_po, opm_03g_rtv
+                                ghi_doi_chieu_vao_worksheet(
+                                    ws,
+                                    f_pl,
+                                    matched_pl,
+                                    bv_raw_list,
+                                    dict_tc_kl,
+                                    dict_tc_phanloai,
+                                    opm_035_po,
+                                    opm_035_rtv,
+                                    opm_031,
+                                    opm_03g_po,
+                                    opm_03g_rtv,
                                 )
 
-                                clean_sname = re.sub(r'[\\/*?:\[\]]', '_', s_name)[:31]
-                                res_df.to_excel(writer, index=False, sheet_name=clean_sname)
-                                ws = writer.sheets[clean_sname]
+                        output = io.BytesIO()
+                        wb.save(output)
 
-                                # Định dạng màu
-                                yellow_fill = PatternFill(start_color='FFFFFF00', end_color='FFFFFF00', fill_type='solid')
-                                red_fill = PatternFill(start_color='FFFFC7CE', end_color='FFFFC7CE', fill_type='solid')
-                                red_font = Font(color='9C0006', bold=True)
-                                border_thin = Border(
-                                    left=Side(style='thin', color='D9D9D9'),
-                                    right=Side(style='thin', color='D9D9D9'),
-                                    top=Side(style='thin', color='D9D9D9'),
-                                    bottom=Side(style='thin', color='D9D9D9'),
-                                )
-
-                                for c in range(14, len(res_df.columns) + 1):
-                                    cell = ws.cell(row=1, column=c)
-                                    cell.fill = yellow_fill
-                                    cell.font = Font(bold=True)
-
-                                col_names = list(res_df.columns)
-                                for r_idx in range(2, len(res_df) + 2):
-                                    for c_idx in range(1, len(col_names) + 1):
-                                        cell = ws.cell(row=r_idx, column=c_idx)
-                                        c_name = col_names[c_idx - 1]
-                                        val = cell.value
-                                        cell.border = border_thin
-                                        is_error = False
-
-                                        if c_name in [
-                                            'Đối chiếu số phiếu cân',
-                                            'Đối chiếu KL TC & KL BCBV',
-                                            'Đối chiếu KL TC & KL BBNT',
-                                            'Đối chiếu dung sai',
-                                        ] and val is False:
-                                            is_error = True
-                                        elif c_name == 'So với quy định ( >+-0.3%)' and str(val).strip() == 'VUOT DUNG SAI':
-                                            is_error = True
-                                        elif c_name in ['Đối chiếu', 'Chênh lệch '] and isinstance(val, (int, float)) and val != 0:
-                                            is_error = True
-
-                                        if is_error:
-                                            cell.fill = red_fill
-                                            cell.font = red_font
-
-                        st.success(f'✅ Đã đối soát thành công {len(selected_sheets)} sheet đã chọn!')
+                        st.success(f'✅ Đã đối soát thành công {len(selected_sheets)} sheet và giữ nguyên biểu mẫu BBNT!')
                         st.download_button(
                             f'📥 Tải File Kết Quả Nghiệm Thu ({len(selected_sheets)} Sheet)',
                             data=output.getvalue(),
@@ -483,6 +655,3 @@ Thời gian: 1 tháng cần kiểm tra
 
 
 doi_chieu_hrc_tung_file()
-
-
-
