@@ -7,7 +7,7 @@ import pandas as pd
 import streamlit as st
 
 # -------------------------------------------------------------
-# CẤU HÌNH GIAO DIỆN CHUẨN DASHBOARD KIỂM SOÁT NỘI BỘ
+# CẤU HÌNH GIAO DIỆN PHONG CÁCH APPLE MINIMALIST PASTEL
 # -------------------------------------------------------------
 st.set_page_config(
     page_title='Kiểm soát nội bộ - Đối Chiếu Nghiệm Thu HRC',
@@ -18,239 +18,220 @@ st.set_page_config(
 st.markdown(
     """
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
 
     /* Ẩn sidebar mặc định */
     [data-testid="stSidebar"] { display: none !important; }
     [data-testid="collapsedControl"] { display: none !important; }
 
-    /* Nền trang & Font chữ */
+    /* Nền trang sáng sủa, tinh tế */
     .stApp {
-        background-color: #f8fafc;
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background-color: #f4f6f9;
+        font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
         color: #1e293b;
     }
 
     .block-container {
-        padding-top: 1.2rem !important;
+        padding-top: 1.5rem !important;
         padding-bottom: 3rem !important;
-        max-width: 98% !important;
+        max-width: 96% !important;
     }
 
-    /* Header giống mẫu KSNB */
-    .ksnb-dept-sub {
+    /* Tiêu đề phong cách Apple */
+    .apple-dept {
         font-size: 11.5px;
-        font-weight: 600;
-        color: #64748b;
+        font-weight: 700;
+        color: #8b5cf6;
         text-transform: uppercase;
-        letter-spacing: 0.04em;
-        margin-bottom: 2px;
+        letter-spacing: 0.08em;
+        margin-bottom: 4px;
     }
-    .ksnb-main-title {
-        font-size: 26px;
+    .apple-title {
+        font-size: 28px;
         font-weight: 700;
         color: #0f172a;
-        margin: 0 0 12px 0;
-        letter-spacing: -0.015em;
+        margin: 0 0 14px 0;
+        letter-spacing: -0.02em;
     }
 
-    /* Thanh Pill thông tin phiên kiểm tra */
-    .session-pill {
+    /* Thẻ Pill trạng thái bo tròn mượt mà */
+    .apple-pill {
         display: inline-flex;
         align-items: center;
-        background-color: #f0fdf4;
-        border: 1px solid #bbf7d0;
-        color: #166534;
-        padding: 6px 14px;
+        background: #ede9fe;
+        border: 1px solid #ddd6fe;
+        color: #6d28d9;
+        padding: 6px 16px;
         border-radius: 999px;
         font-size: 13px;
         font-weight: 600;
     }
 
-    /* Dòng thông tin tổng hợp (Meta row) */
-    .ksnb-meta-bar {
+    /* Thanh Meta bar */
+    .apple-meta {
+        background: #ffffff;
+        border-radius: 14px;
+        padding: 12px 20px;
         font-size: 13px;
         color: #475569;
-        padding: 10px 0 12px 0;
-        border-bottom: 1px solid #e2e8f0;
-        margin-bottom: 14px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.01);
+        margin-bottom: 18px;
         line-height: 1.6;
     }
-    .ksnb-meta-bar b {
+    .apple-meta b {
         color: #0f172a;
-        font-weight: 600;
     }
 
-    /* Hộp ghi chú hướng dẫn nằm ngay trên từng ô nạp file */
-    .upload-section-title {
+    /* Hộp hướng dẫn nạp file bo tròn */
+    .upload-box-title {
         font-size: 16px;
         font-weight: 700;
         color: #0f172a;
         margin-bottom: 12px;
-        padding-bottom: 8px;
-        border-bottom: 1px solid #f1f5f9;
     }
-    .guide-box {
-        background: #f8fafc;
-        border-radius: 8px;
-        padding: 10px 14px;
+    .guide-card {
+        background: #faf5ff;
+        border-radius: 12px;
+        padding: 12px 16px;
         margin-top: 10px;
-        margin-bottom: 6px;
-        border: 1px solid #e2e8f0;
-        border-left: 3.5px solid #2563eb;
+        margin-bottom: 8px;
+        border: 1px solid #f3e8ff;
+        border-left: 4px solid #8b5cf6;
     }
-    .guide-header {
+    .guide-card-head {
         font-weight: 700;
-        color: #1d4ed8;
+        color: #7c3aed;
         font-size: 13px;
-        margin-bottom: 3px;
+        margin-bottom: 4px;
     }
-    .guide-text {
+    .guide-card-txt {
         font-size: 12.5px;
-        color: #475569;
+        color: #581c87;
         line-height: 1.5;
         margin: 0;
     }
 
-    /* Thẻ KPI 3 cột giống mẫu */
-    .kpi-grid {
+    /* Thẻ KPI 3 cột bo tròn kiểu Apple */
+    .kpi-grid-apple {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
-        gap: 16px;
-        margin: 14px 0 20px 0;
+        gap: 18px;
+        margin: 16px 0 22px 0;
     }
-    .kpi-card {
+    .kpi-apple-card {
         background: #ffffff;
         border: 1px solid #e2e8f0;
-        border-radius: 10px;
-        padding: 16px 20px;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+        border-radius: 16px;
+        padding: 20px 24px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.02);
+        transition: transform 0.2s ease;
     }
-    .kpi-card.amber { border-left: 4px solid #d97706; }
-    .kpi-card.red   { border-left: 4px solid #dc2626; }
-    .kpi-card.green { border-left: 4px solid #16a34a; }
+    .kpi-apple-card.amber { border-top: 4px solid #f59e0b; }
+    .kpi-apple-card.red   { border-top: 4px solid #ef4444; }
+    .kpi-apple-card.green { border-top: 4px solid #10b981; }
 
-    .kpi-title {
+    .kpi-apple-title {
         font-size: 11.5px;
-        font-weight: 600;
+        font-weight: 700;
         color: #64748b;
         text-transform: uppercase;
-        margin-bottom: 6px;
+        letter-spacing: 0.05em;
+        margin-bottom: 8px;
     }
-    .kpi-value {
-        font-size: 28px;
+    .kpi-apple-val {
+        font-size: 30px;
         font-weight: 700;
-        line-height: 1.2;
-        margin-bottom: 6px;
+        line-height: 1.1;
+        margin-bottom: 8px;
     }
-    .kpi-value.amber { color: #d97706; }
-    .kpi-value.red   { color: #dc2626; }
-    .kpi-value.green { color: #16a34a; }
-    .kpi-sub {
-        font-size: 12.5px;
+    .kpi-apple-val.amber { color: #d97706; }
+    .kpi-apple-val.red   { color: #dc2626; }
+    .kpi-apple-val.green { color: #059669; }
+    .kpi-apple-sub {
+        font-size: 13px;
         color: #475569;
     }
 
-    /* Khung Nhận xét tự động giống mẫu */
-    .auto-remark-container {
+    /* Khung Nhận xét tự động */
+    .remark-apple-container {
         background: #ffffff;
         border: 1px solid #e2e8f0;
-        border-radius: 10px;
-        padding: 18px 20px;
-        margin-bottom: 20px;
+        border-radius: 16px;
+        padding: 20px 24px;
+        margin-bottom: 22px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.02);
     }
-    .auto-remark-header {
+    .remark-apple-head {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        font-size: 14px;
+        font-size: 15px;
         font-weight: 700;
         color: #0f172a;
-        margin-bottom: 12px;
+        margin-bottom: 14px;
     }
-    .remark-row {
-        padding: 10px 14px;
-        border-radius: 6px;
-        font-size: 13px;
-        line-height: 1.55;
-        margin-bottom: 8px;
+    .remark-apple-row {
+        padding: 12px 16px;
+        border-radius: 10px;
+        font-size: 13.5px;
+        line-height: 1.6;
+        margin-bottom: 10px;
         display: flex;
         align-items: flex-start;
-        gap: 10px;
+        gap: 12px;
     }
-    .remark-row.info {
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
-        color: #1e293b;
-    }
-    .remark-row.danger {
-        background: #fff5f5;
-        border: 1px solid #fed7d7;
-        color: #7f1d1d;
-    }
-    .remark-row.warn {
-        background: #fffbeb;
-        border: 1px solid #fde68a;
-        color: #78350f;
-    }
-    .remark-row.success {
-        background: #f0fdf4;
-        border: 1px solid #bbf7d0;
-        color: #14532d;
-    }
+    .remark-apple-row.info { background: #f8fafc; border: 1px solid #e2e8f0; color: #1e293b; }
+    .remark-apple-row.danger { background: #fef2f2; border: 1px solid #fecaca; color: #7f1d1d; }
+    .remark-apple-row.warn { background: #fffbeb; border: 1px solid #fde68a; color: #78350f; }
+    .remark-apple-row.success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #14532d; }
 
-    /* Nút bấm chuẩn KSNB */
+    /* Nút bấm Apple Pastel Style */
     div.stButton > button:first-child {
         background: #ffffff !important;
-        color: #1e293b !important;
+        color: #334155 !important;
         border: 1px solid #cbd5e1 !important;
-        border-radius: 6px !important;
-        padding: 6px 14px !important;
+        border-radius: 10px !important;
+        padding: 8px 16px !important;
         font-weight: 600 !important;
-        font-size: 13px !important;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.03) !important;
+        font-size: 13.5px !important;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.02) !important;
     }
     div.stButton > button:first-child:hover {
-        background: #f1f5f9 !important;
+        background: #f8fafc !important;
         border-color: #94a3b8 !important;
+        color: #0f172a !important;
     }
-    /* Nút Primary (Nạp file / Chạy đối chiếu) */
+    /* Nút Primary (Tím pastel Apple) */
     div.stButton > button[kind="primary"] {
-        background: #1d4ed8 !important;
+        background: #7c3aed !important;
         color: #ffffff !important;
-        border: 1px solid #1e40af !important;
+        border: 1px solid #6d28d9 !important;
     }
     div.stButton > button[kind="primary"]:hover {
-        background: #1e40af !important;
+        background: #6d28d9 !important;
     }
 
     /* Nút Download nổi bật */
     div.stDownloadButton > button:first-child {
-        background: #991b1b !important;
+        background: #dc2626 !important;
         color: #ffffff !important;
-        border: 1px solid #7f1d1d !important;
-        border-radius: 6px !important;
-        padding: 6px 14px !important;
+        border: none !important;
+        border-radius: 10px !important;
+        padding: 8px 16px !important;
         font-weight: 600 !important;
-        font-size: 13px !important;
+        font-size: 13.5px !important;
     }
     div.stDownloadButton > button:first-child:hover {
-        background: #7f1d1d !important;
+        background: #b91c1c !important;
     }
 
-    /* Tinh chỉnh thanh Tabs ngang */
-    button[data-baseweb="tab"] {
-        font-size: 13px !important;
-        font-weight: 600 !important;
-        padding: 8px 14px !important;
-    }
-
-    /* Container có viền */
+    /* Container bo tròn */
     [data-testid="stVerticalBlockBorderWrapper"] {
         background: #ffffff;
-        border-radius: 10px;
+        border-radius: 16px;
         border: 1px solid #e2e8f0;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+        box-shadow: 0 4px 16px rgba(0,0,0,0.02);
     }
 </style>
 """,
@@ -259,10 +240,9 @@ st.markdown(
 
 
 # -------------------------------------------------------------
-# CÁC HÀM XỬ LÝ DỮ LIỆU TỰ ĐỘNG (GIỮ NGUYÊN LOGIC CHUẨN CỦA BẠN)
+# CÁC HÀM XỬ LÝ DỮ LIỆU TỰ ĐỘNG (GIỮ NGUYÊN LOGIC CHUẨN)
 # -------------------------------------------------------------
 def read_auto_header(file_obj, keywords, sheet_name=0, max_scan=25, match_all=False):
-    """Tự động tìm dòng header thực tế dựa trên danh sách từ khóa."""
     file_obj.seek(0)
     df_raw = pd.read_excel(file_obj, sheet_name=sheet_name, header=None, nrows=max_scan)
     header_idx = 0
@@ -282,7 +262,6 @@ def read_auto_header(file_obj, keywords, sheet_name=0, max_scan=25, match_all=Fa
 
 
 def to_float(val, default=0.0):
-    """Chuyển đổi giá trị ô Excel sang số thực an toàn."""
     if val is None or val == "":
         return default
     try:
@@ -292,7 +271,6 @@ def to_float(val, default=0.0):
 
 
 def clean_str_code(val):
-    """Làm sạch mã cuộn / số phiếu cân (bỏ đuôi .0 và khoảng trắng)."""
     if val is None:
         return ""
     s = str(val).strip()
@@ -301,7 +279,6 @@ def clean_str_code(val):
 
 
 def normalize_sheet_key(name):
-    """Chuẩn hóa tên sheet để bắt cặp tự động chính xác giữa BBNT và Packing List."""
     s = str(name).upper()
     s = re.sub(r'\b(BBNT|PACKING LIST|PACKINGLIST|PL|BC|BAO CAO)\b', '', s)
     s = re.sub(r'[^A-Z0-9]', '', s)
@@ -309,7 +286,6 @@ def normalize_sheet_key(name):
 
 
 def match_pl_sheet(bbnt_sheet_name, pl_sheet_names):
-    """Tìm sheet Packing List khớp với sheet BBNT."""
     if not pl_sheet_names:
         return None
     exact = next((p for p in pl_sheet_names if p.strip().upper() == bbnt_sheet_name.strip().upper()), None)
@@ -345,12 +321,6 @@ def ghi_va_kiem_tra_worksheet(
     opm_03g_po,
     opm_03g_rtv,
 ):
-    """
-    - Giữ nguyên 100% số liệu & bố cục BBNT gốc (Cột A -> M).
-    - Kiểm tra nội bộ BBNT gốc (định dạng Text làm sai hàm SUM, sai phép trừ K=J-I, sai dòng Tổng cộng) và tô đỏ cảnh báo.
-    - Ghi 19 cột đối chiếu rõ nghĩa từ Cột N (14) đến Cột AF (32), tự động Unhide mọi cột.
-    - Trả về dữ liệu chi tiết từng cuộn và từng nhóm lỗi để xử lý trực tiếp trên Web.
-    """
     header_row = 8
     for r in range(1, 20):
         row_vals = [str(ws.cell(row=r, column=c).value or '').upper() for c in range(1, 14)]
@@ -408,25 +378,25 @@ def ghi_va_kiem_tra_worksheet(
             dict_pl = {}
 
     extra_headers = [
-        'Loại phiếu trạm cân\n(Nhập/Xuất)',                  # 14 (N)
-        'Khối lượng Net\ntheo Packing List',                 # 15 (O)
-        'Chênh lệch KL Net\n(BBNT - Packing List)',          # 16 (P)
-        'Khối lượng theo\nBáo cáo Bảo vệ',                   # 17 (Q)
-        'Số phiếu cân theo\nBáo cáo Bảo vệ',                 # 18 (R)
-        'Khớp Số phiếu cân\n(BBNT & Bảo vệ)',                # 19 (S)
-        'Khối lượng theo\nDữ liệu Trạm cân',                 # 20 (T)
-        'Khớp Khối lượng\n(Trạm cân & Bảo vệ)',              # 21 (U)
-        'Khớp Khối lượng\n(Trạm cân & BBNT)',                # 22 (V)
-        'Chênh lệch KL (kg)\n(Trạm cân - Gross BBNT)',       # 23 (W)
-        'Tỷ lệ chênh lệch\ndung sai (%)',                    # 24 (X)
-        'Khớp Tỷ lệ dung sai\nvới BBNT',                     # 25 (Y)
-        'Đánh giá dung sai\n(Quy định ±0.3%)',               # 26 (Z)
-        'KL Nhập kho 035\n(ERP OPM105)',                     # 27 (AA)
-        'Chênh lệch KL Kho 035\n(PL - Kho 035)',             # 28 (AB)
-        'KL Nhập kho 031\n(Intransit)',                      # 29 (AC)
-        'Chênh lệch KL Kho 031\n(PL - Kho 031)',             # 30 (AD)
-        'KL Nhập kho 03G-3H\n(ERP OPM105)',                  # 31 (AE)
-        'Chênh lệch KL Kho 03G-3H\n(PL - Kho 03G-3H)',       # 32 (AF)
+        'Loại phiếu trạm cân\n(Nhập/Xuất)',
+        'Khối lượng Net\ntheo Packing List',
+        'Chênh lệch KL Net\n(BBNT - Packing List)',
+        'Khối lượng theo\nBáo cáo Bảo vệ',
+        'Số phiếu cân theo\nBáo cáo Bảo vệ',
+        'Khớp Số phiếu cân\n(BBNT & Bảo vệ)',
+        'Khối lượng theo\nDữ liệu Trạm cân',
+        'Khớp Khối lượng\n(Trạm cân & Bảo vệ)',
+        'Khớp Khối lượng\n(Trạm cân & BBNT)',
+        'Chênh lệch KL (kg)\n(Trạm cân - Gross BBNT)',
+        'Tỷ lệ chênh lệch\ndung sai (%)',
+        'Khớp Tỷ lệ dung sai\nvới BBNT',
+        'Đánh giá dung sai\n(Quy định ±0.3%)',
+        'KL Nhập kho 035\n(ERP OPM105)',
+        'Chênh lệch KL Kho 035\n(PL - Kho 035)',
+        'KL Nhập kho 031\n(Intransit)',
+        'Chênh lệch KL Kho 031\n(PL - Kho 031)',
+        'KL Nhập kho 03G-3H\n(ERP OPM105)',
+        'Chênh lệch KL Kho 03G-3H\n(PL - Kho 03G-3H)',
     ]
 
     font_header = Font(name='Times New Roman', size=11, bold=True, color='000000')
@@ -447,7 +417,7 @@ def ghi_va_kiem_tra_worksheet(
     align_center = Alignment(horizontal='center', vertical='center', wrap_text=True)
     align_right = Alignment(horizontal='right', vertical='center')
 
-    start_col = 14  # Cột N
+    start_col = 14
 
     merges_to_remove = [m for m in ws.merged_cells.ranges if m.min_col >= start_col]
     for m in merges_to_remove:
@@ -490,7 +460,6 @@ def ghi_va_kiem_tra_worksheet(
         romoc = ws.cell(row=r, column=7).value
         ghi_chu_bbnt = ws.cell(row=r, column=13).value
 
-        # Kiểm tra định dạng Text trên các cột khối lượng của BBNT gốc (H, I, J, K)
         for c_b, c_label in [
             (8, 'Cột H (KL Net chứng từ)'),
             (9, 'Cột I (KL Gross chứng từ)'),
@@ -525,7 +494,6 @@ def ghi_va_kiem_tra_worksheet(
         actual_bbnt_sums[10] += can_ban
         actual_bbnt_sums[11] += cl_kg_bbnt
 
-        # Kiểm tra phép trừ nội bộ trên BBNT gốc: Cột K = Cột J - Cột I
         expected_cl_kg = can_ban - gross_ct
         if round(cl_kg_bbnt, 2) != round(expected_cl_kg, 2):
             ws.cell(row=r, column=11).fill = red_fill
@@ -542,7 +510,6 @@ def ghi_va_kiem_tra_worksheet(
                 'Lý do / Giải trình trường hợp': '',
             })
 
-        # Tính toán các cột đối chiếu (Cột N -> AF)
         ma_hoa = ma_cuon + 'A'
         nhap_xuat = dict_tc_phanloai.get(phieu_can_bbnt, 'Nhập hàng')
         kl_net_pl = float(dict_pl.get(ma_hoa, 0.0))
@@ -571,25 +538,9 @@ def ghi_va_kiem_tra_worksheet(
         cl_03g = kl_net_pl - kl_03g
 
         row_values = [
-            nhap_xuat,        # 14 (N)
-            kl_net_pl,        # 15 (O)
-            doi_chieu_pl,     # 16 (P)
-            kl_bv,            # 17 (Q)
-            phieu_bv,         # 18 (R)
-            dc_phieu,         # 19 (S)
-            kl_tc,            # 20 (T)
-            dc_tc_bv,         # 21 (U)
-            dc_tc_bbnt,       # 22 (V)
-            chenh_lech_kg,    # 23 (W)
-            chenh_lech_dsai,  # 24 (X)
-            dc_dsai,          # 25 (Y)
-            so_quy_dinh,      # 26 (Z)
-            kl_035,           # 27 (AA)
-            cl_035,           # 28 (AB)
-            kl_031,           # 29 (AC)
-            cl_031,           # 30 (AD)
-            kl_03g,           # 31 (AE)
-            cl_03g,           # 32 (AF)
+            nhap_xuat, kl_net_pl, doi_chieu_pl, kl_bv, phieu_bv, dc_phieu,
+            kl_tc, dc_tc_bv, dc_tc_bbnt, chenh_lech_kg, chenh_lech_dsai, dc_dsai,
+            so_quy_dinh, kl_035, cl_035, kl_031, cl_031, kl_03g, cl_03g,
         ]
 
         for idx, val in enumerate(row_values):
@@ -620,7 +571,6 @@ def ghi_va_kiem_tra_worksheet(
                 cell.fill = red_fill
                 cell.font = font_error
 
-        # Phân loại nhóm lỗi chi tiết để đưa lên các Tab xử lý trực tiếp trên Web
         err_reasons = []
         err_depts = []
         has_kl_ds_err = False
@@ -670,7 +620,6 @@ def ghi_va_kiem_tra_worksheet(
 
         status_text = 'OK' if not err_reasons else 'CÓ SAI LỆCH'
 
-        # Lưu dòng đầy đủ 32 cột để tra cứu trực tiếp trên Web
         full_web_rows.append({
             'Sheet': s_name,
             'Dòng Excel': r,
@@ -743,7 +692,6 @@ def ghi_va_kiem_tra_worksheet(
                 'has_erp_err': has_erp_err,
             })
 
-    # Kiểm tra dòng Tổng cộng trên BBNT gốc
     if total_row is not None:
         for c_b, c_label in [
             (8, 'Cột H (Tổng KL Net chứng từ)'),
@@ -765,7 +713,7 @@ def ghi_va_kiem_tra_worksheet(
                     'Loại lỗi trên BBNT gốc': f'Cộng sai dòng Tổng cộng tại {c_label}',
                     'Giá trị trên BBNT': f'{orig_total:,.0f}',
                     'Giá trị đúng': f'{true_total:,.0f} (Lệch {diff_tot:+,.0f} kg)',
-                    'Đơn vị cần làm việc': 'Đơn vị lập BBNT (Kiểm tra công thức SUM)',
+                    'Đơn vị cần làm việc': 'Đơn vị lập BBNT',
                     'Trạng thái xử lý': 'Chưa xử lý',
                     'Lý do / Giải trình trường hợp': '',
                 })
@@ -780,19 +728,13 @@ def ghi_va_kiem_tra_worksheet(
                 cell.alignment = align_right
                 cell.number_format = '#,##0'
 
-    # Unhide toàn bộ cột
     for c_i in range(1, start_col + len(extra_headers) + 2):
         col_let = get_column_letter(c_i)
         ws.column_dimensions[col_let].hidden = False
 
-    col_widths = {
-        14: 16, 15: 18, 16: 18, 17: 18, 18: 18, 19: 18,
-        20: 18, 21: 18, 22: 18, 23: 18, 24: 16, 25: 18,
-        26: 18, 27: 16, 28: 18, 29: 16, 30: 18, 31: 16, 32: 18,
-    }
-    for col_idx, width in col_widths.items():
-        col_letter = get_column_letter(col_idx)
-        ws.column_dimensions[col_letter].width = width
+    # Đánh giá phân loại sheet dựa trên số lượng lỗi
+    total_sheet_errs = len(coil_error_records) + len(bbnt_internal_errors)
+    sheet_evaluation = "✅ An toàn (Đạt chuẩn)" if total_sheet_errs == 0 else ("⚠️ Cần lưu ý" if total_sheet_errs <= 3 else "🔴 Cần xử lý gấp")
 
     return {
         'sheet_name': s_name,
@@ -809,11 +751,11 @@ def ghi_va_kiem_tra_worksheet(
         'bbnt_internal_errors': bbnt_internal_errors,
         'coil_error_records': coil_error_records,
         'full_web_rows': full_web_rows,
+        'sheet_evaluation': sheet_evaluation,
     }
 
 
 def xuat_file_bao_cao_giai_trinh(df_coil_Action, df_form_Action, general_conclusion):
-    """Xuất file Excel tổng hợp các trường hợp sai lệch kèm Lý do / Giải trình đã nhập trên Web."""
     out = io.BytesIO()
     with pd.ExcelWriter(out, engine='openpyxl') as writer:
         if not df_coil_Action.empty:
@@ -825,7 +767,7 @@ def xuat_file_bao_cao_giai_trinh(df_coil_Action, df_form_Action, general_conclus
         if not df_form_Action.empty:
             df_form_Action.to_excel(writer, sheet_name='2_Loi_Bieu_Mau_BBNT', index=False)
         else:
-            pd.DataFrame({'Thông báo': ['Biểu mẫu BBNT gốc không có lỗi công thức/định dạng']}).to_excel(writer, sheet_name='2_Loi_Bieu_Mau_BBNT', index=False)
+            pd.DataFrame({'Thông báo': ['Biểu mẫu BBNT gốc không có lỗi']}).to_excel(writer, sheet_name='2_Loi_Bieu_Mau_BBNT', index=False)
 
         pd.DataFrame({
             'Nội dung Kết luận & Kiến nghị Kiểm soát nội bộ': [general_conclusion]
@@ -834,22 +776,20 @@ def xuat_file_bao_cao_giai_trinh(df_coil_Action, df_form_Action, general_conclus
 
 
 # -------------------------------------------------------------
-# CHỨC NĂNG CHÍNH & GIAO DIỆN XỬ LÝ TRỰC TIẾP TRÊN WEB
+# CHỨC NĂNG CHÍNH & GIAO DIỆN APPLE MINIMALIST PASTEL
 # -------------------------------------------------------------
 def doi_chieu_hrc_tung_file():
-    # Khởi tạo trạng thái lưu trữ dữ liệu trên Web để thao tác không bị mất khi lọc/nhập lý do
     if 'hrc_processed' not in st.session_state:
         st.session_state.hrc_processed = False
     if 'show_uploader' not in st.session_state:
         st.session_state.show_uploader = True
     if 'general_conclusion' not in st.session_state:
         st.session_state.general_conclusion = (
-            "1. Đề nghị Đơn vị lập BBNT kiểm tra và chuẩn hóa lại định dạng số (Number) trên biểu mẫu BBNT, tránh nhập định dạng chữ (Text) làm sai lệch hàm SUM ở dòng Tổng cộng.\n"
-            "2. Đề nghị Bộ phận Bảo vệ cập nhật đầy đủ, chính xác Mã số cuộn vào cột Mã hàng hóa và đối chiếu khớp số phiếu cân với Trạm cân.\n"
-            "3. Đối với các cuộn vượt dung sai quy định (±0.3%) hoặc lệch khối lượng nhập kho ERP (035/031/03G-3H), các bộ phận liên quan giải trình rõ nguyên nhân tại cột 'Lý do / Giải trình trường hợp'."
+            "1. Đề nghị Đơn vị lập BBNT kiểm tra và chuẩn hóa lại định dạng số (Number) trên biểu mẫu BBNT.\n"
+            "2. Đề nghị Bộ phận Bảo vệ cập nhật đầy đủ, chính xác Mã số cuộn vào cột Mã hàng hóa và đối chiếu khớp số phiếu cân.\n"
+            "3. Các bộ phận giải trình rõ nguyên nhân đối với các cuộn vượt dung sai hoặc lệch kho ERP."
         )
 
-    # 1. THANH ĐIỀU HƯỚNG TRÊN CÙNG (GIỐNG ẢNH MẪU)
     top_c1, top_c2 = st.columns([1.4, 8.6])
     with top_c1:
         if st.button('← Quay lại các mảng', use_container_width=True):
@@ -857,23 +797,21 @@ def doi_chieu_hrc_tung_file():
     with top_c2:
         st.markdown(
             "<div style='padding-top:6px; font-size:13px; color:#64748b; font-weight:500;'>"
-            "Kiểm soát nghiệm thu HRC – Trạm cân – Bảo vệ – Kho ERP"
+            "Hệ thống Kiểm soát nội bộ Nguyên vật liệu & Nghiệm thu HRC"
             "</div>",
             unsafe_allow_html=True,
         )
 
     st.markdown("<hr style='border:none; border-top:1px solid #e2e8f0; margin:6px 0 14px 0;'>", unsafe_allow_html=True)
 
-    # 2. TIÊU ĐỀ CHÍNH
     st.markdown(
         """
-        <div class="ksnb-dept-sub">PHÒNG KIỂM SOÁT NỘI BỘ • KIỂM SOÁT NGUYÊN VẬT LIỆU & NGHIỆM THU HRC</div>
-        <h1 class="ksnb-main-title">Đối chiếu nghiệm thu HRC – Trạm cân – Bảo vệ – Kho ERP</h1>
+        <div class="apple-dept">PHÒNG KIỂM SOÁT NỘI BỘ • KSNB</div>
+        <h1 class="apple-title">Đối chiếu nghiệm thu HRC – Trạm cân – Bảo vệ – Kho ERP</h1>
         """,
         unsafe_allow_html=True,
     )
 
-    # 3. THANH ACTION BAR (PILL TRẠNG THÁI + NÚT NẠP FILE + TẢI EXCEL PHỤ LỤC + BÁO CÁO GIẢI TRÌNH)
     if st.session_state.hrc_processed:
         df_err_cur = st.session_state.df_coil_errors
         df_form_cur = st.session_state.df_form_errors
@@ -883,37 +821,37 @@ def doi_chieu_hrc_tung_file():
             + (int(df_form_cur['Đã kiểm'].sum()) if not df_form_cur.empty else 0)
         )
         pill_html = (
-            f'<div class="session-pill">'
-            f'Phiên: {len(st.session_state.all_reports)} Sheet BBNT ({st.session_state.total_coils_all} cuộn) '
-            f'· Đã kiểm xử lý {checked_issues}/{total_issues} điểm lưu ý'
+            f'<div class="apple-pill">'
+            f'🛡️ Phiên: {len(st.session_state.all_reports)} Sheet BBNT ({st.session_state.total_coils_all} cuộn) '
+            f'· Đã xử lý {checked_issues}/{total_issues} điểm lưu ý'
             f'</div>'
         )
     else:
         pill_html = (
-            '<div class="session-pill" style="background:#f1f5f9; border-color:#cbd5e1; color:#475569;">'
-            'Phiên: Chưa nạp dữ liệu · Vui lòng nạp file ở khung bên dưới'
+            '<div class="apple-pill" style="background:#f1f5f9; border-color:#cbd5e1; color:#475569;">'
+            '🛡️ Phiên: Chưa nạp dữ liệu · Vui lòng tải file ở bên dưới'
             '</div>'
         )
 
-    act_c1, act_c2, act_c3, act_c4 = st.columns([4.5, 1.6, 2.0, 1.9])
+    act_c1, act_c2, act_c3, act_c4 = st.columns([4.2, 1.8, 2.0, 2.0])
     with act_c1:
         st.markdown(pill_html, unsafe_allow_html=True)
     with act_c2:
-        btn_label = "🔼 Ẩn khung nạp file" if st.session_state.show_uploader else "📥 + Nạp / Đổi file"
+        btn_label = "🔼 Thu gọn nạp file" if st.session_state.show_uploader else "📥 + Nạp / Đổi file"
         if st.button(btn_label, use_container_width=True):
             st.session_state.show_uploader = not st.session_state.show_uploader
             st.rerun()
     with act_c3:
         if st.session_state.hrc_processed:
             st.download_button(
-                f"📥 Excel phụ lục ({len(st.session_state.all_reports)} Sheet)",
+                f"📥 Tải Excel phụ lục",
                 data=st.session_state.excel_bytes,
                 file_name="BBNT_Nghiem_Thu_Da_Doi_Chieu.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True,
             )
         else:
-            st.button("📥 Excel phụ lục (Chưa có)", disabled=True, use_container_width=True)
+            st.button("📥 Tải Excel phụ lục", disabled=True, use_container_width=True)
     with act_c4:
         if st.session_state.hrc_processed:
             audit_bytes = xuat_file_bao_cao_giai_trinh(
@@ -931,21 +869,18 @@ def doi_chieu_hrc_tung_file():
         else:
             st.button("📋 Báo cáo Giải trình", disabled=True, use_container_width=True)
 
-    # 4. KHUNG NẠP 5 FILE NGUỒN (CÓ GHI CHÚ ĐẶT NGAY TRÊN TỪNG Ô NẠP FILE ĐÚNG YÊU CẦU)
+    # KHUNG NẠP FILE (CÓ GHI CHÚ ĐẶT NGAY TRÊN TỪNG Ô NẠP)
     if st.session_state.show_uploader or not st.session_state.hrc_processed:
         with st.container(border=True):
-            st.markdown("#### 📥 Nạp Dữ Liệu Nguồn Đối Chiếu (Giữ nguyên hướng dẫn tại từng ô nạp)")
+            st.markdown('<div class="upload-box-title">📥 Nạp Dữ Liệu Nguồn Đối Chiếu</div>', unsafe_allow_html=True)
             col_upload1, col_upload2 = st.columns(2, gap="large")
 
             with col_upload1:
-                st.markdown('<div class="upload-section-title">1️⃣ Dữ liệu Nghiệm thu & Trạm cân</div>', unsafe_allow_html=True)
-
-                # Ô 1: BBNT + Ghi chú ngay trên ô nạp
                 st.markdown(
                     """
-                    <div class="guide-box">
-                        <div class="guide-header">📌 1. Biên bản nghiệm thu (BBNT)</div>
-                        <div class="guide-text">Đường dẫn: Nguyen Thi Thu Thuong > Biên bản nghiệm thu (BBNT)</div>
+                    <div class="guide-card">
+                        <div class="guide-card-head">📌 1. Biên bản nghiệm thu (BBNT)</div>
+                        <div class="guide-card-txt">Đường dẫn: Nguyen Thi Thu Thuong > Biên bản nghiệm thu (BBNT)</div>
                     </div>
                     """,
                     unsafe_allow_html=True,
@@ -965,31 +900,28 @@ def doi_chieu_hrc_tung_file():
                             '🎯 Chọn Sheet BBNT cần đối chiếu:',
                             options=sheet_names_bb,
                             default=sheet_names_bb if select_all else ([sheet_names_bb[0]] if sheet_names_bb else []),
-                            help='Các sheet không được chọn sẽ tự động bị loại bỏ khỏi file kết quả',
                         )
                     except Exception as e:
                         st.error(f"Lỗi đọc danh sách sheet: {e}")
                 else:
-                    st.caption("ℹ️ Nạp file BBNT để hiện danh sách sheet cần kiểm tra.")
+                    st.caption("ℹ️ Nạp file BBNT để hiển thị danh sách sheet.")
 
-                # Ô 2: Packing List + Ghi chú ngay trên ô nạp
                 st.markdown(
                     """
-                    <div class="guide-box">
-                        <div class="guide-header">📌 2. Packing List nhà cung cấp</div>
-                        <div class="guide-text">Đường dẫn: Nguyen Thi Thu Thuong > Packing List nhà cung cấp</div>
+                    <div class="guide-card">
+                        <div class="guide-card-head">📌 2. Packing List nhà cung cấp</div>
+                        <div class="guide-card-txt">Đường dẫn: Nguyen Thi Thu Thuong > Packing List nhà cung cấp</div>
                     </div>
                     """,
                     unsafe_allow_html=True,
                 )
                 f_pl = st.file_uploader('2. Chọn File Packing List nhà cung cấp', type=['xlsx', 'xls'], key='u_pl')
 
-                # Ô 3: Trạm cân + Ghi chú ngay trên ô nạp
                 st.markdown(
                     """
-                    <div class="guide-box">
-                        <div class="guide-header">📌 3. Dữ liệu Trạm cân</div>
-                        <div class="guide-text">
+                    <div class="guide-card">
+                        <div class="guide-card-head">📌 3. Dữ liệu Trạm cân</div>
+                        <div class="guide-card-txt">
                             Truy cập: http://172.17.24.9/#/login (PM4444 / 123456)<br>
                             Quản lý truy cập > Tra cứu trạm cân • Thời gian: 1 tháng rưỡi
                         </div>
@@ -1000,14 +932,11 @@ def doi_chieu_hrc_tung_file():
                 f_tc = st.file_uploader('3. Chọn File Dữ liệu Trạm cân', type=['xlsx', 'xls'], key='u_tc')
 
             with col_upload2:
-                st.markdown('<div class="upload-section-title">2️⃣ Dữ liệu Bảo vệ & Kho ERP</div>', unsafe_allow_html=True)
-
-                # Ô 4: Bảo vệ + Ghi chú ngay trên ô nạp
                 st.markdown(
                     """
-                    <div class="guide-box">
-                        <div class="guide-header">📌 4. Dữ liệu Nhập Bảo vệ</div>
-                        <div class="guide-text">
+                    <div class="guide-card">
+                        <div class="guide-card-head">📌 4. Dữ liệu Nhập Bảo vệ</div>
+                        <div class="guide-card-txt">
                             Quản lý truy cập > Tra cứu xuất nhập hàng > Chọn Nhập hàng<br>
                             Thời gian: Giống mốc Tra cứu trạm cân
                         </div>
@@ -1017,15 +946,13 @@ def doi_chieu_hrc_tung_file():
                 )
                 f_bv = st.file_uploader('4. Chọn File Dữ liệu Nhập Bảo vệ', type=['xlsx', 'xls'], key='u_bv')
 
-                # Ô 5: ERP OPM 105 + Ghi chú ngay trên ô nạp
                 st.markdown(
                     """
-                    <div class="guide-box">
-                        <div class="guide-header">📌 5. Báo cáo ERP OPM 105</div>
-                        <div class="guide-text">
+                    <div class="guide-card">
+                        <div class="guide-card-head">📌 5. Báo cáo ERP OPM 105</div>
+                        <div class="guide-card-txt">
                             Chọn: HSG_OPM_105_BCKiemSoatThongTinGDTheoLo_GD2<br>
-                            Tích chọn kho: 035, 03G, 03H • Nghiệp vụ: Inventory, Job or Schedule, Purchase order<br>
-                            Thời gian: 1 tháng cần kiểm tra
+                            Tích chọn kho: 035, 03G, 03H • Nghiệp vụ: Inventory, Job, Purchase order
                         </div>
                     </div>
                     """,
@@ -1035,10 +962,9 @@ def doi_chieu_hrc_tung_file():
 
                 st.write("")
                 if f_bbnt is not None and selected_sheets:
-                    if st.button('🚀 Bắt đầu đối chiếu & Phân tích trực tiếp trên Web', type='primary', use_container_width=True):
-                        with st.spinner(f'Đang đối soát {len(selected_sheets)} sheet dữ liệu và dựng bảng làm việc trên Web...'):
+                    if st.button('🚀 Bắt đầu đối chiếu & Phân tích tự động', type='primary', use_container_width=True):
+                        with st.spinner(f'Đang đối soát {len(selected_sheets)} sheet dữ liệu...'):
                             try:
-                                # 1. QUÉT DỮ LIỆU BẢO VỆ
                                 bv_raw_list = []
                                 if f_bv is not None:
                                     try:
@@ -1058,7 +984,6 @@ def doi_chieu_hrc_tung_file():
                                     except Exception:
                                         bv_raw_list = []
 
-                                # 2. QUÉT DỮ LIỆU TRẠM CÂN
                                 dict_tc_kl, dict_tc_phanloai = {}, {}
                                 if f_tc is not None:
                                     try:
@@ -1075,7 +1000,6 @@ def doi_chieu_hrc_tung_file():
                                     except Exception:
                                         dict_tc_kl, dict_tc_phanloai = {}, {}
 
-                                # 3. QUÉT DỮ LIỆU ERP OPM 105
                                 opm_035_po, opm_035_rtv, opm_031, opm_03g_po, opm_03g_rtv = {}, {}, {}, {}, {}
                                 opm_total_rows = 0
                                 if f_opm is not None:
@@ -1105,7 +1029,6 @@ def doi_chieu_hrc_tung_file():
                                     except Exception:
                                         opm_035_po, opm_035_rtv, opm_031, opm_03g_po, opm_03g_rtv = {}, {}, {}, {}, {}
 
-                                # 4. DANH SÁCH SHEET CỦA PACKING LIST
                                 pl_sheet_names = []
                                 if f_pl is not None:
                                     try:
@@ -1114,7 +1037,6 @@ def doi_chieu_hrc_tung_file():
                                     except Exception:
                                         pl_sheet_names = []
 
-                                # 5. MỞ FILE BBNT GỐC BẰNG OPENPYXL
                                 f_bbnt.seek(0)
                                 wb = openpyxl.load_workbook(f_bbnt, data_only=True)
 
@@ -1132,18 +1054,9 @@ def doi_chieu_hrc_tung_file():
                                         ws = wb[s_name]
                                         matched_pl = match_pl_sheet(s_name, pl_sheet_names)
                                         rep = ghi_va_kiem_tra_worksheet(
-                                            ws,
-                                            s_name,
-                                            f_pl,
-                                            matched_pl,
-                                            bv_raw_list,
-                                            dict_tc_kl,
-                                            dict_tc_phanloai,
-                                            opm_035_po,
-                                            opm_035_rtv,
-                                            opm_031,
-                                            opm_03g_po,
-                                            opm_03g_rtv,
+                                            ws, s_name, f_pl, matched_pl, bv_raw_list,
+                                            dict_tc_kl, dict_tc_phanloai, opm_035_po, opm_035_rtv,
+                                            opm_031, opm_03g_po, opm_03g_rtv,
                                         )
                                         all_reports.append(rep)
                                         all_coil_errors.extend(rep['coil_error_records'])
@@ -1153,7 +1066,6 @@ def doi_chieu_hrc_tung_file():
                                 output = io.BytesIO()
                                 wb.save(output)
 
-                                # Lưu vào session_state để làm việc trực tiếp trên Web
                                 st.session_state.hrc_processed = True
                                 st.session_state.show_uploader = False
                                 st.session_state.excel_bytes = output.getvalue()
@@ -1173,7 +1085,7 @@ def doi_chieu_hrc_tung_file():
                                 st.error(f'Lỗi xử lý dữ liệu: {e}')
 
     # -------------------------------------------------------------
-    # 5. KHU VỰC XỬ LÝ TRỰC TIẾP TRÊN WEB (9 TABS GIỐNG MẪU KSNB)
+    # KHU VỰC HIỂN THỊ KẾT QUẢ & 9 TABS ĐIỀU HƯỚNG
     # -------------------------------------------------------------
     if st.session_state.hrc_processed:
         all_reports = st.session_state.all_reports
@@ -1186,29 +1098,26 @@ def doi_chieu_hrc_tung_file():
         total_err_coils = len(df_coil_err)
         total_form_errs = len(df_form_err)
 
-        # Đếm số lượng cho từng Tab
         cnt_kl_ds = int(df_coil_err['has_kl_ds_err'].sum()) if not df_coil_err.empty else 0
         cnt_gate = int(df_coil_err['has_gate_err'].sum()) if not df_coil_err.empty else 0
         cnt_erp = int(df_coil_err['has_erp_err'].sum()) if not df_coil_err.empty else 0
         cnt_luu_y = total_err_coils + total_form_errs
 
-        # Dòng Meta tóm tắt giống hệt ảnh mẫu
         sheet_list_str = ", ".join([r['sheet_name'] for r in all_reports])
         st.markdown(
             f"""
-            <div class="ksnb-meta-bar">
-                Số Sheet BBNT đã kiểm: <b>{len(all_reports)} sheet ({sheet_list_str})</b>  • 
-                Tổng cuộn HRC: <b>{st.session_state.total_coils_all:,} cuộn</b>  • 
+            <div class="apple-meta">
+                📊 Số Sheet BBNT kiểm tra: <b>{len(all_reports)} sheet ({sheet_list_str})</b>  • 
+                Tổng cuộn: <b>{st.session_state.total_coils_all:,} cuộn</b>  • 
                 Packing List: <b>{meta['pl_sheets']} sheet</b>  • 
                 Trạm cân: <b>{meta['tc_count']:,} phiếu</b>  • 
                 Bảo vệ: <b>{meta['bv_count']:,} dòng</b>  • 
-                ERP OPM 105: <b>{meta['opm_count']:,} giao dịch (Kho 035, 031, 03G, 03H)</b>
+                ERP OPM 105: <b>{meta['opm_count']:,} giao dịch</b>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-        # Tính 3 chỉ số KPI lớn
         ok_kl_ds = st.session_state.total_coils_all - cnt_kl_ds
         pct_kl_ds = (ok_kl_ds / total_coils) * 100
 
@@ -1222,406 +1131,190 @@ def doi_chieu_hrc_tung_file():
         color_kpi2 = "green" if cnt_gate == 0 else ("amber" if pct_gate >= 95 else "red")
         color_kpi3 = "green" if cnt_erp == 0 else ("amber" if pct_erp >= 95 else "red")
 
-        # Khởi tạo 9 Tabs điều hướng có gắn số lượng lỗi
         tabs = st.tabs([
             "1. Tổng quan",
             f"2. Điểm cần lưu ý ({cnt_luu_y})",
             f"3. Lệch KL & Dung sai ({cnt_kl_ds})",
-            f"4. Chứng từ – Trạm cân – Bảo vệ ({cnt_gate})",
+            f"4. Trạm cân – Bảo vệ ({cnt_gate})",
             f"5. Đối chiếu Kho ERP ({cnt_erp})",
-            f"6. Lỗi biểu mẫu BBNT gốc ({total_form_errs})",
-            f"7. Bảng đối chiếu đầy đủ ({st.session_state.total_coils_all})",
-            f"8. Tổng hợp theo Sheet ({len(all_reports)})",
+            f"6. Lỗi biểu mẫu BBNT ({total_form_errs})",
+            f"7. Bảng đầy đủ ({st.session_state.total_coils_all})",
+            f"8. Tổng hợp & Đánh giá Sheet ({len(all_reports)})",
             "9. Kết luận & Kiến nghị",
         ])
 
-        # =========================================================
-        # TAB 1: TỔNG QUAN (KPI CARDS + NHẬN XÉT TỰ ĐỘNG GIỐNG MẪU)
-        # =========================================================
+        # TAB 1: TỔNG QUAN + BIỂU ĐỒ TRỰC QUAN
         with tabs[0]:
-            st.markdown("#### Tổng quan đối chiếu nghiệm thu HRC")
-            st.caption(
-                "Kiểm tra tự động 4 lớp: (1) Biểu mẫu & công thức nội bộ BBNT gốc (Cột A → M); "
-                "(2) Khối lượng Net BBNT so với Packing List & đánh giá dung sai ±0.3%; "
-                "(3) Đối chiếu 3 bên BBNT – Phiếu cân Trạm cân – Báo cáo Bảo vệ; "
-                "(4) Đối chiếu khối lượng nhập kho ERP OPM 105 (Kho 035, 031, 03G-3H)."
-            )
-
+            st.markdown("#### 🌟 Tổng quan đối chiếu nghiệm thu HRC")
             st.markdown(
                 f"""
-                <div class="kpi-grid">
-                    <div class="kpi-card {color_kpi1}">
-                        <div class="kpi-title">KL NGHIỆM THU – PACKING LIST & DUNG SAI (±0.3%)</div>
-                        <div class="kpi-value {color_kpi1}">{pct_kl_ds:.1f}%</div>
-                        <div class="kpi-sub">{ok_kl_ds:,}/{st.session_state.total_coils_all:,} cuộn khớp KL & trong dung sai ±0.3% · <b>{cnt_kl_ds} cuộn lệch/vượt DS</b></div>
+                <div class="kpi-grid-apple">
+                    <div class="kpi-apple-card {color_kpi1}">
+                        <div class="kpi-apple-title">KL & DUNG SAI ±0.3%</div>
+                        <div class="kpi-apple-val {color_kpi1}">{pct_kl_ds:.1f}%</div>
+                        <div class="kpi-apple-sub">{ok_kl_ds:,}/{st.session_state.total_coils_all:,} cuộn khớp · <b>{cnt_kl_ds} cuộn lệch</b></div>
                     </div>
-                    <div class="kpi-card {color_kpi2}">
-                        <div class="kpi-title">CHỨNG TỪ BBNT – PHIẾU TRẠM CÂN – BẢO VỆ</div>
-                        <div class="kpi-value {color_kpi2}">{pct_gate:.1f}%</div>
-                        <div class="kpi-sub">{ok_gate:,}/{st.session_state.total_coils_all:,} cuộn khớp số phiếu & KL cân · <b>{cnt_gate} cuộn lệch phiếu/KL</b></div>
+                    <div class="kpi-apple-card {color_kpi2}">
+                        <div class="kpi-apple-title">CHỨNG TỪ BBNT – TRẠM CÂN – BẢO VỆ</div>
+                        <div class="kpi-apple-val {color_kpi2}">{pct_gate:.1f}%</div>
+                        <div class="kpi-apple-sub">{ok_gate:,}/{st.session_state.total_coils_all:,} cuộn khớp · <b>{cnt_gate} cuộn lệch phiếu</b></div>
                     </div>
-                    <div class="kpi-card {color_kpi3}">
-                        <div class="kpi-title">LOGIC NHẬP KHO ERP (KHO 035 / 031 / 03G-3H)</div>
-                        <div class="kpi-value {color_kpi3}">{pct_erp:.1f}%</div>
-                        <div class="kpi-sub">{ok_erp:,}/{st.session_state.total_coils_all:,} cuộn khớp KL Packing List & ERP · <b>{cnt_erp} cuộn lệch kho</b></div>
+                    <div class="kpi-apple-card {color_kpi3}">
+                        <div class="kpi-apple-title">NHẬP KHO ERP (035 / 031 / 03G)</div>
+                        <div class="kpi-apple-val {color_kpi3}">{pct_erp:.1f}%</div>
+                        <div class="kpi-apple-sub">{ok_erp:,}/{st.session_state.total_coils_all:,} cuộn khớp · <b>{cnt_erp} cuộn lệch kho</b></div>
                     </div>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
 
-            # XÂY DỰNG KHUNG NHẬN XÉT TỰ ĐỘNG GIỐNG ẢNH MẪU
+            # BỔ SUNG BIỂU ĐỒ TRỰC QUAN (CHART)
+            st.markdown("##### 📈 Biểu đồ phân bổ cuộn HRC (Khớp đúng vs Có sai lệch) theo từng Sheet")
+            chart_data = []
+            for r in all_reports:
+                chart_data.append({
+                    'Sheet': r['sheet_name'],
+                    'Khớp đúng 100%': r['ok_coils_count'],
+                    'Có sai lệch': r['error_coils_count'],
+                })
+            df_chart = pd.DataFrame(chart_data).set_index('Sheet')
+            st.bar_chart(df_chart, color=["#10b981", "#ef4444"])
+
+            # NHẬN XÉT TỰ ĐỘNG
             sum_net_all = sum(r['sum_net_bbnt'] for r in all_reports) / 1000.0
             sum_tc_all = sum(r['sum_tc'] for r in all_reports) / 1000.0
 
             remarks_html = f"""
-            <div class="auto-remark-container">
-                <div class="auto-remark-header">
-                    <span>Nhận xét tự động</span>
-                    <span style="font-size:12px; font-weight:500; color:#64748b;">Tổng hợp từ {len(all_reports)} Sheet BBNT</span>
+            <div class="remark-apple-container">
+                <div class="remark-apple-head">
+                    <span>💡 Nhận xét tự động từ hệ thống KSNB</span>
+                    <span style="font-size:12px; font-weight:600; color:#7c3aed;">{len(all_reports)} Sheet BBNT</span>
                 </div>
-                <div class="remark-row info">
-                    <span>↗</span>
+                <div class="remark-apple-row info">
+                    <span>📌</span>
                     <div>
-                        <b>Tổng quy mô kiểm tra: {st.session_state.total_coils_all:,} cuộn HRC</b> thuộc {len(all_reports)} sheet BBNT
-                        (Tổng KL Net BBNT: <b>{sum_net_all:,.1f} tấn</b> · Tổng KL qua Trạm cân: <b>{sum_tc_all:,.1f} tấn</b>),
-                        tỷ lệ khớp toàn diện đạt <b>{((st.session_state.total_coils_all - total_err_coils)/total_coils)*100:.1f}%</b>.
+                        Tổng quy mô: <b>{st.session_state.total_coils_all:,} cuộn HRC</b> (Tổng Net: <b>{sum_net_all:,.1f} tấn</b> · Trạm cân: <b>{sum_tc_all:,.1f} tấn</b>).
+                        Tỷ lệ tuân thủ toàn hệ thống đạt <b>{((st.session_state.total_coils_all - total_err_coils)/total_coils)*100:.1f}%</b>.
                     </div>
                 </div>
             """
-
             if total_form_errs > 0:
                 remarks_html += f"""
-                <div class="remark-row warn">
+                <div class="remark-apple-row warn">
                     <span>⚠️</span>
                     <div>
-                        <b>Lỗi nội bộ ngay trên biểu mẫu BBNT gốc (Cột A → M): {total_form_errs} vị trí</b> – Phát hiện ô nhập định dạng Chữ (Text) hoặc sai công thức trừ/hàm SUM dòng Tổng cộng.
-                        Code đã giữ nguyên số gốc và tô đỏ trên file Excel (xem và xử lý tại tab <b>6. Lỗi biểu mẫu BBNT gốc</b>).
+                        <b>Lỗi biểu mẫu BBNT gốc (Cột A → M): {total_form_errs} vị trí</b> – Sai định dạng Text hoặc sai công thức tổng. Đã tô đỏ trên file Excel (xem tab <b>6. Lỗi biểu mẫu BBNT</b>).
                     </div>
                 </div>
                 """
-
-            if not df_coil_err.empty:
-                # Thống kê chi tiết từng loại lỗi để in ra giống ảnh
-                vuot_ds_df = df_coil_err[df_coil_err['Đánh giá DS'] == 'VUOT DUNG SAI']
-                if len(vuot_ds_df) > 0:
-                    tong_lech_kg = vuot_ds_df['CL TC - Gross (kg)'].sum()
-                    remarks_html += f"""
-                    <div class="remark-row danger">
-                        <span>🔴</span>
-                        <div>
-                            <b>KL Trạm cân lệch KL Gross BBNT vượt dung sai quy định (±0.3%): {len(vuot_ds_df)} cuộn · Tổng lệch {tong_lech_kg:+,.0f} kg</b>
-                            – Cần kiểm tra lại phiếu cân thực tế và biên bản nghiệm thu tại tab <b>3. Lệch KL & Dung sai</b>.
-                        </div>
-                    </div>
-                    """
-
-                lech_pl_df = df_coil_err[df_coil_err['CL Net (BBNT-PL)'] != 0]
-                if len(lech_pl_df) > 0:
-                    remarks_html += f"""
-                    <div class="remark-row danger">
-                        <span>🔴</span>
-                        <div>
-                            <b>Lệch KL Net giữa BBNT và Packing List nhà cung cấp: {len(lech_pl_df)} cuộn</b>
-                            – Tổng chênh lệch <b>{lech_pl_df['CL Net (BBNT-PL)'].sum():+,.0f} kg</b>.
-                        </div>
-                    </div>
-                    """
-
-                bv_missing_df = df_coil_err[df_coil_err['Phiếu Bảo vệ'] == '(Trống)']
-                if len(bv_missing_df) > 0:
-                    remarks_html += f"""
-                    <div class="remark-row danger">
-                        <span>🔴</span>
-                        <div>
-                            <b>Bảo vệ chưa cập nhật Mã số cuộn vào cột MÃ HÀNG HÓA hoặc lệch số phiếu cân: {len(bv_missing_df)} cuộn</b>
-                            – Dẫn đến không truy vết tự động được phiếu cân từ báo cáo Bảo vệ (xem tab <b>4. Chứng từ – Trạm cân – Bảo vệ</b>).
-                        </div>
-                    </div>
-                    """
-
-                if cnt_erp > 0:
-                    remarks_html += f"""
-                    <div class="remark-row warn">
-                        <span>🟠</span>
-                        <div>
-                            <b>Lệch khối lượng nhập kho ERP (Kho 035) so với Packing List: {cnt_erp} cuộn</b>
-                            – Kiểm tra giao dịch PO Receipt / Return to Vendor trên báo cáo OPM 105 tại tab <b>5. Đối chiếu Kho ERP</b>.
-                        </div>
-                    </div>
-                    """
-
+            if total_err_coils > 0:
                 remarks_html += f"""
-                <div class="remark-row info">
-                    <span>📌</span>
+                <div class="remark-apple-row danger">
+                    <span>🔴</span>
                     <div>
-                        <b>Tổng cộng {cnt_luu_y} điểm cần lưu ý</b> ({total_err_coils} cuộn có sai lệch đối chiếu, {total_form_errs} lỗi công thức/định dạng BBNT)
-                        – Chuyển sang tab <b>2. Điểm cần lưu ý</b> để phân loại trạng thái và nhập lý do giải trình trực tiếp trên Web.
+                        <b>Phát hiện tổng số {total_err_coils} cuộn có sai lệch đối chiếu 4 bên</b>. Đề nghị các bộ phận kiểm tra và nhập giải trình trực tiếp tại tab <b>2. Điểm cần lưu ý</b>.
                     </div>
                 </div>
                 """
             else:
                 remarks_html += """
-                <div class="remark-row success">
+                <div class="remark-apple-row success">
                     <span>✅</span>
-                    <div>
-                        <b>Hoàn tất đối soát: 100% các cuộn HRC đều khớp chính xác</b> giữa BBNT, Packing List, Báo cáo Bảo vệ, Trạm cân và Kho ERP!
-                    </div>
+                    <div><b>Tuyệt vời! Toàn bộ cuộn HRC trong phiên đều khớp 100%.</b></div>
                 </div>
                 """
-
             remarks_html += "</div>"
             st.markdown(remarks_html, unsafe_allow_html=True)
 
-        # =========================================================
-        # TAB 2: ĐIỂM CẦN LƯU Ý (THAO TÁC XỬ LÝ & NHẬP LÝ DO TRÊN WEB)
-        # =========================================================
+        # TAB 2: ĐIỂM CẦN LƯU Ý (XỬ LÝ TRỰC TIẾP TRÊN WEB)
         with tabs[1]:
-            st.markdown("#### 🛠️ Bảng Xử Lý & Giải Trình Các Điểm Cần Lưu Ý Trực Tiếp Trên Web")
-            st.caption(
-                "Bạn có thể lọc theo Sheet hoặc Bộ phận liên quan, tích vào ô **Đã kiểm**, chọn **Trạng thái xử lý** và gõ trực tiếp **Lý do / Giải trình trường hợp** vào bảng bên dưới."
-            )
-
+            st.markdown("#### 🛠️ Xử Lý & Nhập Giải Trình Các Điểm Cần Lưu Ý")
             if df_coil_err.empty and df_form_err.empty:
-                st.success("🎉 Không có bất kỳ điểm lưu ý hay sai lệch nào trong phiên kiểm tra này!")
+                st.success("🎉 Không có điểm lưu ý nào!")
             else:
                 if not df_coil_err.empty:
                     f_c1, f_c2, f_c3 = st.columns([2.5, 3, 4.5])
                     with f_c1:
-                        sheet_filter = st.multiselect(
-                            "Lọc theo Sheet BBNT:",
-                            options=df_coil_err['Sheet'].unique().tolist(),
-                            default=df_coil_err['Sheet'].unique().tolist(),
-                            key="flt_sheet_t2",
-                        )
+                        sheet_filter = st.multiselect("Lọc Sheet:", options=df_coil_err['Sheet'].unique().tolist(), default=df_coil_err['Sheet'].unique().tolist(), key="flt_s2")
                     with f_c2:
-                        status_filter = st.multiselect(
-                            "Lọc theo Trạng thái xử lý:",
-                            options=['Chưa xử lý', 'Đang xác minh', 'Đã giải trình (Hợp lệ)', 'Yêu cầu điều chỉnh'],
-                            default=['Chưa xử lý', 'Đang xác minh', 'Đã giải trình (Hợp lệ)', 'Yêu cầu điều chỉnh'],
-                            key="flt_status_t2",
-                        )
+                        status_filter = st.multiselect("Lọc Trạng thái:", options=['Chưa xử lý', 'Đang xác minh', 'Đã giải trình (Hợp lệ)', 'Yêu cầu điều chỉnh'], default=['Chưa xử lý', 'Đang xác minh', 'Đã giải trình (Hợp lệ)', 'Yêu cầu điều chỉnh'], key="flt_st2")
                     with f_c3:
-                        kw_search = st.text_input("🔍 Tìm nhanh Mã cuộn / Số phiếu cân / Nội dung lỗi:", key="kw_t2")
+                        kw_search = st.text_input("🔍 Tìm nhanh Mã cuộn / Lỗi:", key="kw_t2")
 
                     mask = df_coil_err['Sheet'].isin(sheet_filter) & df_coil_err['Trạng thái xử lý'].isin(status_filter)
                     if kw_search.strip():
                         kw = kw_search.strip().upper()
-                        mask = mask & (
-                            df_coil_err['Mã số cuộn'].astype(str).str.upper().str.contains(kw)
-                            | df_coil_err['Số phiếu cân BBNT'].astype(str).str.upper().str.contains(kw)
-                            | df_coil_err['Chi tiết lỗi phát hiện'].astype(str).str.upper().str.contains(kw)
-                            | df_coil_err['Đơn vị / Khâu cần kiểm tra'].astype(str).str.upper().str.contains(kw)
-                        )
+                        mask = mask & (df_coil_err['Mã số cuộn'].astype(str).str.upper().str.contains(kw) | df_coil_err['Chi tiết lỗi phát hiện'].astype(str).str.upper().str.contains(kw))
 
-                    cols_t2 = [
-                        'Đã kiểm', 'Sheet', 'Dòng Excel', 'STT', 'Mã số cuộn', 'Số phiếu cân BBNT',
-                        'Đơn vị / Khâu cần kiểm tra', 'Chi tiết lỗi phát hiện',
-                        'Trạng thái xử lý', 'Lý do / Giải trình trường hợp',
-                    ]
+                    cols_t2 = ['Đã kiểm', 'Sheet', 'STT', 'Mã số cuộn', 'Số phiếu cân BBNT', 'Đơn vị / Khâu cần kiểm tra', 'Chi tiết lỗi phát hiện', 'Trạng thái xử lý', 'Lý do / Giải trình trường hợp']
                     edited_t2 = st.data_editor(
                         df_coil_err.loc[mask, cols_t2],
-                        use_container_width=True,
-                        hide_index=True,
-                        num_rows="fixed",
-                        key="editor_tab2_coils",
+                        use_container_width=True, hide_index=True, key="ed_t2",
                         column_config={
                             'Đã kiểm': st.column_config.CheckboxColumn('Đã kiểm', width='small'),
-                            'Sheet': st.column_config.TextColumn('Sheet', disabled=True, width='small'),
-                            'Dòng Excel': st.column_config.NumberColumn('Dòng', disabled=True, width='small'),
-                            'STT': st.column_config.NumberColumn('STT', disabled=True, width='small'),
-                            'Mã số cuộn': st.column_config.TextColumn('Mã số cuộn', disabled=True),
-                            'Số phiếu cân BBNT': st.column_config.TextColumn('Phiếu cân BBNT', disabled=True),
-                            'Đơn vị / Khâu cần kiểm tra': st.column_config.TextColumn('Khâu cần kiểm tra', disabled=True),
-                            'Chi tiết lỗi phát hiện': st.column_config.TextColumn('Chi tiết lỗi phát hiện', disabled=True, width='large'),
-                            'Trạng thái xử lý': st.column_config.SelectboxColumn(
-                                'Trạng thái xử lý',
-                                options=['Chưa xử lý', 'Đang xác minh', 'Đã giải trình (Hợp lệ)', 'Yêu cầu điều chỉnh'],
-                                required=True,
-                                width='medium',
-                            ),
-                            'Lý do / Giải trình trường hợp': st.column_config.TextColumn(
-                                '✍️ Lý do / Giải trình trường hợp (Nhập trực tiếp)',
-                                width='large',
-                            ),
+                            'Trạng thái xử lý': st.column_config.SelectboxColumn('Trạng thái', options=['Chưa xử lý', 'Đang xác minh', 'Đã giải trình (Hợp lệ)', 'Yêu cầu điều chỉnh'], required=True),
+                            'Lý do / Giải trình trường hợp': st.column_config.TextColumn('✍️ Nhập Lý do / Giải trình trực tiếp', width='large'),
                         },
                     )
-                    # Đồng bộ ngược lại vào session_state
-                    st.session_state.df_coil_errors.loc[mask, ['Đã kiểm', 'Trạng thái xử lý', 'Lý do / Giải trình trường hợp']] = (
-                        edited_t2[['Đã kiểm', 'Trạng thái xử lý', 'Lý do / Giải trình trường hợp']]
-                    )
+                    st.session_state.df_coil_errors.loc[mask, ['Đã kiểm', 'Trạng thái xử lý', 'Lý do / Giải trình trường hợp']] = edited_t2[['Đã kiểm', 'Trạng thái xử lý', 'Lý do / Giải trình trường hợp']]
 
-        # =========================================================
-        # TAB 3: LỆCH KHỐI LƯỢNG & DUNG SAI (±0.3%)
-        # =========================================================
+        # TAB 3: LỆCH KL & DUNG SAI
         with tabs[2]:
-            st.markdown("#### ⚖️ Kiểm Soát Chênh Lệch Khối Lượng & Dung Sai (±0.3%)")
-            st.caption("Danh sách các cuộn bị lệch KL Net giữa BBNT với Packing List, hoặc có tỷ lệ chênh lệch giữa Trạm cân và Gross BBNT vượt ±0.3%.")
+            st.markdown("#### ⚖️ Kiểm Soát Chênh Lệch KL & Dung Sai (±0.3%)")
             if df_coil_err.empty or cnt_kl_ds == 0:
-                st.success("✅ Toàn bộ các cuộn đều khớp khối lượng Packing List và nằm trong dung sai ±0.3%.")
+                st.success("✅ Đạt chuẩn dung sai ±0.3%.")
             else:
                 mask_klds = df_coil_err['has_kl_ds_err'] == True
-                cols_t3 = [
-                    'Đã kiểm', 'Sheet', 'STT', 'Mã số cuộn', 'KL Net BBNT', 'KL Net PL', 'CL Net (BBNT-PL)',
-                    'KL Gross BBNT', 'KL Trạm cân', 'CL TC - Gross (kg)', '% Dung sai', 'Đánh giá DS',
-                    'Trạng thái xử lý', 'Lý do / Giải trình trường hợp',
-                ]
-                edited_t3 = st.data_editor(
-                    df_coil_err.loc[mask_klds, cols_t3],
-                    use_container_width=True,
-                    hide_index=True,
-                    key="editor_tab3_klds",
-                    column_config={
-                        'Đã kiểm': st.column_config.CheckboxColumn('Đã kiểm', width='small'),
-                        'KL Net BBNT': st.column_config.NumberColumn('KL Net BBNT', format="%d", disabled=True),
-                        'KL Net PL': st.column_config.NumberColumn('KL Net PL', format="%d", disabled=True),
-                        'CL Net (BBNT-PL)': st.column_config.NumberColumn('Lệch Net (kg)', format="%+d", disabled=True),
-                        'KL Gross BBNT': st.column_config.NumberColumn('Gross BBNT', format="%d", disabled=True),
-                        'KL Trạm cân': st.column_config.NumberColumn('KL Trạm cân', format="%d", disabled=True),
-                        'CL TC - Gross (kg)': st.column_config.NumberColumn('TC - Gross (kg)', format="%+d", disabled=True),
-                        '% Dung sai': st.column_config.NumberColumn('% Dung sai', format="%.2f%%", disabled=True),
-                        'Trạng thái xử lý': st.column_config.SelectboxColumn(
-                            'Trạng thái xử lý',
-                            options=['Chưa xử lý', 'Đang xác minh', 'Đã giải trình (Hợp lệ)', 'Yêu cầu điều chỉnh'],
-                            required=True,
-                        ),
-                        'Lý do / Giải trình trường hợp': st.column_config.TextColumn('✍️ Lý do / Giải trình trường hợp', width='large'),
-                    },
-                )
-                st.session_state.df_coil_errors.loc[mask_klds, ['Đã kiểm', 'Trạng thái xử lý', 'Lý do / Giải trình trường hợp']] = (
-                    edited_t3[['Đã kiểm', 'Trạng thái xử lý', 'Lý do / Giải trình trường hợp']]
-                )
+                cols_t3 = ['Đã kiểm', 'Sheet', 'STT', 'Mã số cuộn', 'KL Net BBNT', 'KL Net PL', 'CL Net (BBNT-PL)', 'KL Trạm cân', '% Dung sai', 'Đánh giá DS', 'Trạng thái xử lý', 'Lý do / Giải trình trường hợp']
+                edited_t3 = st.data_editor(df_coil_err.loc[mask_klds, cols_t3], use_container_width=True, hide_index=True, key="ed_t3",
+                    column_config={'Trạng thái xử lý': st.column_config.SelectboxColumn('Trạng thái', options=['Chưa xử lý', 'Đang xác minh', 'Đã giải trình (Hợp lệ)', 'Yêu cầu điều chỉnh'], required=True), 'Lý do / Giải trình trường hợp': st.column_config.TextColumn('✍️ Giải trình', width='large')})
+                st.session_state.df_coil_errors.loc[mask_klds, ['Đã kiểm', 'Trạng thái xử lý', 'Lý do / Giải trình trường hợp']] = edited_t3[['Đã kiểm', 'Trạng thái xử lý', 'Lý do / Giải trình trường hợp']]
 
-        # =========================================================
-        # TAB 4: CHỨNG TỪ BBNT – TRẠM CÂN – BẢO VỆ
-        # =========================================================
+        # TAB 4: TRẠM CÂN - BẢO VỆ
         with tabs[3]:
-            st.markdown("#### 🚛 Đối Chiếu Chéo 3 Bên: BBNT – Trạm Cân – Báo Cáo Bảo Vệ")
-            st.caption("Phát hiện các trường hợp Bảo vệ bỏ trống mã cuộn trong cột Mã hàng hóa, ghi sai số phiếu cân hoặc lệch khối lượng giữa 3 bên.")
+            st.markdown("#### 🚛 Đối Chiếu Chéo 3 Bên: BBNT – Trạm Cân – Bảo Vệ")
             if df_coil_err.empty or cnt_gate == 0:
-                st.success("✅ 100% số phiếu cân và khối lượng cân khớp hoàn toàn giữa BBNT, Trạm cân và Bảo vệ.")
+                st.success("✅ Khớp 100% phiếu cân và bảo vệ.")
             else:
                 mask_gate = df_coil_err['has_gate_err'] == True
-                cols_t4 = [
-                    'Đã kiểm', 'Sheet', 'STT', 'Mã số cuộn', 'Số phiếu cân BBNT', 'Phiếu Bảo vệ',
-                    'KL Cân bàn BBNT', 'KL Trạm cân', 'KL Bảo vệ', 'Chi tiết lỗi phát hiện',
-                    'Trạng thái xử lý', 'Lý do / Giải trình trường hợp',
-                ]
-                edited_t4 = st.data_editor(
-                    df_coil_err.loc[mask_gate, cols_t4],
-                    use_container_width=True,
-                    hide_index=True,
-                    key="editor_tab4_gate",
-                    column_config={
-                        'Đã kiểm': st.column_config.CheckboxColumn('Đã kiểm', width='small'),
-                        'KL Cân bàn BBNT': st.column_config.NumberColumn('Cân bàn BBNT', format="%d", disabled=True),
-                        'KL Trạm cân': st.column_config.NumberColumn('KL Trạm cân', format="%d", disabled=True),
-                        'KL Bảo vệ': st.column_config.NumberColumn('KL Bảo vệ', format="%d", disabled=True),
-                        'Trạng thái xử lý': st.column_config.SelectboxColumn(
-                            'Trạng thái xử lý',
-                            options=['Chưa xử lý', 'Đang xác minh', 'Đã giải trình (Hợp lệ)', 'Yêu cầu điều chỉnh'],
-                            required=True,
-                        ),
-                        'Lý do / Giải trình trường hợp': st.column_config.TextColumn('✍️ Lý do / Giải trình trường hợp', width='large'),
-                    },
-                )
-                st.session_state.df_coil_errors.loc[mask_gate, ['Đã kiểm', 'Trạng thái xử lý', 'Lý do / Giải trình trường hợp']] = (
-                    edited_t4[['Đã kiểm', 'Trạng thái xử lý', 'Lý do / Giải trình trường hợp']]
-                )
+                cols_t4 = ['Đã kiểm', 'Sheet', 'STT', 'Mã số cuộn', 'Số phiếu cân BBNT', 'Phiếu Bảo vệ', 'KL Trạm cân', 'Chi tiết lỗi phát hiện', 'Trạng thái xử lý', 'Lý do / Giải trình trường hợp']
+                edited_t4 = st.data_editor(df_coil_err.loc[mask_gate, cols_t4], use_container_width=True, hide_index=True, key="ed_t4",
+                    column_config={'Trạng thái xử lý': st.column_config.SelectboxColumn('Trạng thái', options=['Chưa xử lý', 'Đang xác minh', 'Đã giải trình (Hợp lệ)', 'Yêu cầu điều chỉnh'], required=True), 'Lý do / Giải trình trường hợp': st.column_config.TextColumn('✍️ Giải trình', width='large')})
+                st.session_state.df_coil_errors.loc[mask_gate, ['Đã kiểm', 'Trạng thái xử lý', 'Lý do / Giải trình trường hợp']] = edited_t4[['Đã kiểm', 'Trạng thái xử lý', 'Lý do / Giải trình trường hợp']]
 
-        # =========================================================
-        # TAB 5: ĐỐI CHIẾU KHO ERP (OPM 105: KHO 035, 031, 03G-3H)
-        # =========================================================
+        # TAB 5: KHO ERP
         with tabs[4]:
-            st.markdown("#### 🏭 Đối Chiếu Nhập Kho ERP OPM 105 (Kho 035, 031 Intransit, 03G-3H)")
-            st.caption("Kiểm tra khối lượng PO Receipt trừ Return to Vendor tại Kho 035, 031, 03G-3H so với KL Net trên Packing List.")
+            st.markdown("#### 🏭 Đối Chiếu Nhập Kho ERP OPM 105")
             if df_coil_err.empty or cnt_erp == 0:
-                st.success("✅ Toàn bộ các cuộn đều khớp khối lượng nhập kho 035 với Packing List.")
+                st.success("✅ Khớp kho ERP.")
             else:
                 mask_erp = df_coil_err['has_erp_err'] == True
-                cols_t5 = [
-                    'Đã kiểm', 'Sheet', 'STT', 'Mã số cuộn', 'KL Net PL', 'KL Kho 035', 'CL Kho 035',
-                    'KL Kho 031', 'KL Kho 03G-3H', 'Trạng thái xử lý', 'Lý do / Giải trình trường hợp',
-                ]
-                edited_t5 = st.data_editor(
-                    df_coil_err.loc[mask_erp, cols_t5],
-                    use_container_width=True,
-                    hide_index=True,
-                    key="editor_tab5_erp",
-                    column_config={
-                        'Đã kiểm': st.column_config.CheckboxColumn('Đã kiểm', width='small'),
-                        'KL Net PL': st.column_config.NumberColumn('KL Net PL', format="%d", disabled=True),
-                        'KL Kho 035': st.column_config.NumberColumn('KL Kho 035', format="%d", disabled=True),
-                        'CL Kho 035': st.column_config.NumberColumn('Lệch Kho 035', format="%+d", disabled=True),
-                        'KL Kho 031': st.column_config.NumberColumn('KL Kho 031', format="%d", disabled=True),
-                        'KL Kho 03G-3H': st.column_config.NumberColumn('KL Kho 03G-3H', format="%d", disabled=True),
-                        'Trạng thái xử lý': st.column_config.SelectboxColumn(
-                            'Trạng thái xử lý',
-                            options=['Chưa xử lý', 'Đang xác minh', 'Đã giải trình (Hợp lệ)', 'Yêu cầu điều chỉnh'],
-                            required=True,
-                        ),
-                        'Lý do / Giải trình trường hợp': st.column_config.TextColumn('✍️ Lý do / Giải trình trường hợp', width='large'),
-                    },
-                )
-                st.session_state.df_coil_errors.loc[mask_erp, ['Đã kiểm', 'Trạng thái xử lý', 'Lý do / Giải trình trường hợp']] = (
-                    edited_t5[['Đã kiểm', 'Trạng thái xử lý', 'Lý do / Giải trình trường hợp']]
-                )
+                cols_t5 = ['Đã kiểm', 'Sheet', 'STT', 'Mã số cuộn', 'KL Net PL', 'KL Kho 035', 'CL Kho 035', 'Trạng thái xử lý', 'Lý do / Giải trình trường hợp']
+                edited_t5 = st.data_editor(df_coil_err.loc[mask_erp, cols_t5], use_container_width=True, hide_index=True, key="ed_t5",
+                    column_config={'Trạng thái xử lý': st.column_config.SelectboxColumn('Trạng thái', options=['Chưa xử lý', 'Đang xác minh', 'Đã giải trình (Hợp lệ)', 'Yêu cầu điều chỉnh'], required=True), 'Lý do / Giải trình trường hợp': st.column_config.TextColumn('✍️ Giải trình', width='large')})
+                st.session_state.df_coil_errors.loc[mask_erp, ['Đã kiểm', 'Trạng thái xử lý', 'Lý do / Giải trình trường hợp']] = edited_t5[['Đã kiểm', 'Trạng thái xử lý', 'Lý do / Giải trình trường hợp']]
 
-        # =========================================================
-        # TAB 6: LỖI BIỂU MẪU BBNT GỐC (CỘT A -> M)
-        # =========================================================
+        # TAB 6: LỖI BIỂU MẪU BBNT GỐC
         with tabs[5]:
-            st.markdown("#### ⚠️ Lỗi Phát Hiện Ngay Trên Biểu Mẫu BBNT Gốc (Cột A → M)")
-            st.caption(
-                "Các lỗi do người lập BBNT nhập số dưới dạng Chữ (Text) làm hàm SUM bỏ sót, hoặc tính sai cột K = J - I. "
-                "Trên file Excel xuất ra, các ô này được giữ nguyên giá trị gốc và tô nền đỏ để bạn làm bằng chứng làm việc."
-            )
+            st.markdown("#### ⚠️ Lỗi Phát Hiện Trên Biểu Mẫu BBNT Gốc (Cột A → M)")
             if df_form_err.empty:
-                st.success("✅ Biểu mẫu BBNT gốc hoàn toàn chuẩn xác, không có lỗi định dạng Text hay cộng sai dòng Tổng cộng.")
+                st.success("✅ Biểu mẫu chuẩn xác.")
             else:
-                edited_form = st.data_editor(
-                    df_form_err,
-                    use_container_width=True,
-                    hide_index=True,
-                    key="editor_tab6_form",
-                    column_config={
-                        'Đã kiểm': st.column_config.CheckboxColumn('Đã kiểm', width='small'),
-                        'Sheet': st.column_config.TextColumn('Sheet', disabled=True),
-                        'Vị trí ô': st.column_config.TextColumn('Vị trí ô Excel', disabled=True),
-                        'Loại lỗi trên BBNT gốc': st.column_config.TextColumn('Loại lỗi phát hiện', disabled=True),
-                        'Giá trị trên BBNT': st.column_config.TextColumn('Giá trị gốc trên BBNT', disabled=True),
-                        'Giá trị đúng': st.column_config.TextColumn('Giá trị tính đúng', disabled=True),
-                        'Đơn vị cần làm việc': st.column_config.TextColumn('Đơn vị cần làm việc', disabled=True),
-                        'Trạng thái xử lý': st.column_config.SelectboxColumn(
-                            'Trạng thái xử lý',
-                            options=['Chưa xử lý', 'Đang xác minh', 'Đã giải trình (Hợp lệ)', 'Yêu cầu điều chỉnh'],
-                            required=True,
-                        ),
-                        'Lý do / Giải trình trường hợp': st.column_config.TextColumn('✍️ Lý do / Giải trình trường hợp', width='large'),
-                    },
-                )
+                edited_form = st.data_editor(df_form_err, use_container_width=True, hide_index=True, key="ed_t6",
+                    column_config={'Trạng thái xử lý': st.column_config.SelectboxColumn('Trạng thái', options=['Chưa xử lý', 'Đang xác minh', 'Đã giải trình (Hợp lệ)', 'Yêu cầu điều chỉnh'], required=True), 'Lý do / Giải trình trường hợp': st.column_config.TextColumn('✍️ Giải trình', width='large')})
                 st.session_state.df_form_errors = edited_form
 
-        # =========================================================
-        # TAB 7: BẢNG ĐỐI CHIẾU ĐẦY ĐỦ 32 CỘT TRÊN WEB (CÓ TÔ ĐỎ Ô LỖI)
-        # =========================================================
+        # TAB 7: BẢNG ĐẦY ĐỦ
         with tabs[6]:
-            st.markdown("#### 📋 Bảng Dữ Liệu Đối Chiếu Đầy Đủ Trên Web (Tương đương Cột A → AF trên Excel)")
+            st.markdown("#### 📋 Bảng Dữ Liệu Đối Chiếu Đầy Đủ (Cột A → AF)")
             c_f1, c_f2, c_f3 = st.columns([2.5, 2.5, 5])
             with c_f1:
-                sel_sheet_full = st.selectbox(
-                    "Chọn Sheet BBNT:",
-                    options=["Tất cả Sheet"] + [r['sheet_name'] for r in all_reports],
-                    key="sel_full_sheet",
-                )
+                sel_sheet_full = st.selectbox("Sheet:", options=["Tất cả Sheet"] + [r['sheet_name'] for r in all_reports], key="s_sh")
             with c_f2:
-                sel_status_full = st.selectbox(
-                    "Trạng thái cuộn:",
-                    options=["Tất cả cuộn", "Chỉ hiện cuộn CÓ SAI LỆCH", "Chỉ hiện cuộn OK"],
-                    key="sel_full_status",
-                )
+                sel_status_full = st.selectbox("Trạng thái:", options=["Tất cả cuộn", "Chỉ hiện cuộn CÓ SAI LỆCH", "Chỉ hiện cuộn OK"], key="s_st")
             with c_f3:
-                search_full = st.text_input("🔍 Tìm theo Mã số cuộn hoặc Số phiếu cân:", key="search_full_input")
+                search_full = st.text_input("🔍 Tìm mã cuộn:", key="s_kw")
 
             df_view = df_full.copy()
             if sel_sheet_full != "Tất cả Sheet":
@@ -1632,94 +1325,34 @@ def doi_chieu_hrc_tung_file():
                 df_view = df_view[df_view['Kết luận nhanh'] == 'OK']
             if search_full.strip():
                 q = search_full.strip().upper()
-                df_view = df_view[
-                    df_view['Mã số cuộn (D)'].astype(str).str.upper().str.contains(q)
-                    | df_view['Số phiếu cân BBNT (E)'].astype(str).str.upper().str.contains(q)
-                ]
+                df_view = df_view[df_view['Mã số cuộn (D)'].astype(str).str.upper().str.contains(q)]
 
-            def highlight_errors(row):
-                styles = [''] * len(row)
-                if row['Kết luận nhanh'] == 'CÓ SAI LỆCH':
-                    styles[row.index.get_loc('Kết luận nhanh')] = 'background-color: #fecaca; color: #991b1b; font-weight: bold;'
-                    styles[row.index.get_loc('Mã số cuộn (D)')] = 'background-color: #fef2f2; color: #991b1b; font-weight: bold;'
-                if row['CL Net BBNT - PL (P)'] != 0:
-                    styles[row.index.get_loc('CL Net BBNT - PL (P)')] = 'background-color: #fecaca; color: #991b1b; font-weight: bold;'
-                if row['Khớp Phiếu cân (S)'] is False:
-                    styles[row.index.get_loc('Khớp Phiếu cân (S)')] = 'background-color: #fecaca; color: #991b1b; font-weight: bold;'
-                if row['Khớp KL TC & BV (U)'] is False:
-                    styles[row.index.get_loc('Khớp KL TC & BV (U)')] = 'background-color: #fecaca; color: #991b1b; font-weight: bold;'
-                if row['Khớp KL TC & BBNT (V)'] is False:
-                    styles[row.index.get_loc('Khớp KL TC & BBNT (V)')] = 'background-color: #fecaca; color: #991b1b; font-weight: bold;'
-                if row['Khớp % Dung sai (Y)'] is False:
-                    styles[row.index.get_loc('Khớp % Dung sai (Y)')] = 'background-color: #fecaca; color: #991b1b; font-weight: bold;'
-                if row['Đánh giá ±0.3% (Z)'] == 'VUOT DUNG SAI':
-                    styles[row.index.get_loc('Đánh giá ±0.3% (Z)')] = 'background-color: #fecaca; color: #991b1b; font-weight: bold;'
-                if row['CL Kho 035 (AB)'] != 0:
-                    styles[row.index.get_loc('CL Kho 035 (AB)')] = 'background-color: #fecaca; color: #991b1b; font-weight: bold;'
-                return styles
+            st.dataframe(df_view, use_container_width=True, hide_index=True, height=520)
 
-            st.dataframe(
-                df_view.style.apply(highlight_errors, axis=1),
-                use_container_width=True,
-                hide_index=True,
-                height=520,
-            )
-
-        # =========================================================
-        # TAB 8: TỔNG HỢP THEO TỪNG SHEET BBNT
-        # =========================================================
+        # TAB 8: TỔNG HỢP & ĐÁNH GIÁ TỪNG SHEET (CÓ Ô TỔNG LỖI & ĐÁNH GIÁ RÕ RÀNG)
         with tabs[7]:
-            st.markdown("#### 📊 Bảng Tổng Hợp Kết Quả Theo Từng Sheet BBNT")
+            st.markdown("#### 📊 Tổng Hợp Lỗi & Đánh Giá Phân Loại Theo Từng Sheet BBNT")
+            st.caption("Bảng tổng hợp điểm lưu ý, tổng khối lượng và đánh giá trạng thái kiểm soát của từng sheet.")
             sheet_summary_rows = []
             for r in all_reports:
                 sheet_summary_rows.append({
                     'Sheet BBNT': r['sheet_name'],
-                    'Sheet Packing List ghép': r['matched_pl'],
-                    'Tổng số cuộn': r['total_coils'],
-                    'Số cuộn khớp 100%': r['ok_coils_count'],
-                    'Số cuộn có sai lệch': r['error_coils_count'],
-                    'Lỗi biểu mẫu BBNT gốc': len(r['bbnt_internal_errors']),
+                    'Sheet Packing List': r['matched_pl'],
+                    'Tổng cuộn': r['total_coils'],
+                    'Khớp 100%': r['ok_coils_count'],
+                    'Cuộn sai lệch': r['error_coils_count'],
+                    'Lỗi biểu mẫu BBNT': len(r['bbnt_internal_errors']),
+                    'Tổng lỗi (Sheet)': r['error_coils_count'] + len(r['bbnt_internal_errors']),
+                    'Đánh giá KSNB': r['sheet_evaluation'],
                     'Tổng KL Net BBNT (kg)': r['sum_net_bbnt'],
-                    'Tổng KL Net PL (kg)': r['sum_pl'],
-                    'Tổng KL Trạm cân (kg)': r['sum_tc'],
-                    'Tổng KL Nhập kho 035 (kg)': r['sum_035'],
                 })
-            st.dataframe(
-                pd.DataFrame(sheet_summary_rows),
-                use_container_width=True,
-                hide_index=True,
-            )
+            df_summary_sheet = pd.DataFrame(sheet_summary_rows)
+            st.dataframe(df_summary_sheet, use_container_width=True, hide_index=True)
 
-        # =========================================================
-        # TAB 9: KẾT LUẬN & KIẾN NGHỊ KIỂM SOÁT
-        # =========================================================
+        # TAB 9: KẾT LUẬN & KIẾN NGHỊ
         with tabs[8]:
-            st.markdown("#### 📝 Soạn Thảo Kết Luận & Kiến Nghị Kiểm Soát Nội Bộ")
-            st.caption("Nội dung kết luận tại đây sẽ được xuất kèm vào Sheet 3 của file **Báo cáo Giải trình**.")
-            st.session_state.general_conclusion = st.text_area(
-                "Nội dung Kết luận & Kiến nghị:",
-                value=st.session_state.general_conclusion,
-                height=180,
-            )
-
-            st.markdown("##### 📌 Tóm tắt các trường hợp đã ghi nhận Lý do / Giải trình:")
-            if not df_coil_err.empty:
-                explained_df = st.session_state.df_coil_errors[
-                    (st.session_state.df_coil_errors['Lý do / Giải trình trường hợp'].astype(str).str.strip() != '')
-                    | (st.session_state.df_coil_errors['Trạng thái xử lý'] != 'Chưa xử lý')
-                ]
-                if not explained_df.empty:
-                    st.dataframe(
-                        explained_df[[
-                            'Đã kiểm', 'Sheet', 'Mã số cuộn', 'Số phiếu cân BBNT',
-                            'Đơn vị / Khâu cần kiểm tra', 'Chi tiết lỗi phát hiện',
-                            'Trạng thái xử lý', 'Lý do / Giải trình trường hợp',
-                        ]],
-                        use_container_width=True,
-                        hide_index=True,
-                    )
-                else:
-                    st.info("Chưa có cuộn nào được nhập Lý do / Giải trình. Bạn có thể nhập trực tiếp tại Tab 2, 3, 4 hoặc 5.")
+            st.markdown("#### 📝 Soạn Thảo Kết Luận & Kiến Nghị Kiểm Soát")
+            st.session_state.general_conclusion = st.text_area("Nội dung kết luận:", value=st.session_state.general_conclusion, height=180)
 
 
 doi_chieu_hrc_tung_file()
