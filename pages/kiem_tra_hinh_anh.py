@@ -42,7 +42,7 @@ st.markdown("<hr style='border-top: 1px solid #e2e8f0; margin-bottom: 20px;'>", 
 # Hàm chuyển ảnh sang Base64 gửi qua OpenRouter Vision
 def encode_image_to_base64(image_bytes):
     img = Image.open(io.BytesIO(image_bytes))
-    img.thumbnail((1600, 1600))  # Giữ độ phân giải cao để đọc số liệu nhỏ
+    img.thumbnail((1600, 1600))
     buffered = io.BytesIO()
     img.save(buffered, format="JPEG", quality=90)
     return base64.b64encode(buffered.getvalue()).decode('utf-8')
