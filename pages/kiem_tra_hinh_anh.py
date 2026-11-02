@@ -40,6 +40,7 @@ st.markdown("<h1 class='apple-main-title'>📦 Tổng Hợp & Đối Chiếu Bi�
 st.markdown("<hr style='border-top: 1px solid #e2e8f0; margin-bottom: 20px;'>", unsafe_allow_html=True)
 
 # Hàm chuyển ảnh sang Base64 gửi qua OpenRouter Vision
+# Hàm chuyển ảnh sang Base64 gửi qua OpenRouter Vision
 def encode_image_to_base64(image_bytes):
     img = Image.open(io.BytesIO(image_bytes))
     img.thumbnail((1600, 1600))
