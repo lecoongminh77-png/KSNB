@@ -3,12 +3,11 @@ import pandas as pd
 from PIL import Image
 import io
 import time
-import gc
 import base64
 from openai import OpenAI
-import fitz  # PyMuPDF để xử lý file PDF scan
+import fitz
 import openpyxl
-from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
+from openpyxl.styles import PatternFill, Font, Alignment
 
 # -------------------------------------------------------------
 # CẤU HÌNH GIAO DIỆN
@@ -39,8 +38,6 @@ with col_home:
 st.markdown("<h1 class='apple-main-title'>📦 Tổng Hợp & Đối Chiếu Biên Bản Kho Tôn Hoa Sen</h1>", unsafe_allow_html=True)
 st.markdown("<hr style='border-top: 1px solid #e2e8f0; margin-bottom: 20px;'>", unsafe_allow_html=True)
 
-# Hàm chuyển ảnh sang Base64 gửi qua OpenRouter Vision
-# Hàm chuyển ảnh sang Base64 gửi qua OpenRouter Vision
 def encode_image_to_base64(image_bytes):
     img = Image.open(io.BytesIO(image_bytes))
     img.thumbnail((1600, 1600))
@@ -108,16 +105,14 @@ else:
                 images_to_process = []
                 
                 if file.type == "application/pdf" or file.name.lower().endswith('.pdf'):
-                    # Chuyển PDF thành ảnh bằng PyMuPDF
                     doc = fitz.open(stream=file_bytes, filetype="pdf")
                     for page_num in range(len(doc)):
                         page = doc.load_page(page_num)
-                        pix = page.get_pixmap(matrix=fitz.Matrix(2, 2)) # Zoom x2 nét chữ
+                        pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
                         images_to_process.append(pix.tobytes("png"))
                 else:
                     images_to_process.append(file_bytes)
                 
-                # Gọi AI Vision đọc thông tin khách hàng và số tổng
                 for img_idx, img_bytes in enumerate(images_to_process):
                     base64_img = encode_image_to_base64(img_bytes)
                     
@@ -144,9 +139,8 @@ else:
                             ],
                             temperature=0.0,
                             max_tokens=500
-                        ]
+                        )
                         content = response.choices[0].message.content
-                        # Clean JSON string if wrapped in markdown
                         if "```json" in content:
                             content = content.split("```json")[1].split("```")[0].strip()
                         elif "```" in content:
@@ -165,7 +159,6 @@ else:
             status_text.markdown("**🔄 Đang tổng hợp đối chiếu với danh sách chi nhánh...**")
             time.sleep(1)
             
-            # Danh sách chuẩn các nhóm khách hàng & chi nhánh
             danh_sach_chuan = [
                 {"stt": 1, "nhom": "ĐTHS", "ten": "Đầu Tư Hoa Sen", "dvt1": "Cuộn", "soluong1": 565, "dvt2": "Kg", "soluong2": 3118360},
                 {"stt": 2, "nhom": "HTPP MB", "ten": "Công Ty Cổ Phần Tập Đoàn Hoa Sen - Chi Nhánh Thành Phố Hà Nội", "dvt1": "Cuộn", "soluong1": 21, "dvt2": "Kg", "soluong2": 85370},
@@ -193,10 +186,8 @@ else:
                 {"stt": 24, "nhom": "KN", "ten": "Khách hàng Gia Huy", "dvt1": "Cuộn", "soluong1": 1, "dvt2": "Kg", "soluong2": 530}
             ]
 
-            # Xử lý gán trạng thái dựa trên file quét được và danh sách chuẩn
             processed_rows = []
             for item in danh_sach_chuan:
-                # Tìm xem đơn vị này có trong file được upload lên không
                 matched_doc = None
                 for doc in extracted_docs:
                     if any(w in doc['data'].get('ten_khach_hang', '').lower() for w in item['ten'].lower().split()[:3]):
@@ -205,7 +196,6 @@ else:
                 
                 row = item.copy()
                 if matched_doc:
-                    # Đã có biên bản
                     status_ky = matched_doc['data'].get('trang_thai_ky', '').lower()
                     if 'chưa' in status_ky:
                         row['chua_ky'] = 'x'
@@ -229,7 +219,6 @@ else:
                     row['ghi_chu'] = 'Đã gửi kèm file biên bản'
                     row['is_error'] = False
                 else:
-                    # Chưa nhận được biên bản
                     row['chua_ky'] = 'x'
                     row['ky_2ben'] = ''
                     row['ky_3ben'] = ''
@@ -247,18 +236,15 @@ else:
             progress_bar.empty()
             status_text.empty()
 
-            # Hiển thị bảng tổng kết trên web
             st.markdown("### 📊 KẾT QUẢ ĐỐI CHIẾU & TỔNG HỢP")
             df_display = pd.DataFrame(processed_rows)
             st.dataframe(df_display[['stt', 'nhom', 'ten', 'soluong1', 'soluong2', 'ghi_chu']], use_container_width=True)
 
-            # Tạo file Excel thành phẩm chuẩn form mẫu
             output = io.BytesIO()
             wb = openpyxl.Workbook()
             ws = wb.active
             ws.title = "Tong_Hop"
 
-            # Tiêu đề
             ws.merge_cells("A1:O1")
             ws["A1"] = "TỔNG HỢP ĐỐI CHIẾU HÀNG HÓA GỬI KHO TẠI NHÀ MÁY TÔN HOA SEN PHÚ MỸ"
             ws["A1"].font = Font(size=13, bold=True)
@@ -273,10 +259,9 @@ else:
                 "Đã kí Biên bản 3 bên", "Đã hoàn thành, lưu trữ biên bản", "Nguyên nhân", 
                 "Thời gian dự kiến hoàn thành ký Biên bản 3 bên", "Kết quả Kiểm tra Biên bản", "Ghi chú"
             ]
-            ws.append([]) # Dòng 3 trống
-            ws.append(headers) # Dòng 4 tiêu đề bảng
+            ws.append([])
+            ws.append(headers)
 
-            # Định dạng header
             header_fill = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
             for col_num in range(1, len(headers) + 1):
                 cell = ws.cell(row=4, column=col_num)
@@ -284,8 +269,7 @@ else:
                 cell.fill = header_fill
                 cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
-            # Đổ dữ liệu vào excel
-            red_fill = PatternFill(start_color="F8D7DA", end_color="F8D7DA", fill_type="solid") # Màu đỏ nhạt báo lỗi
+            red_fill = PatternFill(start_color="F8D7DA", end_color="F8D7DA", fill_type="solid")
 
             for r_idx, r_data in enumerate(processed_rows, start=5):
                 ws.append([
@@ -293,8 +277,6 @@ else:
                     r_data['dvt2'], r_data['soluong2'], r_data['chua_ky'], r_data['ky_2ben'],
                     r_data['ky_3ben'], r_data['hoan_thanh'], r_data['nguyen_nhan'], "", r_data['ket_qua'], r_data['ghi_chu']
                 ])
-                
-                # Nếu có lỗi hoặc nghi ngờ -> tô đỏ dòng
                 if r_data.get('is_error', False):
                     for c_idx in range(1, len(headers) + 1):
                         ws.cell(row=r_idx, column=c_idx).fill = red_fill
