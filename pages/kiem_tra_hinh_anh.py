@@ -3,11 +3,17 @@ import pandas as pd
 from PIL import Image
 import io
 import time
-import base64
-from openai import OpenAI
-from pypdf import PdfReader
+from google import genai
+from google.genai import types
 import openpyxl
 from openpyxl.styles import PatternFill, Font, Alignment
+
+# Kiểm tra an toàn thư viện đọc PDF
+try:
+    from pypdf import PdfReader
+    HAS_PYPDF = True
+except ImportError:
+    HAS_PYPDF = False
 
 # -------------------------------------------------------------
 # CẤU HÌNH GIAO DIỆN
@@ -35,41 +41,14 @@ with col_home:
         try: st.switch_page('app_ksnb.py')
         except: pass
 
-st.markdown("<h1 class='apple-main-title'>📦 Tổng Hợp & Đối Chiếu Biên Bản Kho Tôn Hoa Sen</h1>", unsafe_allow_html=True)
+st.markdown("<h1 class='apple-main-title'>📦 Tổng Hợp & Đối Chiếu Biên Bản Kho (Google Gemini AI)</h1>", unsafe_allow_html=True)
 st.markdown("<hr style='border-top: 1px solid #e2e8f0; margin-bottom: 20px;'>", unsafe_allow_html=True)
 
-def encode_image_to_base64(image_bytes):
-    img = Image.open(io.BytesIO(image_bytes))
-    img.thumbnail((1600, 1600))
-    buffered = io.BytesIO()
-    img.save(buffered, format="JPEG", quality=90)
-    return base64.b64encode(buffered.getvalue()).decode('utf-8')
-
 # -------------------------------------------------------------
-# CẤU HÌNH OPENROUTER API
+# CẤU HÌNH GOOGLE GEMINI API
 # -------------------------------------------------------------
-st.markdown("### 🔑 Cấu hình OpenRouter API (AI Vision)")
-api_key_input = st.text_input("Dán OpenRouter API Key vào đây:", type="password")
-
-selected_model = st.selectbox(
-    "🤖 Chọn Model AI Quét Biên Bản:",
-    [
-        "google/gemini-2.0-flash-exp:free",
-        "meta-llama/llama-3.2-90b-vision-instruct:free",
-        "qwen/qwen-2-vl-7b-instruct:free"
-    ]
-)
-
-client = None
-if api_key_input:
-    try:
-        client = OpenAI(
-            base_url="https://openrouter.ai/api/v1",
-            api_key=api_key_input.strip()
-        )
-        st.success("✅ Đã kết nối thành công với OpenRouter!")
-    except Exception as e:
-        st.error(f"❌ Lỗi khởi tạo Key: {e}")
+st.markdown("### 🔑 Cấu hình Google Gemini API Key")
+google_api_key = st.text_input("Dán Google Gemini API Key vào đây (Lấy tại aistudio.google.com):", type="password")
 
 st.markdown("<hr style='border-top: 1px dashed #ccc; margin: 20px 0;'>", unsafe_allow_html=True)
 
@@ -85,14 +64,17 @@ uploaded_files = st.file_uploader(
 # -------------------------------------------------------------
 if not uploaded_files:
     st.info("👆 Vui lòng tải lên các file biên bản đối chiếu hàng gửi kho để hệ thống tổng hợp.")
-elif not api_key_input or not client:
-    st.warning("⚠️ Vui lòng nhập OpenRouter API Key ở trên để AI đọc dữ liệu.")
+elif not google_api_key:
+    st.warning("⚠️ Vui lòng nhập Google Gemini API Key ở trên để AI đọc dữ liệu.")
 else:
     if st.button("🚀 BẮT ĐẦU TỔNG HỢP & ĐỐI CHIẾU", use_container_width=True):
         progress_bar = st.progress(0)
         status_text = st.empty()
         
         try:
+            # Khởi tạo client Google GenAI đúng chuẩn với API Key người dùng nhập
+            client = genai.Client(api_key=google_api_key.strip())
+            
             extracted_docs = []
             total_files = len(uploaded_files)
             
@@ -105,6 +87,9 @@ else:
                 images_to_process = []
                 
                 if file.type == "application/pdf" or file.name.lower().endswith('.pdf'):
+                    if not HAS_PYPDF:
+                        st.error("❌ Môi trường chưa cài `pypdf`. Vui lòng thêm `pypdf` vào file requirements.txt trên GitHub.")
+                        st.stop()
                     reader = PdfReader(io.BytesIO(file_bytes))
                     for page in reader.pages:
                         for image_file_object in page.images:
@@ -113,8 +98,6 @@ else:
                     images_to_process.append(file_bytes)
                 
                 for img_idx, img_bytes in enumerate(images_to_process):
-                    base64_img = encode_image_to_base64(img_bytes)
-                    
                     prompt = (
                         "Hãy đọc trang biên bản đối chiếu kho này và trả về JSON chính xác các thông tin sau:\n"
                         "1. 'ten_khach_hang': Tên đơn vị gửi hàng (Bên A) hoặc tên khách hàng đầy đủ.\n"
@@ -125,28 +108,19 @@ else:
                     )
                     
                     try:
-                        response = client.chat.completions.create(
-                            model=selected_model,
-                            messages=[
-                                {
-                                    "role": "user",
-                                    "content": [
-                                        {"type": "text", "text": prompt},
-                                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_img}"}}
-                                    ]
-                                }
+                        response = client.models.generate_content(
+                            model='gemini-2.5-flash',
+                            contents=[
+                                types.Part.from_bytes(data=img_bytes, mime_type='image/jpeg'),
+                                prompt
                             ],
-                            temperature=0.0,
-                            max_tokens=500
+                            config=types.GenerateContentConfig(
+                                response_mime_type="application/json",
+                                temperature=0.0
+                            )
                         )
-                        content = response.choices[0].message.content
-                        if "```json" in content:
-                            content = content.split("```json")[1].split("```")[0].strip()
-                        elif "```" in content:
-                            content = content.split("```")[1].split("```")[0].strip()
-                            
                         import json
-                        data_json = json.loads(content)
+                        data_json = json.loads(response.text)
                         extracted_docs.append({
                             'file_name': file.name,
                             'data': data_json
@@ -176,7 +150,7 @@ else:
                 {"stt": 15, "nhom": "KDTT MN", "ten": "Công Ty TNHH Tôn Thép Nguyễn Đức Anh Khoa", "dvt1": "Cuộn", "soluong1": 28, "dvt2": "Kg", "soluong2": 118720},
                 {"stt": 16, "nhom": "KDTT MN", "ten": "Công Ty TNHH TM DV Thép Trường Sa", "dvt1": "Cuộn", "soluong1": 7, "dvt2": "Kg", "soluong2": 46720},
                 {"stt": 17, "nhom": "KDTT MN", "ten": "Công Ty Trách Nhiệm Hữu Hạn Hi Văn", "dvt1": "Cuộn", "soluong1": 4, "dvt2": "Kg", "soluong2": 9680},
-                {"stt": 18, "nhom": "KDTT MN", "ten": "Công Ty Trách Nhiệm Hữu Hạn Tân Mỹ Hạnh", "dvt1": "Cuộn", "soluong1": 39, "dvt2": "Kg", "soluong2": 172280},
+                {"stt": 18, "nhom": "KDTT MN", "ten": "Công Ty TNHH Tân Mỹ Hạnh", "dvt1": "Cuộn", "soluong1": 39, "dvt2": "Kg", "soluong2": 172280},
                 {"stt": 19, "nhom": "KDTT MN", "ten": "Công Ty Cổ Phần Vinatech Hồ Chí Minh", "dvt1": "Cuộn", "soluong1": 5, "dvt2": "Kg", "soluong2": 14240},
                 {"stt": 20, "nhom": "KDTT MN", "ten": "Công Ty TNHH Tôn Thép Kokoro", "dvt1": "Cuộn", "soluong1": 1, "dvt2": "Kg", "soluong2": 4420},
                 {"stt": 21, "nhom": "KDTT MN", "ten": "Công Ty TNHH Sản Xuất Thương Mại Trường Phúc Bình Thuận", "dvt1": "Cuộn", "soluong1": 2, "dvt2": "Kg", "soluong2": 7400},
