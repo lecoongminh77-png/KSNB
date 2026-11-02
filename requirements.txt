@@ -11,3 +11,4 @@ pillow
 requests
 openai
 pypdf
+google-genai
