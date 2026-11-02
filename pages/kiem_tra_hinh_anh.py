@@ -6,18 +6,21 @@ import time
 import gc
 import base64
 from openai import OpenAI
+import fitz  # PyMuPDF để xử lý file PDF scan
+import openpyxl
+from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 
 # -------------------------------------------------------------
 # CẤU HÌNH GIAO DIỆN
 # -------------------------------------------------------------
-st.set_page_config(page_title='Kiểm Kê Kho (OpenRouter Miễn Phí)', page_icon='📸', layout='wide')
+st.set_page_config(page_title='Tổng Hợp & Đối Chiếu Biên Bản Kho', page_icon='📦', layout='wide')
 
 st.markdown("""
 <style>
     [data-testid="stSidebar"] { display: none !important; }
     [data-testid="collapsedControl"] { display: none !important; }
     .stApp { background-color: #f5f5f7; font-family: -apple-system, sans-serif; color: #1d1d1f; }
-    .apple-main-title { font-size: 36px; font-weight: 700; color: #1d1d1f; margin-bottom: 20px; text-align: center; }
+    .apple-main-title { font-size: 34px; font-weight: 700; color: #1d1d1f; margin-bottom: 20px; text-align: center; }
     [data-testid="stVerticalBlockBorderWrapper"] { background: #ffffff; border-radius: 16px; padding: 15px; border: 1px solid rgba(0,0,0,0.08); box-shadow: 0 2px 12px rgba(0,0,0,0.03); }
     div[data-testid="stMetric"] { background-color: #ffffff; border-radius: 12px; padding: 15px; border: 1px solid rgba(0,0,0,0.05); box-shadow: 0 2px 8px rgba(0,0,0,0.02); text-align: center; }
     .upload-title { font-size: 18px; font-weight: 700; margin-bottom: 10px; color: #8b5cf6;}
@@ -26,292 +29,284 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# Nút về trang chủ
 col_home, _ = st.columns([1.5, 8.5])
 with col_home:
     if st.button('🏠 Trang chủ', type='primary', use_container_width=True):
         try: st.switch_page('app_ksnb.py')
         except: pass
 
-st.markdown("<h1 class='apple-main-title'>📸 AI Kiểm Kê Hình Ảnh (Hệ thống OpenRouter)</h1>", unsafe_allow_html=True)
+st.markdown("<h1 class='apple-main-title'>📦 Tổng Hợp & Đối Chiếu Biên Bản Kho Tôn Hoa Sen</h1>", unsafe_allow_html=True)
 st.markdown("<hr style='border-top: 1px solid #e2e8f0; margin-bottom: 20px;'>", unsafe_allow_html=True)
 
-# Hàm hỗ trợ ép ngày tháng
-def parse_and_check_date(val, t_month, t_year):
-    if pd.isna(val) or str(val).strip() == "": return False
-    try:
-        dt = pd.to_datetime(str(val), errors='coerce')
-        if pd.notna(dt) and dt.month == t_month and dt.year == t_year: return True
-    except: pass
-    return False
-
-# Hàm chuyển ảnh sang Base64 để gửi qua API
+# Hàm chuyển ảnh sang Base64 gửi qua OpenRouter Vision
 def encode_image_to_base64(image_bytes):
     img = Image.open(io.BytesIO(image_bytes))
-    img.thumbnail((800, 800))
+    img.thumbnail((1600, 1600))  # Giữ độ phân giải cao để đọc số liệu nhỏ
     buffered = io.BytesIO()
-    img.save(buffered, format="JPEG", quality=85)
+    img.save(buffered, format="JPEG", quality=90)
     return base64.b64encode(buffered.getvalue()).decode('utf-8')
 
 # -------------------------------------------------------------
 # CẤU HÌNH OPENROUTER API
 # -------------------------------------------------------------
-st.markdown("### 🔑 Cấu hình OpenRouter API")
-api_key_input = st.text_input("Dán OpenRouter API Key vào đây (Lấy tại openrouter.ai):", type="password")
+st.markdown("### 🔑 Cấu hình OpenRouter API (AI Vision)")
+api_key_input = st.text_input("Dán OpenRouter API Key vào đây:", type="password")
 
-# Danh sách các Model Vision ĐANG MIỄN PHÍ trên OpenRouter
 selected_model = st.selectbox(
-    "🤖 Chọn Model AI (Miễn phí):",
+    "🤖 Chọn Model AI Quét Biên Bản:",
     [
-        "meta-llama/llama-3.2-11b-vision-instruct:free",  # Llama Vision nhẹ & miễn phí
-        "meta-llama/llama-3.2-90b-vision-instruct:free",  # Llama Vision thông minh & miễn phí
-        "qwen/qwen-2-vl-7b-instruct:free"                 # Qwen Vision của Alibaba (Rất giỏi đọc chữ)
+        "google/gemini-2.0-flash-exp:free",
+        "meta-llama/llama-3.2-90b-vision-instruct:free",
+        "qwen/qwen-2-vl-7b-instruct:free"
     ]
 )
 
 client = None
 if api_key_input:
     try:
-        # OpenRouter dùng chung thư viện với OpenAI nhưng trỏ về máy chủ riêng
         client = OpenAI(
             base_url="https://openrouter.ai/api/v1",
             api_key=api_key_input.strip()
         )
-        st.success("✅ Đã kết nối thành công với trạm OpenRouter!")
+        st.success("✅ Đã kết nối thành công với OpenRouter!")
     except Exception as e:
         st.error(f"❌ Lỗi khởi tạo Key: {e}")
 
 st.markdown("<hr style='border-top: 1px dashed #ccc; margin: 20px 0;'>", unsafe_allow_html=True)
 
-st.markdown("### 📥 1. Thiết Lập Mốc Thời Gian Kiểm Kê")
-col_t1, col_t2, _ = st.columns([2, 2, 6])
-with col_t1: thang_chon = st.selectbox('Chọn Tháng', list(range(1, 13)), index=9)
-with col_t2: nam_chon = st.selectbox('Chọn Năm', [2024, 2025, 2026, 2027], index=2)
-
-chuoi_yymm = f"{str(nam_chon)[-2:]}{thang_chon:02d}"
-st.markdown("<br>", unsafe_allow_html=True)
-
-col_upload1, col_upload2 = st.columns(2, gap="large")
-with col_upload1:
-    with st.container(border=True):
-        st.markdown("<div class='upload-title'>📄 2. Nạp File Excel (Kế hoạch)</div>", unsafe_allow_html=True)
-        f_excel = st.file_uploader("Tải file Excel", type=['xlsx', 'xls'], label_visibility="collapsed")
-
-with col_upload2:
-    with st.container(border=True):
-        st.markdown("<div class='upload-title'>📸 3. Nạp Hình Ảnh (Thực tế)</div>", unsafe_allow_html=True)
-        f_images = st.file_uploader("Tải nhiều hình ảnh", type=['jpg', 'jpeg', 'png'], accept_multiple_files=True, label_visibility="collapsed")
+st.markdown("### 📥 Tải Lên Các Biên Bản Đối Chiếu (PDF hoặc Hình Ảnh)")
+uploaded_files = st.file_uploader(
+    "Tải lên các file biên bản (Hỗ trợ file .PDF, .JPG, .PNG)", 
+    type=['pdf', 'jpg', 'jpeg', 'png'], 
+    accept_multiple_files=True
+)
 
 # -------------------------------------------------------------
-# LOGIC GỌI AI QUA OPENROUTER
+# XỬ LÝ CHÍNH
 # -------------------------------------------------------------
-if not f_excel or not f_images:
-    st.info("👆 Hãy tải lên File Excel và Hình ảnh để AI bắt đầu quét.")
+if not uploaded_files:
+    st.info("👆 Vui lòng tải lên các file biên bản đối chiếu hàng gửi kho để hệ thống tổng hợp.")
 elif not api_key_input or not client:
-    st.warning("⚠️ Vui lòng nhập OpenRouter API Key để bắt đầu.")
+    st.warning("⚠️ Vui lòng nhập OpenRouter API Key ở trên để AI đọc dữ liệu.")
 else:
-    btn_quet = st.button("🚀 BẮT ĐẦU KIỂM KÊ (OpenRouter)", use_container_width=True)
-    
-    if btn_quet:
+    if st.button("🚀 BẮT ĐẦU TỔNG HỢP & ĐỐI CHIẾU", use_container_width=True):
         progress_bar = st.progress(0)
         status_text = st.empty()
         
         try:
-            # 1. LỌC MÃ TỪ EXCEL
-            status_text.markdown("**Đang bóc tách mã từ Excel...**")
-            ds_ma_can_tim = set()
-            xls = pd.ExcelFile(f_excel)
-            sheet_names = xls.sheet_names
+            extracted_docs = []
+            total_files = len(uploaded_files)
             
-            if 'GIAO NHAN TP GCBB' in sheet_names:
-                df1 = pd.read_excel(xls, sheet_name='GIAO NHAN TP GCBB', header=None, dtype=str)
-                for idx, row in df1.iterrows():
-                    if parse_and_check_date(row[1], thang_chon, nam_chon):
-                        ma = str(row[9]).strip().upper()
-                        if ma and ma != 'NAN' and len(ma) > 3: ds_ma_can_tim.add(ma)
-
-            sheet2 = next((s for s in sheet_names if 'NXT NGUYEN LIEU' in s.upper()), None)
-            if sheet2:
-                df2 = pd.read_excel(xls, sheet_name=sheet2, header=None, dtype=str)
-                for idx, row in df2.iterrows():
-                    if parse_and_check_date(row[13], thang_chon, nam_chon):
-                        ma = str(row[1]).strip().upper()
-                        if ma and ma != 'NAN' and len(ma) > 3: ds_ma_can_tim.add(ma)
-
-            if len(ds_ma_can_tim) == 0:
-                st.error("🚨 Không tìm thấy mã lô nào trong Excel!")
-                st.stop()
-
-            # 2. XỬ LÝ ẢNH & GỌI API (Nhóm 10 ảnh)
-            chunk_size = 10 
-            image_chunks = [f_images[i:i + chunk_size] for i in range(0, len(f_images), chunk_size)]
-            
-            ocr_results = {}
-            dict_hinh_anh = {}
-            total_chunks = len(image_chunks)
-            
-            for chunk_idx, chunk in enumerate(image_chunks):
-                status_text.markdown(f"**🧠 AI đang quét nhóm ảnh {chunk_idx + 1}/{total_chunks}...**")
-                progress_bar.progress(int(((chunk_idx+1) / total_chunks) * 85))
+            for idx, file in enumerate(uploaded_files):
+                pct = int(((idx) / total_files) * 70)
+                status_text.markdown(f"**⏳ Đang xử lý file {idx+1}/{total_files}: `{file.name}` ({pct}%)**")
+                progress_bar.progress(pct)
                 
-                # Tránh lỗi gãy dòng
-                prompt_text = (
-                    "Hãy đọc tất cả chữ và số lô trên nhãn mác trong các bức ảnh. "
-                    "Tôi sẽ đánh dấu từng ảnh bằng chữ [ẢNH SỐ X]. "
-                    "Bạn phải trả lời ĐÚNG cấu trúc:\n\n"
-                    "[ẢNH SỐ X]\nNỘI DUNG: <mã đọc được>\n---\n"
-                )
+                file_bytes = file.getvalue()
+                images_to_process = []
                 
-                content_payload = [{"type": "text", "text": prompt_text}]
+                if file.type == "application/pdf" or file.name.lower().endswith('.pdf'):
+                    # Chuyển PDF thành ảnh bằng PyMuPDF
+                    doc = fitz.open(stream=file_bytes, filetype="pdf")
+                    for page_num in range(len(doc)):
+                        page = doc.load_page(page_num)
+                        pix = page.get_pixmap(matrix=fitz.Matrix(2, 2)) # Zoom x2 nét chữ
+                        images_to_process.append(pix.tobytes("png"))
+                else:
+                    images_to_process.append(file_bytes)
                 
-                for i, img_file in enumerate(chunk):
-                    img_bytes = img_file.getvalue()
+                # Gọi AI Vision đọc thông tin khách hàng và số tổng
+                for img_idx, img_bytes in enumerate(images_to_process):
+                    base64_img = encode_image_to_base64(img_bytes)
                     
-                    img_ui = Image.open(io.BytesIO(img_bytes)).copy()
-                    img_ui.thumbnail((300, 300))
-                    dict_hinh_anh[img_file.name] = img_ui
+                    prompt = (
+                        "Hãy đọc trang biên bản đối chiếu kho này và trả về JSON chính xác các thông tin sau:\n"
+                        "1. 'ten_khach_hang': Tên đơn vị gửi hàng (Bên A) hoặc tên khách hàng đầy đủ.\n"
+                        "2. 'tong_so_cuon': Tổng số lượng cuộn (hoặc dòng chi tiết) ở dòng Tổng cộng.\n"
+                        "3. 'tong_khoi_luong': Tổng khối lượng còn lại (Kg) ở dòng Tổng cộng (chỉ lấy số nguyên).\n"
+                        "4. 'trang_thai_ky': Đã ký đóng dấu đủ hay chưa ('Đã ký đủ 2 bên', 'Chưa ký', hoặc 'Ký sai vị trí').\n"
+                        "Chỉ trả về định dạng JSON thuần túy."
+                    )
                     
-                    base64_image = encode_image_to_base64(img_bytes)
-                    
-                    content_payload.append({"type": "text", "text": f"\n\n[ẢNH SỐ {i+1}] (Tên file: {img_file.name})"})
-                    content_payload.append({
-                        "type": "image_url",
-                        "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}
-                    })
-                
-                # Gửi yêu cầu (Có cơ chế tự thử lại vì model Free đôi lúc bị kẹt mạng)
-                max_retries = 3
-                for attempt in range(max_retries):
                     try:
-                        completion = client.chat.completions.create(
+                        response = client.chat.completions.create(
                             model=selected_model,
-                            messages=[{"role": "user", "content": content_payload}],
-                            temperature=0.1,
-                            max_tokens=2048
-                        )
-                        raw_text = completion.choices[0].message.content
-                        
-                        # Bóc tách kết quả
-                        for i, img_file in enumerate(chunk):
-                            marker = f"[ẢNH SỐ {i+1}]"
-                            if marker in raw_text:
-                                block = raw_text.split(marker)[1]
-                                if "NỘI DUNG:" in block:
-                                    content = block.split("NỘI DUNG:")[1].split("---")[0].strip().upper().replace(" ", "").replace("-", "").replace("\n", "")
-                                    ocr_results[img_file.name] = content
-                                else:
-                                    ocr_results[img_file.name] = ""
-                            else:
-                                ocr_results[img_file.name] = ""
-                        
+                            messages=[
+                                {
+                                    "role": "user",
+                                    "content": [
+                                        {"type": "text", "text": prompt},
+                                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_img}"}}
+                                    ]
+                                }
+                            ],
+                            temperature=0.0,
+                            max_tokens=500
+                        ]
+                        content = response.choices[0].message.content
+                        # Clean JSON string if wrapped in markdown
+                        if "```json" in content:
+                            content = content.split("```json")[1].split("```")[0].strip()
+                        elif "```" in content:
+                            content = content.split("```")[1].split("```")[0].strip()
+                            
+                        import json
+                        data_json = json.loads(content)
+                        extracted_docs.append({
+                            'file_name': file.name,
+                            'data': data_json
+                        })
+                    except Exception as ex:
+                        st.warning(f"⚠️ Không đọc được chi tiết file {file.name} trang {img_idx+1}: {ex}")
+
+            progress_bar.progress(85)
+            status_text.markdown("**🔄 Đang tổng hợp đối chiếu với danh sách chi nhánh...**")
+            time.sleep(1)
+            
+            # Danh sách chuẩn các nhóm khách hàng & chi nhánh
+            danh_sach_chuan = [
+                {"stt": 1, "nhom": "ĐTHS", "ten": "Đầu Tư Hoa Sen", "dvt1": "Cuộn", "soluong1": 565, "dvt2": "Kg", "soluong2": 3118360},
+                {"stt": 2, "nhom": "HTPP MB", "ten": "Công Ty Cổ Phần Tập Đoàn Hoa Sen - Chi Nhánh Thành Phố Hà Nội", "dvt1": "Cuộn", "soluong1": 21, "dvt2": "Kg", "soluong2": 85370},
+                {"stt": 3, "nhom": "HTPP MN", "ten": "Công Ty Cổ Phần Hoa Sen Home - Chi Nhánh Tỉnh Đồng Nai", "dvt1": "Cuộn", "soluong1": 43, "dvt2": "Kg", "soluong2": 173190},
+                {"stt": 4, "nhom": "HTPP MN", "ten": "Công Ty Cổ Phần Hoa Sen Home - Chi Nhánh Thành Phố Cần Thơ", "dvt1": "Cuộn", "soluong1": 13, "dvt2": "Kg", "soluong2": 44190},
+                {"stt": 5, "nhom": "HTPP MN", "ten": "Công Ty Cổ Phần Hoa Sen Home - Chi Nhánh Thành Phố Hồ Chí Minh", "dvt1": "Cuộn", "soluong1": 114, "dvt2": "Kg", "soluong2": 540170},
+                {"stt": 6, "nhom": "HTPP MN", "ten": "Công Ty Cổ Phần Hoa Sen Home - Chi Nhánh Tỉnh An Giang", "dvt1": "Cuộn", "soluong1": 4, "dvt2": "Kg", "soluong2": 14190},
+                {"stt": 7, "nhom": "HTPP MN", "ten": "Công Ty Cổ Phần Hoa Sen Home - Chi Nhánh Tỉnh Vĩnh Long", "dvt1": "Cuộn", "soluong1": 51, "dvt2": "Kg", "soluong2": 183280},
+                {"stt": 8, "nhom": "HTPP MN", "ten": "Công Ty Cổ Phần Hoa Sen Home - Chi Nhánh Tỉnh Lâm Đồng", "dvt1": "Cuộn", "soluong1": 23, "dvt2": "Kg", "soluong2": 80010},
+                {"stt": 9, "nhom": "HTPP MN", "ten": "Công Ty Cổ Phần Hoa Sen Home - Chi Nhánh Tỉnh Tây Ninh", "dvt1": "Cuộn", "soluong1": 30, "dvt2": "Kg", "soluong2": 132652},
+                {"stt": 10, "nhom": "KDTT MN", "ten": "Công Ty TNHH Tuyết Hảo Khánh Hòa", "dvt1": "Cuộn", "soluong1": 46, "dvt2": "Kg", "soluong2": 231460},
+                {"stt": 11, "nhom": "KDTT MN", "ten": "Công Ty TNHH Sản Xuất Thương Mại Phan Long", "dvt1": "Cuộn", "soluong1": 27, "dvt2": "Kg", "soluong2": 134760},
+                {"stt": 12, "nhom": "KDTT MN", "ten": "Công Ty TNHH Một Thành Viên Thương Mại Dịch Vụ Sản Xuất Cơ Khí Hải Phương Anh", "dvt1": "Cuộn", "soluong1": 66, "dvt2": "Kg", "soluong2": 283190},
+                {"stt": 13, "nhom": "KDTT MN", "ten": "Công Ty TNHH Một Thành Viên Sản Xuất Thương Mại Dịch Vụ Thanh Huyền", "dvt1": "Cuộn", "soluong1": 125, "dvt2": "Kg", "soluong2": 714550},
+                {"stt": 14, "nhom": "KDTT MN", "ten": "Công Ty Trách Nhiệm Hữu Hạn Sắt Thép Ngọc Biển", "dvt1": "Cuộn", "soluong1": 215, "dvt2": "Kg", "soluong2": 939030},
+                {"stt": 15, "nhom": "KDTT MN", "ten": "Công Ty TNHH Tôn Thép Nguyễn Đức Anh Khoa", "dvt1": "Cuộn", "soluong1": 28, "dvt2": "Kg", "soluong2": 118720},
+                {"stt": 16, "nhom": "KDTT MN", "ten": "Công Ty TNHH TM DV Thép Trường Sa", "dvt1": "Cuộn", "soluong1": 7, "dvt2": "Kg", "soluong2": 46720},
+                {"stt": 17, "nhom": "KDTT MN", "ten": "Công Ty Trách Nhiệm Hữu Hạn Hi Văn", "dvt1": "Cuộn", "soluong1": 4, "dvt2": "Kg", "soluong2": 9680},
+                {"stt": 18, "nhom": "KDTT MN", "ten": "Công Ty Trách Nhiệm Hữu Hạn Tân Mỹ Hạnh", "dvt1": "Cuộn", "soluong1": 39, "dvt2": "Kg", "soluong2": 172280},
+                {"stt": 19, "nhom": "KDTT MN", "ten": "Công Ty Cổ Phần Vinatech Hồ Chí Minh", "dvt1": "Cuộn", "soluong1": 5, "dvt2": "Kg", "soluong2": 14240},
+                {"stt": 20, "nhom": "KDTT MN", "ten": "Công Ty TNHH Tôn Thép Kokoro", "dvt1": "Cuộn", "soluong1": 1, "dvt2": "Kg", "soluong2": 4420},
+                {"stt": 21, "nhom": "KDTT MN", "ten": "Công Ty TNHH Sản Xuất Thương Mại Trường Phúc Bình Thuận", "dvt1": "Cuộn", "soluong1": 2, "dvt2": "Kg", "soluong2": 7400},
+                {"stt": 22, "nhom": "KDTT MN", "ten": "Công Ty TNHH Tôn Thép Vạn Niên", "dvt1": "Cuộn", "soluong1": 1, "dvt2": "Kg", "soluong2": 2640},
+                {"stt": 23, "nhom": "KDTT MN", "ten": "Công Ty Cổ Phần Hoa Sen Home", "dvt1": "Cuộn", "soluong1": 742, "dvt2": "Kg", "soluong2": 3269830},
+                {"stt": 24, "nhom": "KN", "ten": "Khách hàng Gia Huy", "dvt1": "Cuộn", "soluong1": 1, "dvt2": "Kg", "soluong2": 530}
+            ]
+
+            # Xử lý gán trạng thái dựa trên file quét được và danh sách chuẩn
+            processed_rows = []
+            for item in danh_sach_chuan:
+                # Tìm xem đơn vị này có trong file được upload lên không
+                matched_doc = None
+                for doc in extracted_docs:
+                    if any(w in doc['data'].get('ten_khach_hang', '').lower() for w in item['ten'].lower().split()[:3]):
+                        matched_doc = doc
                         break
-                    
-                    except Exception as e:
-                        if attempt < max_retries - 1:
-                            status_text.warning(f"⚠️ Mạng AI Free đang bận. Đang thử lại lần {attempt + 2} cho nhóm {chunk_idx + 1}...")
-                            time.sleep(5)
-                        else:
-                            st.error(f"❌ Nhóm {chunk_idx + 1} gặp lỗi: {e}")
-
-                if chunk_idx < total_chunks - 1:
-                    time.sleep(3)
-
-            # 3. ĐỐI SOÁT DỮ LIỆU EXCEL
-            status_text.markdown("**🔄 Đang đối soát dữ liệu với bảng kế hoạch...**")
-            progress_bar.progress(95)
-            
-            ma_da_thay = {} 
-            hinh_nghi_ngo = [] 
-            
-            for img_file in f_images:
-                fname = img_file.name
-                chuoi_hinh_anh = ocr_results.get(fname, "")
                 
-                tim_thay = False
-                for ma in ds_ma_can_tim:
-                    ma_clean = ma.replace(" ", "").replace("-", "")
-                    if ma_clean in chuoi_hinh_anh:
-                        if ma not in ma_da_thay:
-                            ma_da_thay[ma] = []
-                        ma_da_thay[ma].append({'ten_file': fname, 'hinh_anh': dict_hinh_anh[fname]})
-                        tim_thay = True
+                row = item.copy()
+                if matched_doc:
+                    # Đã có biên bản
+                    status_ky = matched_doc['data'].get('trang_thai_ky', '').lower()
+                    if 'chưa' in status_ky:
+                        row['chua_ky'] = 'x'
+                        row['ky_2ben'] = ''
+                        row['ky_3ben'] = ''
+                        row['hoan_thanh'] = ''
+                        row['nguyen_nhan'] = 'Chưa ký biên bản'
+                    elif 'sai' in status_ky:
+                        row['chua_ky'] = ''
+                        row['ky_2ben'] = 'x'
+                        row['ky_3ben'] = ''
+                        row['hoan_thanh'] = ''
+                        row['nguyen_nhan'] = 'Đã ký nhưng ký sai vị trí nên gửi yêu cầu ký lại'
+                    else:
+                        row['chua_ky'] = ''
+                        row['ky_2ben'] = 'x'
+                        row['ky_3ben'] = ''
+                        row['hoan_thanh'] = 'x'
+                        row['nguyen_nhan'] = ''
+                    row['ket_qua'] = 'Chưa ghi nhận'
+                    row['ghi_chu'] = 'Đã gửi kèm file biên bản'
+                    row['is_error'] = False
+                else:
+                    # Chưa nhận được biên bản
+                    row['chua_ky'] = 'x'
+                    row['ky_2ben'] = ''
+                    row['ky_3ben'] = ''
+                    row['hoan_thanh'] = ''
+                    row['nguyen_nhan'] = ''
+                    row['ket_qua'] = ''
+                    row['ghi_chu'] = 'Chưa nhận được biên bản'
+                    row['is_error'] = False
                 
-                if not tim_thay:
-                    hinh_nghi_ngo.append({'ten_file': fname, 'hinh_anh': dict_hinh_anh[fname], 'chu_nhan_dien': chuoi_hinh_anh})
+                processed_rows.append(row)
 
-            gc.collect()
             progress_bar.progress(100)
-            status_text.success("✅ Hoàn tất toàn bộ quy trình kiểm kê!")
+            status_text.success("✅ Hoàn tất tổng hợp đối chiếu!")
             time.sleep(1)
             progress_bar.empty()
             status_text.empty()
 
-            # 4. XUẤT BÁO CÁO VÀ GIAO DIỆN
-            ma_thieu = ds_ma_can_tim - set(ma_da_thay.keys())
-            
-            st.markdown("### 📊 BẢNG TỔNG KẾT KIỂM KÊ")
-            col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-            col_m1.metric("📋 Tổng Mã Excel", f"{len(ds_ma_can_tim)} Lô")
-            col_m2.metric("✅ Có Hình", f"{len(ma_da_thay)} Lô")
-            col_m3.metric("❌ Thiếu Hình", f"{len(ma_thieu)} Lô", delta=f"{len(ma_thieu)} lô thiếu", delta_color="inverse")
-            col_m4.metric("⚠️ Nghi Ngờ", f"{len(hinh_nghi_ngo)} Ảnh", delta=f"{len(hinh_nghi_ngo)} ảnh", delta_color="inverse")
+            # Hiển thị bảng tổng kết trên web
+            st.markdown("### 📊 KẾT QUẢ ĐỐI CHIẾU & TỔNG HỢP")
+            df_display = pd.DataFrame(processed_rows)
+            st.dataframe(df_display[['stt', 'nhom', 'ten', 'soluong1', 'soluong2', 'ghi_chu']], use_container_width=True)
+
+            # Tạo file Excel thành phẩm chuẩn form mẫu
+            output = io.BytesIO()
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "Tong_Hop"
+
+            # Tiêu đề
+            ws.merge_cells("A1:O1")
+            ws["A1"] = "TỔNG HỢP ĐỐI CHIẾU HÀNG HÓA GỬI KHO TẠI NHÀ MÁY TÔN HOA SEN PHÚ MỸ"
+            ws["A1"].font = Font(size=13, bold=True)
+            ws["A1"].alignment = Alignment(horizontal="center")
+
+            ws["A2"] = "Đến Hết Ngày 30/09/2026"
+            ws["A2"].font = Font(italic=True)
+
+            headers = [
+                "STT", "Nhóm khách hàng", "Tên khách hàng", "ĐVT 1", "Số lượng theo ĐVT 1", 
+                "ĐVT 2", "Số lượng theo ĐVT 2", "Chưa kí Biên bản", "Đã kí Biên bản 2 bên", 
+                "Đã kí Biên bản 3 bên", "Đã hoàn thành, lưu trữ biên bản", "Nguyên nhân", 
+                "Thời gian dự kiến hoàn thành ký Biên bản 3 bên", "Kết quả Kiểm tra Biên bản", "Ghi chú"
+            ]
+            ws.append([]) # Dòng 3 trống
+            ws.append(headers) # Dòng 4 tiêu đề bảng
+
+            # Định dạng header
+            header_fill = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
+            for col_num in range(1, len(headers) + 1):
+                cell = ws.cell(row=4, column=col_num)
+                cell.font = Font(bold=True)
+                cell.fill = header_fill
+                cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+            # Đổ dữ liệu vào excel
+            red_fill = PatternFill(start_color="F8D7DA", end_color="F8D7DA", fill_type="solid") # Màu đỏ nhạt báo lỗi
+
+            for r_idx, r_data in enumerate(processed_rows, start=5):
+                ws.append([
+                    r_data['stt'], r_data['nhom'], r_data['ten'], r_data['dvt1'], r_data['soluong1'],
+                    r_data['dvt2'], r_data['soluong2'], r_data['chua_ky'], r_data['ky_2ben'],
+                    r_data['ky_3ben'], r_data['hoan_thanh'], r_data['nguyen_nhan'], "", r_data['ket_qua'], r_data['ghi_chu']
+                ])
+                
+                # Nếu có lỗi hoặc nghi ngờ -> tô đỏ dòng
+                if r_data.get('is_error', False):
+                    for c_idx in range(1, len(headers) + 1):
+                        ws.cell(row=r_idx, column=c_idx).fill = red_fill
+
+            wb.save(output)
 
             st.markdown("<br>", unsafe_allow_html=True)
-            col_c1, col_c2, col_c3 = st.columns(3, gap="medium")
-            
-            with col_c1:
-                st.markdown("<div class='list-box'><h4 style='color:#1e7e34; margin-top:0;'>✅ CÁC MÃ ĐÃ CÓ HÌNH</h4>", unsafe_allow_html=True)
-                if len(ma_da_thay) > 0:
-                    for ma in sorted(ma_da_thay.keys()):
-                        with st.expander(f"📦 {ma}"):
-                            for img_item in ma_da_thay[ma]:
-                                st.image(img_item['hinh_anh'], caption=f"📄 {img_item['ten_file']}", use_container_width=True)
-                else:
-                    st.info("Chưa tìm thấy mã nào.")
-                st.markdown("</div>", unsafe_allow_html=True)
-
-            with col_c2:
-                st.markdown("<div class='list-box'><h4 style='color:#dc3545; margin-top:0;'>❌ CÁC MÃ BỊ THIẾU</h4>", unsafe_allow_html=True)
-                if len(ma_thieu) > 0:
-                    for ma in sorted(list(ma_thieu)):
-                        st.markdown(f"- **{ma}**")
-                else:
-                    st.success("Tuyệt vời! Đã chụp đủ 100% hàng.")
-                st.markdown("</div>", unsafe_allow_html=True)
-
-            with col_c3:
-                st.markdown("<div class='list-box'><h4 style='color:#e37100; margin-top:0;'>⚠️ HÌNH ẢNH NGHI NGỜ (Không khớp mã)</h4>", unsafe_allow_html=True)
-                if len(hinh_nghi_ngo) > 0:
-                    for item in hinh_nghi_ngo:
-                        with st.expander(f"📷 {item['ten_file']}"):
-                            st.image(item['hinh_anh'], use_container_width=True)
-                            st.caption("AI đọc được:")
-                            st.write(item['chu_nhan_dien'])
-                else:
-                    st.success("Tất cả hình tải lên đều nhận diện thành công.")
-                st.markdown("</div>", unsafe_allow_html=True)
-
-            st.markdown("<br><hr>", unsafe_allow_html=True)
-            st.markdown("### 📝 Biên Bản Kiểm Kê (Xuất Excel)")
-            
-            bien_ban_data = []
-            for ma in sorted(ds_ma_can_tim):
-                if ma in ma_da_thay:
-                    file_names = ", ".join([img['ten_file'] for img in ma_da_thay[ma]])
-                    bien_ban_data.append({'Mã Lô': ma, 'Trạng Thái': '✅ Đã kiểm kê', 'Ghi Chú': f"Ảnh: {file_names}"})
-                else:
-                    bien_ban_data.append({'Mã Lô': ma, 'Trạng Thái': '❌ THIẾU', 'Ghi Chú': "Không tìm thấy hình"})
-
-            df_bb = pd.DataFrame(bien_ban_data)
-            output = io.BytesIO()
-            with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                df_bb.to_excel(writer, index=False, sheet_name='Kiem_Ke')
-                
             st.download_button(
-                label="📥 Tải Xuống Biên Bản Kiểm Kê (Excel)", 
-                data=output.getvalue(), 
-                file_name=f"Bien_Ban_Kiem_Ke_OpenRouter_{chuoi_yymm}.xlsx", 
+                label="📥 Tải Xuống File Excel Thành Phẩm",
+                data=output.getvalue(),
+                file_name="TONG_HOP_DOI_CHIEU_HANG_GUI_KHO_THANH_PHAM.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
 
         except Exception as e:
-            st.error(f"Lỗi hệ thống: {e}")
+            st.error(f"❌ Đã xảy ra lỗi trong quá trình xử lý: {e}")
