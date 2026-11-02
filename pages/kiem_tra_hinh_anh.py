@@ -5,7 +5,7 @@ import io
 import time
 import base64
 from openai import OpenAI
-import fitz
+from pypdf import PdfReader
 import openpyxl
 from openpyxl.styles import PatternFill, Font, Alignment
 
@@ -105,11 +105,10 @@ else:
                 images_to_process = []
                 
                 if file.type == "application/pdf" or file.name.lower().endswith('.pdf'):
-                    doc = fitz.open(stream=file_bytes, filetype="pdf")
-                    for page_num in range(len(doc)):
-                        page = doc.load_page(page_num)
-                        pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
-                        images_to_process.append(pix.tobytes("png"))
+                    reader = PdfReader(io.BytesIO(file_bytes))
+                    for page in reader.pages:
+                        for image_file_object in page.images:
+                            images_to_process.append(image_file_object.data)
                 else:
                     images_to_process.append(file_bytes)
                 
