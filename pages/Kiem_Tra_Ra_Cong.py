@@ -18,7 +18,6 @@ st.markdown("""
     .upload-box { background-color: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.03); margin-bottom: 15px; border: 1px solid #e2e8f0; }
     .section-title { font-size: 18px; font-weight: 600; margin-bottom: 10px; color: #1d1d1f; }
     .progress-text { font-size: 15px; font-weight: 600; color: #0071e3; margin-bottom: 8px; }
-    .helper-text { font-size: 13px; color: #6e6e73; margin-bottom: 8px; line-height: 1.5; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -39,79 +38,22 @@ st.markdown("""
 
 # KHU VỰC TẢI FILE
 st.markdown('<div class="section-title">📥 1. Dữ liệu Trạm Cân (Thực tế)</div>', unsafe_allow_html=True)
-st.markdown("""
-<div class="helper-text">
-    <b>Truy cập:</b> <a href="http://172.17.24.9/#/login" target="_blank">http://172.17.24.9/#/login</a> (ID: PM4444 / Mk: 123456)<br>
-    <b>Đường dẫn:</b> Quản lý truy cập > Tra cứu trạm cân<br>
-    <b>Thời gian:</b> Chọn mốc thời gian từ cuối tháng trước lúc 11:59pm và cuối tháng này 11:59pm
-</div>
-""", unsafe_allow_html=True)
 f_tramcan_nm = st.file_uploader("File Trạm Cân (Nhà Máy)", type=["xlsx", "xls", "xlsb"], key="tc_nm")
 
 st.markdown('<div class="section-title" style="margin-top: 20px;">📥 2. Dữ liệu ERP (Lý thuyết)</div>', unsafe_allow_html=True)
 col1, col2 = st.columns(2)
 with col1:
     st.markdown('<div class="upload-box">', unsafe_allow_html=True)
-    
-    # Ghi chú cho 105 Cung ứng
-    st.markdown("""
-    <div class="helper-text">
-        <b>OPM 105</b> (HSG_OPM_105_BCKiemSoatThongTinGDTheoLo_GD2)<br>
-        <b>My Account:</b> HSG_KS_INV_Cung Ứng<br>
-        <b>Tích chọn Kho:</b> 031, 034, 036, 038<br>
-        <b>Giao dịch:</b> Inventory, Job or Schedule, Move order, RMA, Sales order<br>
-        <b>Thời gian:</b> Chọn 1 tháng cần kiểm tra
-    </div>
-    """, unsafe_allow_html=True)
     f_105_cu = st.file_uploader("1. OPM 105 (HSG_KS_INV_Cung Ứng)", type=["xlsx", "xls"])
-    
-    st.markdown('<hr style="margin: 15px 0; border: none; border-top: 1px dashed #e2e8f0;">', unsafe_allow_html=True)
-
-    # Ghi chú cho 021 Cung ứng
-    st.markdown("""
-    <div class="helper-text">
-        <b>Inv 021</b> (HSG_INV_021_GD2)<br>
-        <b>My Account:</b> HSG_KS_INV_Cung Ứng<br>
-        <b>Chọn kho:</b> 031, 034, 036, 038<br>
-        <b>Chọn:</b> Từ Category: đầu số 3 và Đến Category cuối số 4<br>
-        <b>Thời gian:</b> Chọn 1 tháng cần kiểm tra
-    </div>
-    """, unsafe_allow_html=True)
     f_021_cu = st.file_uploader("3. INV 021 (HSG_KS_INV_Cung Ứng)", type=["xlsx", "xls"])
-    
     st.markdown('</div>', unsafe_allow_html=True)
-    
 with col2:
     st.markdown('<div class="upload-box">', unsafe_allow_html=True)
-    
-    # Ghi chú cho 105 Admin
-    st.markdown("""
-    <div class="helper-text">
-        <b>OPM 105</b> (HSG_OPM_105_BCKiemSoatThongTinGDTheoLo_GD2)<br>
-        <b>My Account:</b> HSH_HSSC_HTKD_MN_DA_INV_Admin<br>
-        <b>Tích chọn Kho:</b> HAA - Kho hàng truyền thống có giá tại NM Tôn Phú Mỹ, HAB - Kho hàng truyền thống không giá tại NM Tôn Phú Mỹ, HAC - Kho hàng hóa HSH. TPM - SM<br>
-        <b>Giao dịch:</b> Inventory, Job or Schedule, Move order, RMA, Sales order<br>
-        <b>Thời gian:</b> Chọn 1 tháng cần kiểm tra
-    </div>
-    """, unsafe_allow_html=True)
     f_105_admin = st.file_uploader("2. OPM 105 (HSH_HSSC... Admin)", type=["xlsx", "xls"])
-
-    st.markdown('<hr style="margin: 15px 0; border: none; border-top: 1px dashed #e2e8f0;">', unsafe_allow_html=True)
-
-    # Ghi chú cho 021 Admin
-    st.markdown("""
-    <div class="helper-text">
-        <b>Inv 021</b> (HSG_INV_021_GD2)<br>
-        <b>My Account:</b> HSH_HSSC_HTKD_MN_DA_INV_Admin<br>
-        <b>Tích chọn Kho:</b> HAA - Kho hàng truyền thống có giá tại NM Tôn Phú Mỹ, HAB - Kho hàng truyền thống không giá tại NM Tôn Phú Mỹ, HAC - Kho hàng hóa HSH. TPM - SMC<br>
-        <b>Thời gian:</b> Chọn 1 tháng cần kiểm tra
-    </div>
-    """, unsafe_allow_html=True)
     f_021_admin = st.file_uploader("4. INV 021 (HSH_HSSC... Admin)", type=["xlsx", "xls"])
-    
     st.markdown('</div>', unsafe_allow_html=True)
 
-# HÀM LỌC DỮ LIỆU ERP
+# HÀM LỌC DỮ LIỆU ERP 105 (Lấy Gross từ cột AN - index 39)
 def xuly_105(df, is_cungung=True):
     try:
         header_idx = df.astype(str).apply(lambda row: row.str.contains('Loại Giao Dịch', case=False, na=False).any(), axis=1).idxmax()
@@ -120,6 +62,12 @@ def xuly_105(df, is_cungung=True):
         df = df.iloc[header_idx + 1:].reset_index(drop=True)
         df = df.loc[:, df.columns.notna()]
         df = df.loc[:, ~df.columns.duplicated()]
+        
+        # Lấy chính xác cột thứ 40 (Cột AN trong Excel, index = 39) làm Gross
+        if df.shape[1] > 39:
+            df['Gross_AN'] = pd.to_numeric(df.iloc[:, 39], errors='coerce').fillna(0)
+        else:
+            df['Gross_AN'] = 0
         
         if df.empty or 'Loại Giao Dịch' not in df.columns: return df
         if is_cungung:
@@ -170,8 +118,8 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
         progress_bar = st.progress(0)
         
         try:
-            # --- BƯỚC 1: ĐỌC DỮ LIỆU TRẠM CÂN ---
-            progress_text.markdown('<div class="progress-text">⏳ Đang dọn dẹp dữ liệu Trạm Cân (Loại bỏ dòng trống)... (10%)</div>', unsafe_allow_html=True)
+            # --- BƯỚC 1: ĐỌC DỮ LIỆU TRẠM CÂN & LỌC PHIẾU LỚN NHẤT KHI TRÙNG CHỨNG TỪ ---
+            progress_text.markdown('<div class="progress-text">⏳ Đang dọn dẹp dữ liệu Trạm Cân (Lọc phiếu lớn nhất)... (10%)</div>', unsafe_allow_html=True)
             progress_bar.progress(10)
             xls_tc = pd.ExcelFile(f_tramcan_nm)
             sheet_tc = 'tramcan' if 'tramcan' in xls_tc.sheet_names else 0
@@ -180,25 +128,31 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
             # Quét rác: Xóa bỏ 100% các dòng không có SỐ PHIẾU CÂN
             df_tc_full = df_tc_raw.dropna(subset=['PHIẾU CÂN']).copy()
             
-            # Quét dữ liệu 4 cổng chéo nhau (Dùng df_tc_full để nhặt được mọi lần cân)
+            # Quét dữ liệu 4 cổng chéo nhau (Dùng PHIẾU CÂN làm khóa chính để không bị đè)
             dict_cong_can = {}
             for _, row in df_tc_full.iterrows():
-                ct = str(row.get('Lấy phiếu xuất.1', row.get('SỐ CHỨNG TỪ', ''))).strip().upper()
+                pc = str(row.get('PHIẾU CÂN', '')).strip().upper()
                 cong = str(row.get('BÀN CÂN RA', '')).strip().upper()
                 kl = pd.to_numeric(row.get('KHỐI LƯỢNG PHIẾU CÂN', np.nan), errors='coerce')
-                if ct and ct != 'NAN' and pd.notna(kl):
-                    if ct not in dict_cong_can: dict_cong_can[ct] = {}
-                    dict_cong_can[ct][cong] = kl
+                if pc and pc != 'NAN' and pd.notna(kl):
+                    if pc not in dict_cong_can: dict_cong_can[pc] = {}
+                    dict_cong_can[pc][cong] = kl
 
-            # Tạo form báo cáo chính bằng cách Bỏ trùng (Giống file gốc KSKT)
-            if 'Bỏ trùng' in df_tc_full.columns:
-                df_tc_main = df_tc_full[df_tc_full['Bỏ trùng'] == 1].copy()
-            else:
-                df_tc_main = df_tc_full.drop_duplicates(subset=['PHIẾU CÂN']).copy()
+            # Xử lý trùng chứng từ: Giữ lại phiếu cân có khối lượng lớn nhất
+            col_chungtu = 'Lấy phiếu xuất.1' if 'Lấy phiếu xuất.1' in df_tc_full.columns else 'SỐ CHỨNG TỪ'
+            df_tc_full['KL_TAM'] = pd.to_numeric(df_tc_full['KHỐI LƯỢNG PHIẾU CÂN'], errors='coerce').fillna(0)
+            df_tc_full['CT_TAM'] = df_tc_full[col_chungtu].astype(str).str.strip().str.upper()
             
-            tc_chungtu_list = []
-            if 'Lấy phiếu xuất.1' in df_tc_main.columns: tc_chungtu_list = [str(x).strip().upper() for x in df_tc_main['Lấy phiếu xuất.1'].tolist() if pd.notna(x)]
-            elif 'SỐ CHỨNG TỪ' in df_tc_main.columns: tc_chungtu_list = [str(x).strip().upper() for x in df_tc_main['SỐ CHỨNG TỪ'].tolist() if pd.notna(x)]
+            df_has_ct = df_tc_full[(df_tc_full['CT_TAM'] != '') & (df_tc_full['CT_TAM'] != 'NAN') & (df_tc_full['CT_TAM'] != 'NONE')].copy()
+            df_no_ct = df_tc_full[~df_tc_full.index.isin(df_has_ct.index)].copy()
+            
+            # Sắp xếp KL giảm dần và lấy dòng đầu tiên (lớn nhất) cho mỗi chứng từ
+            df_has_ct = df_has_ct.sort_values(by='KL_TAM', ascending=False).drop_duplicates(subset=['CT_TAM'], keep='first')
+            
+            df_tc_main = pd.concat([df_has_ct, df_no_ct], ignore_index=True)
+            df_tc_main = df_tc_main.drop_duplicates(subset=['PHIẾU CÂN']).drop(columns=['KL_TAM', 'CT_TAM'])
+            
+            tc_chungtu_list = [str(x).strip().upper() for x in df_tc_main[col_chungtu].tolist() if pd.notna(x)]
 
             # --- BƯỚC 2: ĐỌC VÀ LỌC ERP ---
             progress_text.markdown('<div class="progress-text">⏳ Đang xử lý bộ lọc cho ERP 105 và 021... (30%)</div>', unsafe_allow_html=True)
@@ -213,7 +167,7 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
             if f_021_admin: frames_021.append(xuly_021(pd.read_excel(f_021_admin, header=None), False))
             df_021_all = pd.concat(frames_021, ignore_index=True) if frames_021 else pd.DataFrame()
 
-            # --- TÍNH TOÁN SHEET 021 ---
+            # --- TÍNH TOÁN SHEET 021 (Ép điều kiện chỉ lấy Gross từ cột AN khi là Sales Order Issue) ---
             progress_text.markdown('<div class="progress-text">⏳ Đang tự động hóa VLOOKUP đa tầng cho bảng 021... (55%)</div>', unsafe_allow_html=True)
             progress_bar.progress(55)
             
@@ -227,11 +181,19 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
 
                 if not df_105_all.empty and 'Chuỗi' in df_105_all.columns:
                     map_105 = df_105_all[df_105_all['Chuỗi'] != ""].drop_duplicates(subset=['Chuỗi'], keep='first').set_index('Chuỗi')
+                    
                     df_021_export['Ngày xuất'] = df_021_export['Chuỗi 2 '].map(map_105['Ngày Giao Dịch'] if 'Ngày Giao Dịch' in map_105.columns else {})
                     df_021_export['Thời gian thao tác'] = df_021_export['Chuỗi 2 '].map(map_105['Creation Date'] if 'Creation Date' in map_105.columns else {})
                     df_021_export['Người thực hiện'] = df_021_export['Chuỗi 2 '].map(map_105['Created by User'] if 'Created by User' in map_105.columns else {})
-                    df_021_export['Số Gross'] = df_021_export['Chuỗi 2 '].map(map_105['Khối lượng Gross'] if 'Khối lượng Gross' in map_105.columns else {})
                     
+                    # ĐIỀU KIỆN KÉP: Lấy Gross từ cột AN (Gross_AN) NHƯNG BẮT BUỘC Loại giao dịch là Sales Order Issue
+                    if 'Gross_AN' in map_105.columns:
+                        raw_gross = df_021_export['Chuỗi 2 '].map(map_105['Gross_AN'])
+                        is_so_issue = df_021_export['Loại giao dịch'].astype(str).str.strip().str.upper() == 'SALES ORDER ISSUE'
+                        df_021_export['Số Gross'] = np.where(is_so_issue, raw_gross, 0)
+                    else:
+                        df_021_export['Số Gross'] = 0
+                        
                     df_021_export['Thời gian pick SO'] = df_021_export['Chuỗi Pick'].map(map_105['Creation Date'] if 'Creation Date' in map_105.columns else {})
                     df_021_export['Người Pick SO'] = df_021_export['Chuỗi Pick'].map(map_105['Created by User'] if 'Created by User' in map_105.columns else {})
                 else:
@@ -247,7 +209,7 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
                 final_021_cols = cols_10_first + [c for c in df_021_all.columns if c not in cols_10_first and c != 'Chuỗi 2 ' and c != 'Chuỗi Pick']
                 df_021_export = df_021_export[final_021_cols]
 
-            # --- TÍNH TOÁN SHEET KSKT (GOM 4 CỔNG CHÉO) ---
+            # --- TÍNH TOÁN SHEET KSKT (MAP SỐ LIỆU THEO PHIẾU CÂN) ---
             progress_text.markdown('<div class="progress-text">⏳ Đang ráp dữ liệu 4 cổng chéo nhau & VLOOKUP Net/Gross... (75%)</div>', unsafe_allow_html=True)
             progress_bar.progress(75)
             
@@ -259,7 +221,6 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
                     if 'Số lượng' in df_calc.columns: dict_net = pd.to_numeric(df_calc['Số lượng'], errors='coerce').groupby(phieu_series).sum().to_dict()
                     if 'Số Gross' in df_calc.columns: dict_gross = pd.to_numeric(df_calc['Số Gross'], errors='coerce').groupby(phieu_series).sum().to_dict()
 
-            # Form chuẩn (Đã xóa thời gian lưu bãi và check net gross)
             final_cols = ['STT', 'Số phiếu cân', 'Bàn cân', 'Số xe', 'Giờ vào', 'Giờ ra', 'Tên hàng hóa', 'Khối lượng vào', 'Khối lượng ra', 'Khối lượng hàng hóa', 'Số chứng từ', '1', '2', '3', '4', '5', 'Khối lượng Net', 'Khối lượng Gross', '1-CỔNG TRƯỚC', '2-CỔNG TRƯỚC', '1-CỔNG SAU', '2-CỔNG SAU', 'KL bàn cân lớn nhất', 'Chênh lệch', 'Dung sai', 'Chênh lệch Max - Min', 'Đánh giá KSNB', 'Ghi chú']
             df_out = pd.DataFrame(columns=final_cols)
             
@@ -295,23 +256,26 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
             df_out['1-CỔNG SAU'] = np.nan
             df_out['2-CỔNG SAU'] = np.nan
 
-            # Quét mã và nhặt số liệu
+            # Quét mã và nhặt số liệu theo SỐ PHIẾU CÂN
             for idx, row in df_out.iterrows():
                 net_sum = 0
                 gross_sum = 0
                 c1t, c2t, c1s, c2s = np.nan, np.nan, np.nan, np.nan
                 
+                # Net/Gross từ ERP (Dựa vào Số chứng từ)
                 for i in range(1, 6):
                     v = str(row[str(i)]).replace('.0', '').strip().upper()
                     if v and v != 'NAN':
                         net_sum += dict_net.get(v, 0)
                         gross_sum += dict_gross.get(v, 0)
-                        
-                        if v in dict_cong_can:
-                            c1t = dict_cong_can[v].get('1-CỔNG TRƯỚC', c1t)
-                            c2t = dict_cong_can[v].get('2-CỔNG TRƯỚC', c2t)
-                            c1s = dict_cong_can[v].get('1-CỔNG SAU', c1s)
-                            c2s = dict_cong_can[v].get('2-CỔNG SAU', c2s)
+                
+                # Khối lượng 4 cổng cân (Dựa vào SỐ PHIẾU CÂN)
+                pc_key = str(row['Số phiếu cân']).strip().upper()
+                if pc_key in dict_cong_can:
+                    c1t = dict_cong_can[pc_key].get('1-CỔNG TRƯỚC', c1t)
+                    c2t = dict_cong_can[pc_key].get('2-CỔNG TRƯỚC', c2t)
+                    c1s = dict_cong_can[pc_key].get('1-CỔNG SAU', c1s)
+                    c2s = dict_cong_can[pc_key].get('2-CỔNG SAU', c2s)
 
                 df_out.at[idx, 'Khối lượng Net'] = net_sum
                 df_out.at[idx, 'Khối lượng Gross'] = gross_sum
