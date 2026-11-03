@@ -1,4 +1,5 @@
 import io
+import unicodedata
 import pandas as pd
 import numpy as np
 import streamlit as st
@@ -53,6 +54,13 @@ with col2:
     f_021_admin = st.file_uploader("4. INV 021 (HSH_HSSC... Admin)", type=["xlsx", "xls"])
     st.markdown('</div>', unsafe_allow_html=True)
 
+# HÀM BỎ DẤU TIẾNG VIỆT ĐỂ SO SÁNH TÊN CỘT (CHỐNG LỖI 'MĂ KHO', 'MĂ LÔ')
+def remove_accents(input_str):
+    s = str(input_str).strip().lower()
+    s = s.replace('đ', 'd')
+    nfkd_form = unicodedata.normalize('NFKD', s)
+    return "".join([c for c in nfkd_form if not unicodedata.combining(c)])
+
 # HÀM LÀM SẠCH CHUỖI CHUNG (Xóa khoảng trắng, xóa .0 ở cuối số, xóa nan, in hoa)
 def clean_key_series(series):
     return (
@@ -64,9 +72,10 @@ def clean_key_series(series):
         .fillna('')
     )
 
-# HÀM TÌM CỘT AN TOÀN (Bỏ qua khoảng trắng thừa và hoa/thường)
+# HÀM TÌM CỘT AN TOÀN (Bỏ qua khoảng trắng thừa, hoa/thường VÀ dấu tiếng Việt như Mã vs Mă)
 def get_clean_col(df, col_name):
-    matched = [c for c in df.columns if str(c).strip().lower() == str(col_name).strip().lower()]
+    target = remove_accents(col_name)
+    matched = [c for c in df.columns if remove_accents(c) == target]
     if matched:
         return clean_key_series(df[matched[0]])
     return pd.Series('', index=df.index)
@@ -77,51 +86,72 @@ def xuly_105(df, is_cungung=True):
         header_idx = df.astype(str).apply(lambda row: row.str.contains('Loại Giao Dịch', case=False, na=False).any(), axis=1).idxmax()
         if pd.isna(header_idx): return pd.DataFrame()
         df.columns = df.iloc[header_idx].astype(str).str.strip()
-        df = df.iloc[header_idx + 1:].reset_index(drop=True)
         
-        # Lấy chính xác cột thứ 40 (Cột AN trong Excel, index = 39) TRƯỚC KHI lọc bỏ cột trống tên
-        if df.shape[1] > 39:
-            gross_an_series = pd.to_numeric(df.iloc[:, 39], errors='coerce').fillna(0)
+        # Nếu dòng dưới tiêu đề là dòng đánh số thứ tự cột [1], [2]... [40] thì bỏ qua luôn dòng đó
+        df = df.iloc[header_idx + 1:].reset_index(drop=True)
+        if not df.empty and str(df.iloc[0, 0]).strip().startswith('[1]'):
+            df = df.iloc[1:].reset_index(drop=True)
+        
+        # Lấy chính xác cột thứ 40 (Cột AN trong Excel, index = 39) hoặc cột có chữ 'Gross'
+        gross_cols = [i for i, c in enumerate(df.columns) if 'gross' in remove_accents(c)]
+        if gross_cols:
+            raw_gross = df.iloc[:, gross_cols[0]]
+        elif df.shape[1] > 39:
+            raw_gross = df.iloc[:, 39]
         else:
-            gross_an_series = pd.Series(0, index=df.index)
+            raw_gross = pd.Series(0, index=df.index)
+            
+        # Xử lý trường hợp số Gross có dấu phẩy hoặc chấm ngăn cách hàng nghìn
+        gross_an_series = pd.to_numeric(
+            raw_gross.astype(str).str.strip().str.replace(',', '', regex=False), 
+            errors='coerce'
+        ).fillna(0)
             
         df = df.loc[:, df.columns.notna() & (df.columns != 'nan')]
         df = df.loc[:, ~df.columns.duplicated()]
         df['Gross_AN'] = gross_an_series
         
-        if df.empty or 'Loại Giao Dịch' not in df.columns: return df
+        col_lgd_list = [c for c in df.columns if remove_accents(c) == 'loai giao dich']
+        if df.empty or not col_lgd_list: return df
+        col_lgd = col_lgd_list[0]
+        
+        lgd_clean = df[col_lgd].astype(str).str.strip()
+        
         if is_cungung:
             remove_gd = ['COGS Recognition', 'WIP Return', 'WIP Issue', 'WIP Completion Return', 'WIP Completion', 'WIP Byproduct Return', 'WIP Byproduct Completion', 'Residual Qty Receipt', 'Residual Qty Issue']
-            df = df[~df['Loại Giao Dịch'].isin(remove_gd)]
-            if 'Mã Mặt Hàng' in df.columns: df = df[df['Mã Mặt Hàng'].astype(str).str.startswith(('3', '4'), na=False)]
+            df = df[~lgd_clean.isin(remove_gd)]
+            col_mh_list = [c for c in df.columns if remove_accents(c) == 'ma mat hang']
+            if col_mh_list:
+                df = df[df[col_mh_list[0]].astype(str).str.strip().str.startswith(('3', '4'), na=False)]
         else:
-            df = df[~df['Loại Giao Dịch'].isin(['COGS Recognition'])]
+            df = df[~lgd_clean.isin(['COGS Recognition'])]
             
-        df = df[df['Loại Giao Dịch'].notna()]
+        df = df[df[col_lgd].notna()].copy()
         
         ma_kho = get_clean_col(df, 'Mã Kho')
-        # Phòng hờ trường hợp cột tên là 'Mă Kho'
-        if (ma_kho == '').all():
-            ma_kho = get_clean_col(df, 'Mă Kho')
-            
         kv_kho = get_clean_col(df, 'Khu Vực Kho')
         locator = get_clean_col(df, 'Locator')
         lpn = get_clean_col(df, 'LPN')
         ma_lo = get_clean_col(df, 'Mã Lô')
         loai_gd = get_clean_col(df, 'Loại Giao Dịch')
         
-        # Linh hoạt: Nếu dòng có LPN thì lấy LPN, nếu LPN trống thì tự động lấy Mã Lô
-        lpn_or_lot = np.where(lpn != '', lpn, ma_lo)
-        lpn_or_lot = pd.Series(lpn_or_lot, index=df.index)
+        # Ưu tiên lấy Mã Lô (nếu Mã Lô trống mới lấy LPN)
+        lot_or_lpn = pd.Series(np.where(ma_lo != '', ma_lo, lpn), index=df.index)
         
-        # Tầng 1: Chuỗi chuẩn theo LPN (hoặc Mã Lô nếu LPN trống)
-        df['Chuỗi'] = ma_kho + kv_kho + locator + lpn_or_lot + loai_gd
-        # Tầng 2: Chuỗi ép theo Mã Lô (phòng khi bảng 105 có cả LPN và Mã Lô nhưng 021 chỉ dò theo Mã Lô)
+        # Tầng 1: Chuỗi chuẩn 5 thành phần (Kho + Khu vực + Locator + Mã Lô/LPN + Loại Giao Dịch)
+        df['Chuỗi'] = ma_kho + kv_kho + locator + lot_or_lpn + loai_gd
+        
+        # Tầng 2: Chuỗi ép đúng cột Mã Lô + Loại Giao Dịch
         df['Chuỗi_MaLo'] = ma_kho + kv_kho + locator + ma_lo + loai_gd
-        # Tầng 3: Chuỗi dự phòng cho hàng rời không có cả LPN lẫn Mã Lô
-        df['Chuỗi_KhongLPN'] = ma_kho + kv_kho + locator + loai_gd
         
-        df['Chuỗi_Pick'] = ma_kho + kv_kho + locator + lpn_or_lot + "SALES ORDER PICK"
+        # Tầng 3: Chuỗi dự phòng khi Locator lệch nhau nhưng đúng Kho + Khu vực + Mã Lô + Loại Giao Dịch
+        df['Chuỗi_Kho_Lo_GD'] = ma_kho + kv_kho + lot_or_lpn + loai_gd
+        
+        # Tầng 4: Chuỗi cho hàng rời không quản lý Lô/LPN
+        df['Chuỗi_KhongLo'] = ma_kho + kv_kho + locator + loai_gd
+        
+        # Chuỗi phục vụ riêng cho việc lấy thông tin Pick SO
+        df['Chuỗi_Pick'] = ma_kho + kv_kho + locator + lot_or_lpn + "SALES ORDER PICK"
         df['Chuỗi_Pick_MaLo'] = ma_kho + kv_kho + locator + ma_lo + "SALES ORDER PICK"
         return df
     except: return pd.DataFrame()
@@ -135,10 +165,14 @@ def xuly_021(df, is_cungung=True):
         df = df.loc[:, df.columns.notna() & (df.columns != 'nan')]
         df = df.loc[:, ~df.columns.duplicated()]
         
-        if df.empty or 'Loại giao dịch' not in df.columns: return df
+        col_lgd_list = [c for c in df.columns if remove_accents(c) == 'loai giao dich']
+        if df.empty or not col_lgd_list: return df
+        col_lgd = col_lgd_list[0]
+        lgd_clean = df[col_lgd].astype(str).str.strip()
+        
         if is_cungung: remove_gd = ['WIP Issue', 'WIP Completion Return', 'Return to vender', 'Return to vendor']
         else: remove_gd = ['Return to Vendor', 'Return to vender']
-        df = df[~df['Loại giao dịch'].isin(remove_gd)]
+        df = df[~lgd_clean.isin(remove_gd)].copy()
         return df
     except: return pd.DataFrame()
 
@@ -207,8 +241,8 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
             if f_021_admin: frames_021.append(xuly_021(pd.read_excel(f_021_admin, header=None), False))
             df_021_all = pd.concat(frames_021, ignore_index=True) if frames_021 else pd.DataFrame()
 
-            # --- TÍNH TOÁN SHEET 021 (DÒ ĐA TẦNG LPN -> MÃ LÔ -> KHÔNG LPN SANG 105) ---
-            progress_text.markdown('<div class="progress-text">⏳ Đang tự động hóa VLOOKUP đa tầng cho bảng 021... (55%)</div>', unsafe_allow_html=True)
+            # --- TÍNH TOÁN SHEET 021 (KHÓA CHẶT THEO DÒNG LOẠI GIAO DỊCH SANG 105) ---
+            progress_text.markdown('<div class="progress-text">⏳ Đang tự động hóa VLOOKUP đúng dòng giao dịch cho bảng 021... (55%)</div>', unsafe_allow_html=True)
             progress_bar.progress(55)
             
             df_021_export = pd.DataFrame()
@@ -218,62 +252,75 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
                 def safe_str(col_name):
                     return get_clean_col(df_021_export, col_name)
 
+                # Tự động bắt cả 'Mã kho' lẫn 'Mă kho', 'Mã lô' lẫn 'Mă lô' nhờ hàm remove_accents
                 ma_kho_021 = safe_str('Mã kho')
-                if (ma_kho_021 == '').all():
-                    ma_kho_021 = safe_str('Mă kho')
-                    
                 sub_021 = safe_str('Subinventory')
                 loc_021 = safe_str('Locator')
                 lpn_021 = safe_str('LPN')
                 malo_021 = safe_str('Mã lô')
                 loai_gd_021 = safe_str('Loại giao dịch')
                 
-                # Nếu LPN trống thì tự động lấy Mã lô để hiển thị và dò ở Chuỗi 2
-                lpn_or_lot_021 = pd.Series(np.where(lpn_021 != '', lpn_021, malo_021), index=df_021_export.index)
+                # Ưu tiên lấy Mã lô (nếu Mã lô trống mới lấy LPN)
+                lot_or_lpn_021 = pd.Series(np.where(malo_021 != '', malo_021, lpn_021), index=df_021_export.index)
 
-                # Các tầng chuỗi của 021
-                df_021_export['Chuỗi 2 '] = ma_kho_021 + sub_021 + loc_021 + lpn_or_lot_021 + loai_gd_021
+                # Các tầng chuỗi của 021 (Tất cả đều khóa chặt theo loai_gd_021)
+                df_021_export['Chuỗi 2 '] = ma_kho_021 + sub_021 + loc_021 + lot_or_lpn_021 + loai_gd_021
                 s_021_malo = ma_kho_021 + sub_021 + loc_021 + malo_021 + loai_gd_021
-                s_021_nolpn = ma_kho_021 + sub_021 + loc_021 + loai_gd_021
+                s_021_kho_lo_gd = ma_kho_021 + sub_021 + lot_or_lpn_021 + loai_gd_021
+                s_021_nolo = ma_kho_021 + sub_021 + loc_021 + loai_gd_021
                 
-                df_021_export['Chuỗi Pick'] = ma_kho_021 + sub_021 + loc_021 + lpn_or_lot_021 + "SALES ORDER PICK"
+                df_021_export['Chuỗi Pick'] = ma_kho_021 + sub_021 + loc_021 + lot_or_lpn_021 + "SALES ORDER PICK"
                 s_pick_malo = ma_kho_021 + sub_021 + loc_021 + malo_021 + "SALES ORDER PICK"
 
                 if not df_105_all.empty and 'Chuỗi' in df_105_all.columns:
-                    map_105_t1 = df_105_all[df_105_all['Chuỗi'] != ""].drop_duplicates(subset=['Chuỗi'], keep='first').set_index('Chuỗi')
-                    map_105_t2 = df_105_all[df_105_all['Chuỗi_MaLo'] != ""].drop_duplicates(subset=['Chuỗi_MaLo'], keep='first').set_index('Chuỗi_MaLo')
-                    map_105_t3 = df_105_all[df_105_all['Chuỗi_KhongLPN'] != ""].drop_duplicates(subset=['Chuỗi_KhongLPN'], keep='first').set_index('Chuỗi_KhongLPN')
+                    # Sắp xếp ưu tiên dòng có Gross_AN > 0 lên đầu trước khi drop_duplicates
+                    df_105_sorted = df_105_all.sort_values(by='Gross_AN', ascending=False)
                     
-                    map_pick_t1 = df_105_all[df_105_all['Chuỗi_Pick'] != ""].drop_duplicates(subset=['Chuỗi_Pick'], keep='first').set_index('Chuỗi_Pick')
-                    map_pick_t2 = df_105_all[df_105_all['Chuỗi_Pick_MaLo'] != ""].drop_duplicates(subset=['Chuỗi_Pick_MaLo'], keep='first').set_index('Chuỗi_Pick_MaLo')
+                    map_105_t1 = df_105_sorted[df_105_sorted['Chuỗi'] != ""].drop_duplicates(subset=['Chuỗi'], keep='first').set_index('Chuỗi')
+                    map_105_t2 = df_105_sorted[df_105_sorted['Chuỗi_MaLo'] != ""].drop_duplicates(subset=['Chuỗi_MaLo'], keep='first').set_index('Chuỗi_MaLo')
+                    map_105_t3 = df_105_sorted[df_105_sorted['Chuỗi_Kho_Lo_GD'] != ""].drop_duplicates(subset=['Chuỗi_Kho_Lo_GD'], keep='first').set_index('Chuỗi_Kho_Lo_GD')
+                    map_105_t4 = df_105_sorted[df_105_sorted['Chuỗi_KhongLo'] != ""].drop_duplicates(subset=['Chuỗi_KhongLo'], keep='first').set_index('Chuỗi_KhongLo')
+                    
+                    map_pick_t1 = df_105_sorted[df_105_sorted['Chuỗi_Pick'] != ""].drop_duplicates(subset=['Chuỗi_Pick'], keep='first').set_index('Chuỗi_Pick')
+                    map_pick_t2 = df_105_sorted[df_105_sorted['Chuỗi_Pick_MaLo'] != ""].drop_duplicates(subset=['Chuỗi_Pick_MaLo'], keep='first').set_index('Chuỗi_Pick_MaLo')
 
-                    # Hàm dò đa tầng: Tầng 1 (LPN/Mã Lô) -> Tầng 2 (Ép Mã Lô) -> Tầng 3 (Không LPN/Mã Lô)
                     def map_fallback(col_105):
-                        if col_105 not in df_105_all.columns:
+                        if col_105 not in df_105_sorted.columns:
                             return pd.Series("", index=df_021_export.index)
                         res = df_021_export['Chuỗi 2 '].map(map_105_t1[col_105])
                         res = res.fillna(s_021_malo.map(map_105_t2[col_105]))
-                        res = res.fillna(s_021_nolpn.map(map_105_t3[col_105]))
+                        res = res.fillna(s_021_kho_lo_gd.map(map_105_t3[col_105]))
+                        mask_empty_lot = (lot_or_lpn_021 == '')
+                        if mask_empty_lot.any():
+                            res.loc[mask_empty_lot] = res.loc[mask_empty_lot].fillna(s_021_nolo.loc[mask_empty_lot].map(map_105_t4[col_105]))
                         return res
 
                     df_021_export['Ngày xuất'] = map_fallback('Ngày Giao Dịch').fillna("")
                     df_021_export['Thời gian thao tác'] = map_fallback('Creation Date').fillna("")
                     df_021_export['Người thực hiện'] = map_fallback('Created by User').fillna("")
                     
-                    if 'Gross_AN' in df_105_all.columns:
-                        # Với Gross, ưu tiên dò Tầng 1 (LPN/Mã Lô) -> Tầng 2 (Mã Lô) -> Tầng 3 (Không LPN)
+                    if 'Gross_AN' in df_105_sorted.columns:
                         g_t1 = pd.to_numeric(df_021_export['Chuỗi 2 '].map(map_105_t1['Gross_AN']), errors='coerce')
                         g_t2 = pd.to_numeric(s_021_malo.map(map_105_t2['Gross_AN']), errors='coerce')
-                        g_t3 = pd.to_numeric(s_021_nolpn.map(map_105_t3['Gross_AN']), errors='coerce')
+                        g_t3 = pd.to_numeric(s_021_kho_lo_gd.map(map_105_t3['Gross_AN']), errors='coerce')
+                        g_t4 = pd.to_numeric(s_021_nolo.map(map_105_t4['Gross_AN']), errors='coerce')
                         
                         gross_final = g_t1.where(g_t1.notna() & (g_t1 != 0), g_t2)
                         gross_final = gross_final.where(gross_final.notna() & (gross_final != 0), g_t3)
+                        
+                        mask_empty_lot = (lot_or_lpn_021 == '')
+                        if mask_empty_lot.any():
+                            gross_final.loc[mask_empty_lot] = gross_final.loc[mask_empty_lot].where(
+                                gross_final.loc[mask_empty_lot].notna() & (gross_final.loc[mask_empty_lot] != 0),
+                                g_t4.loc[mask_empty_lot]
+                            )
+                            
                         df_021_export['Số Gross'] = gross_final.fillna(0)
                     else:
                         df_021_export['Số Gross'] = 0
                         
                     def map_pick_fallback(col_105):
-                        if col_105 not in df_105_all.columns:
+                        if col_105 not in df_105_sorted.columns:
                             return pd.Series("", index=df_021_export.index)
                         res = df_021_export['Chuỗi Pick'].map(map_pick_t1[col_105])
                         res = res.fillna(s_pick_malo.map(map_pick_t2[col_105]))
@@ -289,7 +336,9 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
                 df_021_export['Chuyển text'] = safe_str('Số chứng từ') + "A" 
                 df_021_export['Chuỗi 1'] = df_021_export['Chuyển text'] + safe_str('Loại giao dịch')
                 
-                df_021_export['Check ra cổng'] = df_021_export['Số chứng từ'].apply(lambda x: 1 if any(str(x).strip().upper() in str(tc_val) for tc_val in tc_chungtu_list) else 0)
+                col_sct_list = [c for c in df_021_export.columns if remove_accents(c) == 'so chung tu']
+                col_sct_021 = col_sct_list[0] if col_sct_list else 'Số chứng từ'
+                df_021_export['Check ra cổng'] = df_021_export[col_sct_021].apply(lambda x: 1 if any(str(x).strip().upper() in str(tc_val) for tc_val in tc_chungtu_list) else 0)
                 
                 cols_10_first = ['Check ra cổng', 'Thời gian pick SO', 'Người Pick SO', 'Ngày xuất', 'Thời gian thao tác', 'Người thực hiện', 'Số Gross', 'Chuỗi 2 ', 'Chuỗi 1', 'Chuyển text']
                 final_021_cols = cols_10_first + [c for c in df_021_all.columns if c not in cols_10_first and c != 'Chuỗi 2 ' and c != 'Chuỗi Pick']
@@ -302,9 +351,11 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
             dict_net, dict_gross = {}, {}
             if not df_021_export.empty:
                 df_calc = df_021_export.copy()
-                if 'Số chứng từ' in df_calc.columns:
-                    phieu_series = clean_key_series(df_calc['Số chứng từ'])
-                    if 'Số lượng' in df_calc.columns: dict_net = pd.to_numeric(df_calc['Số lượng'], errors='coerce').groupby(phieu_series).sum().to_dict()
+                col_sct_calc = [c for c in df_calc.columns if remove_accents(c) == 'so chung tu']
+                if col_sct_calc:
+                    phieu_series = clean_key_series(df_calc[col_sct_calc[0]])
+                    col_sl_calc = [c for c in df_calc.columns if remove_accents(c) == 'so luong']
+                    if col_sl_calc: dict_net = pd.to_numeric(df_calc[col_sl_calc[0]], errors='coerce').groupby(phieu_series).sum().to_dict()
                     if 'Số Gross' in df_calc.columns: dict_gross = pd.to_numeric(df_calc['Số Gross'], errors='coerce').groupby(phieu_series).sum().to_dict()
 
             final_cols = ['STT', 'Số phiếu cân', 'Bàn cân', 'Số xe', 'Giờ vào', 'Giờ ra', 'Tên hàng hóa', 'Khối lượng vào', 'Khối lượng ra', 'Khối lượng hàng hóa', 'Số chứng từ', '1', '2', '3', '4', '5', 'Khối lượng Net', 'Khối lượng Gross', '1-CỔNG TRƯỚC', '2-CỔNG TRƯỚC', '1-CỔNG SAU', '2-CỔNG SAU', 'KL bàn cân lớn nhất', 'Chênh lệch', 'Dung sai', 'Chênh lệch Max - Min', 'Đánh giá KSNB', 'Ghi chú']
