@@ -186,37 +186,38 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
             df_021_export = pd.DataFrame()
             if not df_021_all.empty:
                 df_021_export = df_021_all.copy()
+                
                 def safe_str(col_name):
-    # Tự động tìm cột khớp đúng tên bỏ qua khoảng trắng thừa và không phân biệt hoa/thường
-    matched = [c for c in df_021_export.columns if str(c).strip().lower() == str(col_name).strip().lower()]
-    if matched:
-        return (
-            df_021_export[matched[0]]
-            .astype(str)
-            .str.strip()
-            .str.replace(r'\.0$', '', regex=True)
-            .str.upper()
-            .replace(['NAN', 'NONE', '<NA>'], '', regex=False)
-            .fillna('')
-        )
-    return pd.Series('', index=df_021_export.index)
+                    # Tự động tìm cột khớp đúng tên bỏ qua khoảng trắng thừa và không phân biệt hoa/thường
+                    matched = [c for c in df_021_export.columns if str(c).strip().lower() == str(col_name).strip().lower()]
+                    if matched:
+                        return (
+                            df_021_export[matched[0]]
+                            .astype(str)
+                            .str.strip()
+                            .str.replace(r'\.0$', '', regex=True)
+                            .str.upper()
+                            .replace(['NAN', 'NONE', '<NA>'], '', regex=False)
+                            .fillna('')
+                        )
+                    return pd.Series('', index=df_021_export.index)
 
-# Nối Chuỗi 2 an toàn
-df_021_export['Chuỗi 2 '] = (
-    safe_str('Mã kho') + 
-    safe_str('Subinventory') + 
-    safe_str('Locator') + 
-    safe_str('LPN') + 
-    safe_str('Loại giao dịch')
-)
-
-df_021_export['Chuỗi Pick'] = (
-    safe_str('Mã kho') + 
-    safe_str('Subinventory') + 
-    safe_str('Locator') + 
-    safe_str('LPN') + 
-    "SALES ORDER PICK"
-)
+                # Nối Chuỗi 2 an toàn
+                df_021_export['Chuỗi 2 '] = (
+                    safe_str('Mã kho') + 
+                    safe_str('Subinventory') + 
+                    safe_str('Locator') + 
+                    safe_str('LPN') + 
+                    safe_str('Loại giao dịch')
+                )
+                
+                df_021_export['Chuỗi Pick'] = (
+                    safe_str('Mã kho') + 
+                    safe_str('Subinventory') + 
+                    safe_str('Locator') + 
+                    safe_str('LPN') + 
+                    "SALES ORDER PICK"
+                )
 
                 if not df_105_all.empty and 'Chuỗi' in df_105_all.columns:
                     map_105 = df_105_all[df_105_all['Chuỗi'] != ""].drop_duplicates(subset=['Chuỗi'], keep='first').set_index('Chuỗi')
