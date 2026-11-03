@@ -160,8 +160,19 @@ def xuly_021(df, is_cungung=True):
     try:
         header_idx = df.astype(str).apply(lambda row: row.str.contains('Số chứng từ', case=False, na=False).any(), axis=1).idxmax()
         if pd.isna(header_idx): return pd.DataFrame()
+        
         df.columns = df.iloc[header_idx].astype(str).str.strip()
         df = df.iloc[header_idx + 1:].reset_index(drop=True)
+        
+        # ====================================================================
+        # 👇 ĐOẠN CODE VÁ LỖI MỚI THÊM: LỌC BỎ DÒNG CHỨA CHỈ MỤC [1], [2]...
+        # ====================================================================
+        if not df.empty:
+            first_row_vals = df.iloc[0].astype(str).str.strip().values
+            if any(val.startswith('[') and val.endswith(']') for val in first_row_vals):
+                df = df.iloc[1:].reset_index(drop=True)
+        # ====================================================================
+
         df = df.loc[:, df.columns.notna() & (df.columns != 'nan')]
         df = df.loc[:, ~df.columns.duplicated()]
         
@@ -175,7 +186,6 @@ def xuly_021(df, is_cungung=True):
         df = df[~lgd_clean.isin(remove_gd)].copy()
         return df
     except: return pd.DataFrame()
-
 # HÀM TÔ MÀU EXCEL
 def style_excel_cells(val):
     val_str = str(val).strip()
