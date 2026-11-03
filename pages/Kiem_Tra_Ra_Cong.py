@@ -61,7 +61,15 @@ def clean_key_series(series):
         .str.replace(r'\.0$', '', regex=True)
         .str.upper()
         .replace(['NAN', 'NONE', '<NA>'], '', regex=False)
+        .fillna('')
     )
+
+# HÀM TÌM CỘT AN TOÀN (Bỏ qua khoảng trắng thừa và hoa/thường)
+def get_clean_col(df, col_name):
+    matched = [c for c in df.columns if str(c).strip().lower() == str(col_name).strip().lower()]
+    if matched:
+        return clean_key_series(df[matched[0]])
+    return pd.Series('', index=df.index)
 
 # HÀM LỌC DỮ LIỆU ERP 105 (Lấy Gross từ cột AN - cột thứ 40 / index 39)
 def xuly_105(df, is_cungung=True):
@@ -91,10 +99,30 @@ def xuly_105(df, is_cungung=True):
             
         df = df[df['Loại Giao Dịch'].notna()]
         
-        def c_105(col_name):
-            return clean_key_series(df[col_name]) if col_name in df.columns else ""
+        ma_kho = get_clean_col(df, 'Mã Kho')
+        # Phòng hờ trường hợp cột tên là 'Mă Kho'
+        if (ma_kho == '').all():
+            ma_kho = get_clean_col(df, 'Mă Kho')
             
-        df['Chuỗi'] = c_105('Mã Kho') + c_105('Khu Vực Kho') + c_105('Locator') + c_105('LPN') + c_105('Loại Giao Dịch')
+        kv_kho = get_clean_col(df, 'Khu Vực Kho')
+        locator = get_clean_col(df, 'Locator')
+        lpn = get_clean_col(df, 'LPN')
+        ma_lo = get_clean_col(df, 'Mã Lô')
+        loai_gd = get_clean_col(df, 'Loại Giao Dịch')
+        
+        # Linh hoạt: Nếu dòng có LPN thì lấy LPN, nếu LPN trống thì tự động lấy Mã Lô
+        lpn_or_lot = np.where(lpn != '', lpn, ma_lo)
+        lpn_or_lot = pd.Series(lpn_or_lot, index=df.index)
+        
+        # Tầng 1: Chuỗi chuẩn theo LPN (hoặc Mã Lô nếu LPN trống)
+        df['Chuỗi'] = ma_kho + kv_kho + locator + lpn_or_lot + loai_gd
+        # Tầng 2: Chuỗi ép theo Mã Lô (phòng khi bảng 105 có cả LPN và Mã Lô nhưng 021 chỉ dò theo Mã Lô)
+        df['Chuỗi_MaLo'] = ma_kho + kv_kho + locator + ma_lo + loai_gd
+        # Tầng 3: Chuỗi dự phòng cho hàng rời không có cả LPN lẫn Mã Lô
+        df['Chuỗi_KhongLPN'] = ma_kho + kv_kho + locator + loai_gd
+        
+        df['Chuỗi_Pick'] = ma_kho + kv_kho + locator + lpn_or_lot + "SALES ORDER PICK"
+        df['Chuỗi_Pick_MaLo'] = ma_kho + kv_kho + locator + ma_lo + "SALES ORDER PICK"
         return df
     except: return pd.DataFrame()
 
@@ -179,7 +207,7 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
             if f_021_admin: frames_021.append(xuly_021(pd.read_excel(f_021_admin, header=None), False))
             df_021_all = pd.concat(frames_021, ignore_index=True) if frames_021 else pd.DataFrame()
 
-            # --- TÍNH TOÁN SHEET 021 (DÒ THEO ĐÚNG LOẠI GIAO DỊCH CỦA 021 SANG 105) ---
+            # --- TÍNH TOÁN SHEET 021 (DÒ ĐA TẦNG LPN -> MÃ LÔ -> KHÔNG LPN SANG 105) ---
             progress_text.markdown('<div class="progress-text">⏳ Đang tự động hóa VLOOKUP đa tầng cho bảng 021... (55%)</div>', unsafe_allow_html=True)
             progress_bar.progress(55)
             
@@ -188,52 +216,71 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
                 df_021_export = df_021_all.copy()
                 
                 def safe_str(col_name):
-                    # Tự động tìm cột khớp đúng tên bỏ qua khoảng trắng thừa và không phân biệt hoa/thường
-                    matched = [c for c in df_021_export.columns if str(c).strip().lower() == str(col_name).strip().lower()]
-                    if matched:
-                        return (
-                            df_021_export[matched[0]]
-                            .astype(str)
-                            .str.strip()
-                            .str.replace(r'\.0$', '', regex=True)
-                            .str.upper()
-                            .replace(['NAN', 'NONE', '<NA>'], '', regex=False)
-                            .fillna('')
-                        )
-                    return pd.Series('', index=df_021_export.index)
+                    return get_clean_col(df_021_export, col_name)
 
-                # Nối Chuỗi 2 an toàn
-                df_021_export['Chuỗi 2 '] = (
-                    safe_str('Mã kho') + 
-                    safe_str('Subinventory') + 
-                    safe_str('Locator') + 
-                    safe_str('LPN') + 
-                    safe_str('Loại giao dịch')
-                )
+                ma_kho_021 = safe_str('Mã kho')
+                if (ma_kho_021 == '').all():
+                    ma_kho_021 = safe_str('Mă kho')
+                    
+                sub_021 = safe_str('Subinventory')
+                loc_021 = safe_str('Locator')
+                lpn_021 = safe_str('LPN')
+                malo_021 = safe_str('Mã lô')
+                loai_gd_021 = safe_str('Loại giao dịch')
                 
-                df_021_export['Chuỗi Pick'] = (
-                    safe_str('Mã kho') + 
-                    safe_str('Subinventory') + 
-                    safe_str('Locator') + 
-                    safe_str('LPN') + 
-                    "SALES ORDER PICK"
-                )
+                # Nếu LPN trống thì tự động lấy Mã lô để hiển thị và dò ở Chuỗi 2
+                lpn_or_lot_021 = pd.Series(np.where(lpn_021 != '', lpn_021, malo_021), index=df_021_export.index)
+
+                # Các tầng chuỗi của 021
+                df_021_export['Chuỗi 2 '] = ma_kho_021 + sub_021 + loc_021 + lpn_or_lot_021 + loai_gd_021
+                s_021_malo = ma_kho_021 + sub_021 + loc_021 + malo_021 + loai_gd_021
+                s_021_nolpn = ma_kho_021 + sub_021 + loc_021 + loai_gd_021
+                
+                df_021_export['Chuỗi Pick'] = ma_kho_021 + sub_021 + loc_021 + lpn_or_lot_021 + "SALES ORDER PICK"
+                s_pick_malo = ma_kho_021 + sub_021 + loc_021 + malo_021 + "SALES ORDER PICK"
 
                 if not df_105_all.empty and 'Chuỗi' in df_105_all.columns:
-                    map_105 = df_105_all[df_105_all['Chuỗi'] != ""].drop_duplicates(subset=['Chuỗi'], keep='first').set_index('Chuỗi')
+                    map_105_t1 = df_105_all[df_105_all['Chuỗi'] != ""].drop_duplicates(subset=['Chuỗi'], keep='first').set_index('Chuỗi')
+                    map_105_t2 = df_105_all[df_105_all['Chuỗi_MaLo'] != ""].drop_duplicates(subset=['Chuỗi_MaLo'], keep='first').set_index('Chuỗi_MaLo')
+                    map_105_t3 = df_105_all[df_105_all['Chuỗi_KhongLPN'] != ""].drop_duplicates(subset=['Chuỗi_KhongLPN'], keep='first').set_index('Chuỗi_KhongLPN')
                     
-                    df_021_export['Ngày xuất'] = df_021_export['Chuỗi 2 '].map(map_105['Ngày Giao Dịch'] if 'Ngày Giao Dịch' in map_105.columns else {})
-                    df_021_export['Thời gian thao tác'] = df_021_export['Chuỗi 2 '].map(map_105['Creation Date'] if 'Creation Date' in map_105.columns else {})
-                    df_021_export['Người thực hiện'] = df_021_export['Chuỗi 2 '].map(map_105['Created by User'] if 'Created by User' in map_105.columns else {})
+                    map_pick_t1 = df_105_all[df_105_all['Chuỗi_Pick'] != ""].drop_duplicates(subset=['Chuỗi_Pick'], keep='first').set_index('Chuỗi_Pick')
+                    map_pick_t2 = df_105_all[df_105_all['Chuỗi_Pick_MaLo'] != ""].drop_duplicates(subset=['Chuỗi_Pick_MaLo'], keep='first').set_index('Chuỗi_Pick_MaLo')
+
+                    # Hàm dò đa tầng: Tầng 1 (LPN/Mã Lô) -> Tầng 2 (Ép Mã Lô) -> Tầng 3 (Không LPN/Mã Lô)
+                    def map_fallback(col_105):
+                        if col_105 not in df_105_all.columns:
+                            return pd.Series("", index=df_021_export.index)
+                        res = df_021_export['Chuỗi 2 '].map(map_105_t1[col_105])
+                        res = res.fillna(s_021_malo.map(map_105_t2[col_105]))
+                        res = res.fillna(s_021_nolpn.map(map_105_t3[col_105]))
+                        return res
+
+                    df_021_export['Ngày xuất'] = map_fallback('Ngày Giao Dịch').fillna("")
+                    df_021_export['Thời gian thao tác'] = map_fallback('Creation Date').fillna("")
+                    df_021_export['Người thực hiện'] = map_fallback('Created by User').fillna("")
                     
-                    # Dò theo đúng Chuỗi 2 (mang Loại giao dịch thực tế của 021) sang cột AN (Gross_AN) của 105
-                    if 'Gross_AN' in map_105.columns:
-                        df_021_export['Số Gross'] = pd.to_numeric(df_021_export['Chuỗi 2 '].map(map_105['Gross_AN']), errors='coerce').fillna(0)
+                    if 'Gross_AN' in df_105_all.columns:
+                        # Với Gross, ưu tiên dò Tầng 1 (LPN/Mã Lô) -> Tầng 2 (Mã Lô) -> Tầng 3 (Không LPN)
+                        g_t1 = pd.to_numeric(df_021_export['Chuỗi 2 '].map(map_105_t1['Gross_AN']), errors='coerce')
+                        g_t2 = pd.to_numeric(s_021_malo.map(map_105_t2['Gross_AN']), errors='coerce')
+                        g_t3 = pd.to_numeric(s_021_nolpn.map(map_105_t3['Gross_AN']), errors='coerce')
+                        
+                        gross_final = g_t1.where(g_t1.notna() & (g_t1 != 0), g_t2)
+                        gross_final = gross_final.where(gross_final.notna() & (gross_final != 0), g_t3)
+                        df_021_export['Số Gross'] = gross_final.fillna(0)
                     else:
                         df_021_export['Số Gross'] = 0
                         
-                    df_021_export['Thời gian pick SO'] = df_021_export['Chuỗi Pick'].map(map_105['Creation Date'] if 'Creation Date' in map_105.columns else {})
-                    df_021_export['Người Pick SO'] = df_021_export['Chuỗi Pick'].map(map_105['Created by User'] if 'Created by User' in map_105.columns else {})
+                    def map_pick_fallback(col_105):
+                        if col_105 not in df_105_all.columns:
+                            return pd.Series("", index=df_021_export.index)
+                        res = df_021_export['Chuỗi Pick'].map(map_pick_t1[col_105])
+                        res = res.fillna(s_pick_malo.map(map_pick_t2[col_105]))
+                        return res.fillna("")
+
+                    df_021_export['Thời gian pick SO'] = map_pick_fallback('Creation Date')
+                    df_021_export['Người Pick SO'] = map_pick_fallback('Created by User')
                 else:
                     df_021_export['Ngày xuất'] = df_021_export['Thời gian thao tác'] = df_021_export['Người thực hiện'] = ""
                     df_021_export['Số Gross'] = 0
