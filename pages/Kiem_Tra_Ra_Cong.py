@@ -94,7 +94,7 @@ def xuly_105(df, is_cungung=True):
         def c_105(col_name):
             return clean_key_series(df[col_name]) if col_name in df.columns else ""
             
-        df['Chuỗi'] = c_105('Mă Kho') + c_105('Khu Vực Kho') + c_105('Locator') + c_105('LPN') + c_105('Loại Giao Dịch')
+        df['Chuỗi'] = c_105('Mã Kho') + c_105('Khu Vực Kho') + c_105('Locator') + c_105('LPN') + c_105('Loại Giao Dịch')
         return df
     except: return pd.DataFrame()
 
