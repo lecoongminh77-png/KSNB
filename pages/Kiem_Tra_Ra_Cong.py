@@ -53,21 +53,33 @@ with col2:
     f_021_admin = st.file_uploader("4. INV 021 (HSH_HSSC... Admin)", type=["xlsx", "xls"])
     st.markdown('</div>', unsafe_allow_html=True)
 
-# HÀM LỌC DỮ LIỆU ERP 105 (Lấy Gross từ cột AN - index 39)
+# HÀM LÀM SẠCH CHUỖI CHUNG (Xóa khoảng trắng, xóa .0 ở cuối số, xóa nan, in hoa)
+def clean_key_series(series):
+    return (
+        series.astype(str)
+        .str.strip()
+        .str.replace(r'\.0$', '', regex=True)
+        .str.upper()
+        .replace(['NAN', 'NONE', '<NA>'], '', regex=False)
+    )
+
+# HÀM LỌC DỮ LIỆU ERP 105 (Lấy Gross từ cột AN - cột thứ 40 / index 39)
 def xuly_105(df, is_cungung=True):
     try:
         header_idx = df.astype(str).apply(lambda row: row.str.contains('Loại Giao Dịch', case=False, na=False).any(), axis=1).idxmax()
         if pd.isna(header_idx): return pd.DataFrame()
-        df.columns = df.iloc[header_idx]
+        df.columns = df.iloc[header_idx].astype(str).str.strip()
         df = df.iloc[header_idx + 1:].reset_index(drop=True)
-        df = df.loc[:, df.columns.notna()]
-        df = df.loc[:, ~df.columns.duplicated()]
         
-        # Lấy chính xác cột thứ 40 (Cột AN trong Excel, index = 39) làm Gross
+        # Lấy chính xác cột thứ 40 (Cột AN trong Excel, index = 39) TRƯỚC KHI lọc bỏ cột trống tên
         if df.shape[1] > 39:
-            df['Gross_AN'] = pd.to_numeric(df.iloc[:, 39], errors='coerce').fillna(0)
+            gross_an_series = pd.to_numeric(df.iloc[:, 39], errors='coerce').fillna(0)
         else:
-            df['Gross_AN'] = 0
+            gross_an_series = pd.Series(0, index=df.index)
+            
+        df = df.loc[:, df.columns.notna() & (df.columns != 'nan')]
+        df = df.loc[:, ~df.columns.duplicated()]
+        df['Gross_AN'] = gross_an_series
         
         if df.empty or 'Loại Giao Dịch' not in df.columns: return df
         if is_cungung:
@@ -78,9 +90,11 @@ def xuly_105(df, is_cungung=True):
             df = df[~df['Loại Giao Dịch'].isin(['COGS Recognition'])]
             
         df = df[df['Loại Giao Dịch'].notna()]
-        if all(col in df.columns for col in ['Mă Kho', 'Khu Vực Kho', 'Locator', 'LPN', 'Loại Giao Dịch']):
-            df['Chuỗi'] = df['Mă Kho'].astype(str) + df['Khu Vực Kho'].astype(str) + df['Locator'].astype(str) + df['LPN'].astype(str) + df['Loại Giao Dịch'].astype(str)
-        else: df['Chuỗi'] = ""
+        
+        def c_105(col_name):
+            return clean_key_series(df[col_name]) if col_name in df.columns else ""
+            
+        df['Chuỗi'] = c_105('Mă Kho') + c_105('Khu Vực Kho') + c_105('Locator') + c_105('LPN') + c_105('Loại Giao Dịch')
         return df
     except: return pd.DataFrame()
 
@@ -88,9 +102,9 @@ def xuly_021(df, is_cungung=True):
     try:
         header_idx = df.astype(str).apply(lambda row: row.str.contains('Số chứng từ', case=False, na=False).any(), axis=1).idxmax()
         if pd.isna(header_idx): return pd.DataFrame()
-        df.columns = df.iloc[header_idx]
+        df.columns = df.iloc[header_idx].astype(str).str.strip()
         df = df.iloc[header_idx + 1:].reset_index(drop=True)
-        df = df.loc[:, df.columns.notna()]
+        df = df.loc[:, df.columns.notna() & (df.columns != 'nan')]
         df = df.loc[:, ~df.columns.duplicated()]
         
         if df.empty or 'Loại giao dịch' not in df.columns: return df
@@ -125,10 +139,9 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
             sheet_tc = 'tramcan' if 'tramcan' in xls_tc.sheet_names else 0
             df_tc_raw = pd.read_excel(f_tramcan_nm, sheet_name=sheet_tc)
             
-            # Quét rác: Xóa bỏ 100% các dòng không có SỐ PHIẾU CÂN
             df_tc_full = df_tc_raw.dropna(subset=['PHIẾU CÂN']).copy()
             
-            # Quét dữ liệu 4 cổng chéo nhau (Dùng PHIẾU CÂN làm khóa chính để không bị đè)
+            # Quét dữ liệu 4 cổng chéo nhau theo PHIẾU CÂN
             dict_cong_can = {}
             for _, row in df_tc_full.iterrows():
                 pc = str(row.get('PHIẾU CÂN', '')).strip().upper()
@@ -138,15 +151,14 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
                     if pc not in dict_cong_can: dict_cong_can[pc] = {}
                     dict_cong_can[pc][cong] = kl
 
-            # Xử lý trùng chứng từ: Giữ lại phiếu cân có khối lượng lớn nhất
+            # Xử lý trùng chứng từ: Chỉ giữ lại phiếu cân có khối lượng lớn nhất
             col_chungtu = 'Lấy phiếu xuất.1' if 'Lấy phiếu xuất.1' in df_tc_full.columns else 'SỐ CHỨNG TỪ'
             df_tc_full['KL_TAM'] = pd.to_numeric(df_tc_full['KHỐI LƯỢNG PHIẾU CÂN'], errors='coerce').fillna(0)
-            df_tc_full['CT_TAM'] = df_tc_full[col_chungtu].astype(str).str.strip().str.upper()
+            df_tc_full['CT_TAM'] = clean_key_series(df_tc_full[col_chungtu])
             
-            df_has_ct = df_tc_full[(df_tc_full['CT_TAM'] != '') & (df_tc_full['CT_TAM'] != 'NAN') & (df_tc_full['CT_TAM'] != 'NONE')].copy()
+            df_has_ct = df_tc_full[df_tc_full['CT_TAM'] != ''].copy()
             df_no_ct = df_tc_full[~df_tc_full.index.isin(df_has_ct.index)].copy()
             
-            # Sắp xếp KL giảm dần và lấy dòng đầu tiên (lớn nhất) cho mỗi chứng từ
             df_has_ct = df_has_ct.sort_values(by='KL_TAM', ascending=False).drop_duplicates(subset=['CT_TAM'], keep='first')
             
             df_tc_main = pd.concat([df_has_ct, df_no_ct], ignore_index=True)
@@ -167,17 +179,20 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
             if f_021_admin: frames_021.append(xuly_021(pd.read_excel(f_021_admin, header=None), False))
             df_021_all = pd.concat(frames_021, ignore_index=True) if frames_021 else pd.DataFrame()
 
-            # --- TÍNH TOÁN SHEET 021 (Ép điều kiện chỉ lấy Gross từ cột AN khi là Sales Order Issue) ---
+            # --- TÍNH TOÁN SHEET 021 (DÒ THEO ĐÚNG LOẠI GIAO DỊCH CỦA 021 SANG 105) ---
             progress_text.markdown('<div class="progress-text">⏳ Đang tự động hóa VLOOKUP đa tầng cho bảng 021... (55%)</div>', unsafe_allow_html=True)
             progress_bar.progress(55)
             
             df_021_export = pd.DataFrame()
             if not df_021_all.empty:
                 df_021_export = df_021_all.copy()
-                def safe_str(col): return df_021_export[col].astype(str).replace('nan', '') if col in df_021_export.columns else ""
                 
+                def safe_str(col): 
+                    return clean_key_series(df_021_export[col]) if col in df_021_export.columns else ""
+                
+                # Nối đúng cột 'Loại giao dịch' của 021 vào Chuỗi 2 để đi dò sang 105
                 df_021_export['Chuỗi 2 '] = safe_str('Mă kho') + safe_str('Subinventory') + safe_str('Locator') + safe_str('LPN') + safe_str('Loại giao dịch')
-                df_021_export['Chuỗi Pick'] = safe_str('Mă kho') + safe_str('Subinventory') + safe_str('Locator') + safe_str('LPN') + "Sales Order Pick"
+                df_021_export['Chuỗi Pick'] = safe_str('Mă kho') + safe_str('Subinventory') + safe_str('Locator') + safe_str('LPN') + "SALES ORDER PICK"
 
                 if not df_105_all.empty and 'Chuỗi' in df_105_all.columns:
                     map_105 = df_105_all[df_105_all['Chuỗi'] != ""].drop_duplicates(subset=['Chuỗi'], keep='first').set_index('Chuỗi')
@@ -186,18 +201,17 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
                     df_021_export['Thời gian thao tác'] = df_021_export['Chuỗi 2 '].map(map_105['Creation Date'] if 'Creation Date' in map_105.columns else {})
                     df_021_export['Người thực hiện'] = df_021_export['Chuỗi 2 '].map(map_105['Created by User'] if 'Created by User' in map_105.columns else {})
                     
-                    # ĐIỀU KIỆN KÉP: Lấy Gross từ cột AN (Gross_AN) NHƯNG BẮT BUỘC Loại giao dịch là Sales Order Issue
+                    # Dò theo đúng Chuỗi 2 (mang Loại giao dịch thực tế của 021) sang cột AN (Gross_AN) của 105
                     if 'Gross_AN' in map_105.columns:
-                        raw_gross = df_021_export['Chuỗi 2 '].map(map_105['Gross_AN'])
-                        is_so_issue = df_021_export['Loại giao dịch'].astype(str).str.strip().str.upper() == 'SALES ORDER ISSUE'
-                        df_021_export['Số Gross'] = np.where(is_so_issue, raw_gross, 0)
+                        df_021_export['Số Gross'] = pd.to_numeric(df_021_export['Chuỗi 2 '].map(map_105['Gross_AN']), errors='coerce').fillna(0)
                     else:
                         df_021_export['Số Gross'] = 0
                         
                     df_021_export['Thời gian pick SO'] = df_021_export['Chuỗi Pick'].map(map_105['Creation Date'] if 'Creation Date' in map_105.columns else {})
                     df_021_export['Người Pick SO'] = df_021_export['Chuỗi Pick'].map(map_105['Created by User'] if 'Created by User' in map_105.columns else {})
                 else:
-                    df_021_export['Ngày xuất'] = df_021_export['Thời gian thao tác'] = df_021_export['Người thực hiện'] = df_021_export['Số Gross'] = ""
+                    df_021_export['Ngày xuất'] = df_021_export['Thời gian thao tác'] = df_021_export['Người thực hiện'] = ""
+                    df_021_export['Số Gross'] = 0
                     df_021_export['Thời gian pick SO'] = df_021_export['Người Pick SO'] = ""
 
                 df_021_export['Chuyển text'] = safe_str('Số chứng từ') + "A" 
@@ -209,7 +223,7 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
                 final_021_cols = cols_10_first + [c for c in df_021_all.columns if c not in cols_10_first and c != 'Chuỗi 2 ' and c != 'Chuỗi Pick']
                 df_021_export = df_021_export[final_021_cols]
 
-            # --- TÍNH TOÁN SHEET KSKT (MAP SỐ LIỆU THEO PHIẾU CÂN) ---
+            # --- TÍNH TOÁN SHEET KSKT ---
             progress_text.markdown('<div class="progress-text">⏳ Đang ráp dữ liệu 4 cổng chéo nhau & VLOOKUP Net/Gross... (75%)</div>', unsafe_allow_html=True)
             progress_bar.progress(75)
             
@@ -217,7 +231,7 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
             if not df_021_export.empty:
                 df_calc = df_021_export.copy()
                 if 'Số chứng từ' in df_calc.columns:
-                    phieu_series = df_calc['Số chứng từ'].astype(str).str.replace('.0', '', regex=False).str.strip().str.upper()
+                    phieu_series = clean_key_series(df_calc['Số chứng từ'])
                     if 'Số lượng' in df_calc.columns: dict_net = pd.to_numeric(df_calc['Số lượng'], errors='coerce').groupby(phieu_series).sum().to_dict()
                     if 'Số Gross' in df_calc.columns: dict_gross = pd.to_numeric(df_calc['Số Gross'], errors='coerce').groupby(phieu_series).sum().to_dict()
 
@@ -256,20 +270,17 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
             df_out['1-CỔNG SAU'] = np.nan
             df_out['2-CỔNG SAU'] = np.nan
 
-            # Quét mã và nhặt số liệu theo SỐ PHIẾU CÂN
             for idx, row in df_out.iterrows():
                 net_sum = 0
                 gross_sum = 0
                 c1t, c2t, c1s, c2s = np.nan, np.nan, np.nan, np.nan
                 
-                # Net/Gross từ ERP (Dựa vào Số chứng từ)
                 for i in range(1, 6):
                     v = str(row[str(i)]).replace('.0', '').strip().upper()
                     if v and v != 'NAN':
                         net_sum += dict_net.get(v, 0)
                         gross_sum += dict_gross.get(v, 0)
                 
-                # Khối lượng 4 cổng cân (Dựa vào SỐ PHIẾU CÂN)
                 pc_key = str(row['Số phiếu cân']).strip().upper()
                 if pc_key in dict_cong_can:
                     c1t = dict_cong_can[pc_key].get('1-CỔNG TRƯỚC', c1t)
