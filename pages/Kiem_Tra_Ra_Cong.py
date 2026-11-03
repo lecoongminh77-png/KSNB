@@ -18,6 +18,7 @@ st.markdown("""
     .upload-box { background-color: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.03); margin-bottom: 15px; border: 1px solid #e2e8f0; }
     .section-title { font-size: 18px; font-weight: 600; margin-bottom: 10px; color: #1d1d1f; }
     .progress-text { font-size: 15px; font-weight: 600; color: #0071e3; margin-bottom: 8px; }
+    .helper-text { font-size: 13px; color: #6e6e73; margin-bottom: 8px; line-height: 1.5; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -38,19 +39,76 @@ st.markdown("""
 
 # KHU VỰC TẢI FILE
 st.markdown('<div class="section-title">📥 1. Dữ liệu Trạm Cân (Thực tế)</div>', unsafe_allow_html=True)
+st.markdown("""
+<div class="helper-text">
+    <b>Truy cập:</b> <a href="http://172.17.24.9/#/login" target="_blank">http://172.17.24.9/#/login</a> (ID: PM4444 / Mk: 123456)<br>
+    <b>Đường dẫn:</b> Quản lý truy cập > Tra cứu trạm cân<br>
+    <b>Thời gian:</b> Chọn mốc thời gian từ cuối tháng trước lúc 11:59pm và cuối tháng này 11:59pm
+</div>
+""", unsafe_allow_html=True)
 f_tramcan_nm = st.file_uploader("File Trạm Cân (Nhà Máy)", type=["xlsx", "xls", "xlsb"], key="tc_nm")
 
 st.markdown('<div class="section-title" style="margin-top: 20px;">📥 2. Dữ liệu ERP (Lý thuyết)</div>', unsafe_allow_html=True)
 col1, col2 = st.columns(2)
 with col1:
     st.markdown('<div class="upload-box">', unsafe_allow_html=True)
+    
+    # Ghi chú cho 105 Cung ứng
+    st.markdown("""
+    <div class="helper-text">
+        <b>OPM 105</b> (HSG_OPM_105_BCKiemSoatThongTinGDTheoLo_GD2)<br>
+        <b>My Account:</b> HSG_KS_INV_Cung Ứng<br>
+        <b>Tích chọn Kho:</b> 031, 034, 036, 038<br>
+        <b>Giao dịch:</b> Inventory, Job or Schedule, Move order, RMA, Sales order<br>
+        <b>Thời gian:</b> Chọn 1 tháng cần kiểm tra
+    </div>
+    """, unsafe_allow_html=True)
     f_105_cu = st.file_uploader("1. OPM 105 (HSG_KS_INV_Cung Ứng)", type=["xlsx", "xls"])
+    
+    st.markdown('<hr style="margin: 15px 0; border: none; border-top: 1px dashed #e2e8f0;">', unsafe_allow_html=True)
+
+    # Ghi chú cho 021 Cung ứng
+    st.markdown("""
+    <div class="helper-text">
+        <b>Inv 021</b> (HSG_INV_021_GD2)<br>
+        <b>My Account:</b> HSG_KS_INV_Cung Ứng<br>
+        <b>Chọn kho:</b> 031, 034, 036, 038<br>
+        <b>Chọn:</b> Từ Category: đầu số 3 và Đến Category cuối số 4<br>
+        <b>Thời gian:</b> Chọn 1 tháng cần kiểm tra
+    </div>
+    """, unsafe_allow_html=True)
     f_021_cu = st.file_uploader("3. INV 021 (HSG_KS_INV_Cung Ứng)", type=["xlsx", "xls"])
+    
     st.markdown('</div>', unsafe_allow_html=True)
+    
 with col2:
     st.markdown('<div class="upload-box">', unsafe_allow_html=True)
+    
+    # Ghi chú cho 105 Admin
+    st.markdown("""
+    <div class="helper-text">
+        <b>OPM 105</b> (HSG_OPM_105_BCKiemSoatThongTinGDTheoLo_GD2)<br>
+        <b>My Account:</b> HSH_HSSC_HTKD_MN_DA_INV_Admin<br>
+        <b>Tích chọn Kho:</b> HAA - Kho hàng truyền thống có giá tại NM Tôn Phú Mỹ, HAB - Kho hàng truyền thống không giá tại NM Tôn Phú Mỹ, HAC - Kho hàng hóa HSH. TPM - SM<br>
+        <b>Giao dịch:</b> Inventory, Job or Schedule, Move order, RMA, Sales order<br>
+        <b>Thời gian:</b> Chọn 1 tháng cần kiểm tra
+    </div>
+    """, unsafe_allow_html=True)
     f_105_admin = st.file_uploader("2. OPM 105 (HSH_HSSC... Admin)", type=["xlsx", "xls"])
+
+    st.markdown('<hr style="margin: 15px 0; border: none; border-top: 1px dashed #e2e8f0;">', unsafe_allow_html=True)
+
+    # Ghi chú cho 021 Admin
+    st.markdown("""
+    <div class="helper-text">
+        <b>Inv 021</b> (HSG_INV_021_GD2)<br>
+        <b>My Account:</b> HSH_HSSC_HTKD_MN_DA_INV_Admin<br>
+        <b>Tích chọn Kho:</b> HAA - Kho hàng truyền thống có giá tại NM Tôn Phú Mỹ, HAB - Kho hàng truyền thống không giá tại NM Tôn Phú Mỹ, HAC - Kho hàng hóa HSH. TPM - SMC<br>
+        <b>Thời gian:</b> Chọn 1 tháng cần kiểm tra
+    </div>
+    """, unsafe_allow_html=True)
     f_021_admin = st.file_uploader("4. INV 021 (HSH_HSSC... Admin)", type=["xlsx", "xls"])
+    
     st.markdown('</div>', unsafe_allow_html=True)
 
 # HÀM LỌC DỮ LIỆU ERP
