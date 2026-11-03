@@ -1,150 +1,388 @@
 import io
-import re
-from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 import pandas as pd
+import openpyxl
+from openpyxl.styles import PatternFill, Font
 import streamlit as st
 
+# --- BẢNG MA TRẬN KSNB (Mở trần mốc >= 17 tấn) ---
+MA_TRAN_CHUAN = {
+    "Dưới 2 tấn":        {"giay": 40,  "sat": 70,  "khac": 20},
+    "Từ 2 - 5 tấn":      {"giay": 60,  "sat": 90,  "khac": 40},
+    "Từ 5 - 7 tấn":      {"giay": 70,  "sat": 100, "khac": 50},
+    "Từ 7 - 10 tấn":     {"giay": 90,  "sat": 120, "khac": 60},
+    "Từ 10 - 12 tấn":    {"giay": 100, "sat": 120, "khac": 70},
+    "Từ 12 - 17 tấn":    {"giay": 110, "sat": 130, "khac": 80},
+    "Từ 17 tấn trở lên": {"giay": 120, "sat": 140, "khac": 90},
+}
 
-def read_auto_header(file_obj, keywords, max_scan=15):
-    """Tự động tìm dòng chứa tiêu đề dựa vào từ khóa, tránh lỗi cố định skiprows."""
-    df_raw = pd.read_excel(file_obj, header=None, nrows=max_scan)
-    header_idx = 0
-    for idx, row in df_raw.iterrows():
-        row_str = " ".join([str(val).upper() for val in row.values if pd.notna(val)])
-        if any(k.upper() in row_str for k in keywords):
-            header_idx = idx
-            break
-    file_obj.seek(0)
-    df = pd.read_excel(file_obj, skiprows=header_idx)
-    return df
+# Radar quét từ khóa loại trừ ở cột AK (Đánh tên)
+TU_KHOA_LOAI_AK = [
+    "THUHOI", "THU HOI", "THU HỒI",
+    "LỢP XƯỞNG", "LOP XUONG", "LOPXUONG"
+]
 
+def safe_str(val):
+    return str(val).strip() if pd.notna(val) and val is not None else ""
 
-def doi_chieu_du_lieu(f_bbnt, f_pl, f_tc, f_bv, f_opm):
-    # 1. ĐỌC BBNT
-    df_bbnt = read_auto_header(f_bbnt, ['MÃ SỐ CUỘN', 'MÃ CUỘN', 'SỐ PHIẾU CÂN'])
-    # Xóa dòng trống mã cuộn và dòng tổng kết
-    col_cuon = next(c for c in df_bbnt.columns if 'CUỘN' in str(c).upper())
-    col_pcan = next(c for c in df_bbnt.columns if 'PHIẾU CÂN' in str(c).upper())
-    col_net = next(c for c in df_bbnt.columns if 'CHỨNG TỪ GIAO HÀNG' in str(c).upper() and 'GROSS' not in str(c).upper())
-    col_gross = next(c for c in df_bbnt.columns if 'GROSS' in str(c).upper())
-    col_canban = next(c for c in df_bbnt.columns if 'CÂN BÀN' in str(c).upper())
-    col_dsai = next(c for c in df_bbnt.columns if 'CHÊNH LỆCH' in str(c).upper() and '%' in str(c))
+def safe_float(val):
+    if pd.isna(val) or val is None or str(val).strip() == "":
+        return 0.0
+    if isinstance(val, (int, float)):
+        return float(val)
+    s = str(val).strip().replace(",", "").replace(" ", "")
+    try:
+        return float(s)
+    except:
+        return 0.0
 
-    df_bbnt = df_bbnt.dropna(subset=[col_cuon]).copy()
-    df_bbnt = df_bbnt[~df_bbnt[df_bbnt.columns[0]].astype(str).str.contains('Tổng cộng|Kết luận', case=False, na=False)]
+def get_cell(row_tuple, idx):
+    return row_tuple[idx] if idx < len(row_tuple) else None
 
-    base_cols = df_bbnt.columns[:13].tolist()
-    res_df = df_bbnt[base_cols].copy()
+def xac_dinh_hang(kl):
+    if kl < 2000: return "Dưới 2 tấn"
+    elif kl <= 5000: return "Từ 2 - 5 tấn"
+    elif kl <= 7000: return "Từ 5 - 7 tấn"
+    elif kl <= 10000: return "Từ 7 - 10 tấn"
+    elif kl <= 12000: return "Từ 10 - 12 tấn"
+    elif kl <= 17000: return "Từ 12 - 17 tấn"
+    else: return "Từ 17 tấn trở lên"
 
-    ma_cuon = df_bbnt[col_cuon].astype(str).str.replace(r'\.0$', '', regex=True).str.strip().str.upper()
-    phieu_can_bbnt = df_bbnt[col_pcan].astype(str).str.replace(r'\.0$', '', regex=True).str.strip()
-    ma_hoa = ma_cuon + 'A'
+def tinh_kg_chuan(hang, loai_loi, kg_loi_khai_bao):
+    loai_str = safe_str(loai_loi).lower()
+    nhom = MA_TRAN_CHUAN[hang]
+    bao_bi_chuan = nhom["khac"]
 
-    # 2. ĐỌC PACKING LIST
-    dict_pl = {}
-    if f_pl is not None:
-        df_pl = read_auto_header(f_pl, ['MÃ SỐ NSX', 'MÃ SỐ HSPM', 'KL(NET)'])
-        c_pl_ma = next(c for c in df_pl.columns if 'MÃ SỐ NSX' in str(c).upper() or 'MÃ SỐ' in str(c).upper())
-        c_pl_kl = next(c for c in df_pl.columns if 'NET' in str(c).upper())
+    if "sắt" in loai_str or "sat" in loai_str:
+        chuan_mt = nhom["sat"]
+    elif "giấy" in loai_str or "giay" in loai_str:
+        chuan_mt = nhom["giay"]
+    else:
+        chuan_mt = bao_bi_chuan
+
+    if kg_loi_khai_bao > 0:
+        return max(chuan_mt, kg_loi_khai_bao + bao_bi_chuan)
+    return chuan_mt
+
+def doc_du_lieu_file_110(uploaded_file):
+    fname = uploaded_file.name.lower()
+    if fname.endswith(".xlsx"):
+        wb = openpyxl.load_workbook(uploaded_file, read_only=True, data_only=True)
+        ws = wb.active
+        rows = list(ws.iter_rows(values_only=True))
+        wb.close()
+        return rows
+    else:
+        df_tmp = pd.read_excel(uploaded_file, header=None, dtype=object)
+        return [tuple(x) for x in df_tmp.to_numpy()]
+
+# --- GIAO DIỆN STREAMLIT ---
+st.set_page_config(page_title="KSNB Tồn Kho", page_icon="📦", layout="wide", initial_sidebar_state="collapsed")
+
+st.markdown("""
+<style>
+    [data-testid="stSidebar"] { display: none !important; }
+    [data-testid="collapsedControl"] { display: none !important; }
+    .stApp { background-color: #f5f5f7; }
+    div.stButton > button { background: #0071e3 !important; color: white !important; border-radius: 8px !important; border: none !important; font-weight: bold; }
+    div.stButton > button:hover { background: #005bb5 !important; transform: scale(1.02); }
+    div.stDownloadButton > button { background: #34c759 !important; border-radius: 8px !important; font-weight: bold; }
+    .note-box { font-size: 0.85rem; color: #555; background: #eef2f5; padding: 10px; border-radius: 6px; margin-top: -15px; margin-bottom: 15px; border-left: 4px solid #0071e3; line-height: 1.5; }
+    .note-title { font-weight: bold; color: #005bb5; }
+</style>
+""", unsafe_allow_html=True)
+
+col_home, _ = st.columns([1.5, 8.5])
+with col_home:
+    if st.button("🏠 Về Trang Chủ", use_container_width=True):
+        st.switch_page("app_ksnb.py")
+
+st.title("📦 KIỂM SOÁT HÀNG THÀNH PHẨM (ĐỐI CHIẾU GROSS NET)")
+
+col_f1, col_f2, col_f3 = st.columns(3)
+
+with col_f1:
+    st.markdown("### 1. Nạp File INV 110")
+    f_tonkhos = st.file_uploader("Nạp File INV 110", type=["xlsx", "xlsb", "xls"], accept_multiple_files=True, label_visibility="collapsed")
+    st.markdown("""
+    <div class='note-box'>
+        <span class='note-title'>📌 HSG_KS_INV_Cung Ứng:</span><br>
+        - Kho: 031, 034, 036, 038<br>
+        - Thời gian: Hôm nay<br><br>
+        <span class='note-title'>📌 HSH_HSSC_HTKD_MN_DA_INV_Admin:</span><br>
+        - Kho: Chọn tất cả kho (All)<br>
+        - Thời gian: Hôm nay
+    </div>
+    """, unsafe_allow_html=True)
+
+with col_f2:
+    st.markdown("### 2. Nạp File OPM 105")
+    f_doichieu = st.file_uploader("Nạp File OPM 105", type=["xlsx", "xlsb", "xls"], label_visibility="collapsed")
+    st.markdown("""
+    <div class='note-box'>
+        <span class='note-title'>📌 Nguồn: HSG_KS_INV_Cung Ứng</span><br>
+        - Kho: 031, 034, 036, 038<br>
+        - Thời gian: 1 năm đổ lại
+    </div>
+    """, unsafe_allow_html=True)
+
+with col_f3:
+    st.markdown("### 3. Nạp File OPM 105 (WIP)")
+    f_opm = st.file_uploader("Nạp File OPM 105 (WIP)", type=["xlsx", "xlsb", "xls"], label_visibility="collapsed")
+    st.markdown("""
+    <div class='note-box'>
+        <span class='note-title'>📌 Nguồn: Báo cáo OPM 105</span><br>
+        - Nghiệp vụ: Job or Schedule<br>
+        - Kho: 031, 034, 036, 038<br>
+        - Thời gian: Nửa năm
+    </div>
+    """, unsafe_allow_html=True)
+
+if st.button("🚀 Bắt đầu", use_container_width=True) and f_tonkhos:
+    status_text = st.empty()
+    progress_bar = st.progress(0)
+
+    try:
+        set_loai_tru = set()
         
-        df_pl_clean = df_pl.dropna(subset=[c_pl_ma, c_pl_kl]).copy()
-        pl_key = df_pl_clean[c_pl_ma].astype(str).str.replace(r'\.0$', '', regex=True).str.strip().str.upper() + 'A'
-        pl_val = pd.to_numeric(df_pl_clean[c_pl_kl], errors='coerce').fillna(0)
-        dict_pl = pd.DataFrame({'Key': pl_key, 'Net': pl_val}).groupby('Key')['Net'].sum().to_dict()
+        if f_doichieu:
+            status_text.markdown("⏳ **Đang đọc danh sách Mã Lô từ File OPM 105...**")
+            df_rma = pd.read_excel(f_doichieu, header=None, dtype=object)
+            for _, row in df_rma.iterrows():
+                if len(row) > 5:
+                    val = safe_str(row.iloc[5]).replace(".0", "").upper()
+                    if val and val not in ("NAN", "NONE", "MÃ LÔ"):
+                        set_loai_tru.add(val)
+        
+        if f_opm:
+            status_text.markdown("⏳ **Đang đọc danh sách Mã Lô (WIP Issue) từ File OPM 105 (WIP)...**")
+            df_opm = pd.read_excel(f_opm, header=None, dtype=object)
+            for _, row in df_opm.iterrows():
+                if len(row) > 5:
+                    loai_gd = safe_str(row.iloc[0]).upper()
+                    if loai_gd == "WIP ISSUE":
+                        ma_lo_opm = safe_str(row.iloc[5]).replace(".0", "").upper()
+                        if ma_lo_opm and ma_lo_opm not in ("NAN", "NONE", "MÃ LÔ"):
+                            set_loai_tru.add(ma_lo_opm)
 
-    # 3. ĐỌC NHẬP BẢO VỆ
-    dict_bv_phieu = {}
-    dict_bv_kl = {}
-    if f_bv is not None:
-        df_bv = read_auto_header(f_bv, ['MÃ PHIẾU CÂN', 'KHỐI LƯỢNG PHIẾU CÂN', 'TÊN HÀNG HÓA'])
-        col_bv_hang = next(c for c in df_bv.columns if 'TÊN HÀNG HÓA' in str(c).upper() or 'MÃ HÀNG HÓA' in str(c).upper())
-        col_bv_pcan = next(c for c in df_bv.columns if 'MÃ PHIẾU CÂN' in str(c).upper())
-        col_bv_kl = next(c for c in df_bv.columns if 'KHỐI LƯỢNG' in str(c).upper())
+        wb_tong = openpyxl.Workbook()
+        ws_tong = wb_tong.active
+        ws_tong.title = "Bao_Cao_KSNB"
 
-        for _, r in df_bv.iterrows():
-            txt = str(r[col_bv_hang]).upper()
-            p = str(r[col_bv_pcan]).replace('.0', '').strip()
-            kl = r[col_bv_kl]
-            for m in ma_cuon:
-                if m in txt and m not in dict_bv_phieu:
-                    dict_bv_phieu[m] = p
-                    dict_bv_kl[m] = kl
+        header_font = Font(bold=True, color="FFFFFF")
+        header_fill = PatternFill(start_color="005BB5", end_color="005BB5", fill_type="solid")
+        yellow_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+        red_fill = PatternFill(start_color="FF6666", end_color="FF6666", fill_type="solid")
 
-    # 4. ĐỌC TRẠM CÂN
-    dict_tc_kl = {}
-    dict_tc_phanloai = {}
-    if f_tc is not None:
-        df_tc = read_auto_header(f_tc, ['PHIẾU CÂN', 'KHỐI LƯỢNG PHIẾU CÂN', 'PHÂN LOẠI'])
-        col_tc_p = next(c for c in df_tc.columns if str(c).strip().upper() == 'PHIẾU CÂN')
-        col_tc_kl = next(c for c in df_tc.columns if 'KHỐI LƯỢNG' in str(c).upper())
-        col_tc_pl = next((c for c in df_tc.columns if 'PHÂN LOẠI' in str(c).upper()), None)
+        tieu_de_ksnb = [
+            "TRẠNG THÁI KSNB", "ĐỘ LỆCH KSNB (KG)", "GROSS - NET (KG)",
+            "KHOẢNG TRỌNG", "KG CHUẨN", "BỘ LỌC KHO"
+        ]
 
-        tc_p = df_tc[col_tc_p].astype(str).str.replace(r'\.0$', '', regex=True).str.strip()
-        tc_kl = pd.to_numeric(df_tc[col_tc_kl], errors='coerce').fillna(0)
-        dict_tc_kl = dict(zip(tc_p, tc_kl))
-        if col_tc_pl:
-            dict_tc_phanloai = dict(zip(tc_p, df_tc[col_tc_pl].fillna('Nhập hàng').astype(str)))
+        headers_goc = []
+        max_c_global = 0
+        tong_da_xoa = 0
+        tong_giu_lai = 0
+        tong_do = 0
+        tong_vang = 0
+        live_preview_data = []
+        total_files = len(f_tonkhos)
 
-    # 5. ĐỌC ERP OPM 105
-    opm_035_po, opm_035_rtv, opm_031, opm_03g_po, opm_03g_rtv = {}, {}, {}, {}, {}
-    if f_opm is not None:
-        df_opm = read_auto_header(f_opm, ['LOẠI GIAO DỊCH', 'MÃ LÔ', 'KHO'])
-        # Lọc bỏ dòng phụ nếu có nhãn [1], [2]
-        if len(df_opm) > 0 and '[' in str(df_opm.iloc[0, 1]):
-            df_opm = df_opm.iloc[1:].copy()
+        for file_idx, f_tk in enumerate(f_tonkhos):
+            status_text.markdown(f"📂 **Đang nạp file `{f_tk.name}` vào bộ nhớ...**")
+            rows_all = doc_du_lieu_file_110(f_tk)
+            max_r = len(rows_all)
+            if max_r < 14:
+                continue
 
-        c_opm_loai = next(c for c in df_opm.columns if 'LOẠI GIAO DỊCH' in str(c).upper())
-        c_opm_malo = next(c for c in df_opm.columns if 'MÃ LÔ' in str(c).upper())
-        c_opm_kl = next(c for c in df_opm.columns if 'SỐ LƯỢNG' in str(c).upper() or 'KHỐI LƯỢNG' in str(c).upper())
-        c_opm_kho = next(c for c in df_opm.columns if 'KHO' in str(c).upper() and 'NGÀY' not in str(c).upper())
+            if not headers_goc:
+                r12 = rows_all[11]
+                r13 = rows_all[12]
+                max_c_global = max(len(r12), len(r13))
+                for c in range(max_c_global):
+                    h12 = safe_str(get_cell(r12, c))
+                    h13 = safe_str(get_cell(r13, c))
+                    if h12 and h13 and h12 != h13:
+                        h_final = f"{h12} {h13}"
+                    elif h12:
+                        h_final = h12
+                    elif h13:
+                        h_final = h13
+                    else:
+                        h_final = f"Cột {c + 1}"
+                    headers_goc.append(h_final)
 
-        df_opm_clean = df_opm.dropna(subset=[c_opm_malo, c_opm_loai]).copy()
-        lo_str = df_opm_clean[c_opm_malo].astype(str).str.strip().str.upper()
-        df_opm_clean['Key'] = lo_str.apply(lambda x: x if x.endswith('A') else x + 'A')
-        df_opm_clean['KL'] = pd.to_numeric(df_opm_clean[c_opm_kl], errors='coerce').fillna(0)
-        df_opm_clean['Kho_Clean'] = df_opm_clean[c_opm_kho].astype(str).str.strip()
+                ws_tong.append(tieu_de_ksnb + headers_goc)
+                for cell in ws_tong[1]:
+                    cell.font = header_font
+                    cell.fill = header_fill
 
-        # Tổng hợp theo nghiệp vụ chuẩn của mẫu Excel
-        opm_035_po = df_opm_clean[(df_opm_clean['Kho_Clean'] == '035') & (df_opm_clean[c_opm_loai].str.contains('PO Receipt', case=False, na=False))].groupby('Key')['KL'].sum().to_dict()
-        opm_035_rtv = df_opm_clean[(df_opm_clean['Kho_Clean'] == '035') & (df_opm_clean[c_opm_loai].str.contains('Return to Vendor', case=False, na=False))].groupby('Key')['KL'].sum().to_dict()
-        opm_031 = df_opm_clean[(df_opm_clean['Kho_Clean'].isin(['03G', '03H'])) & (df_opm_clean[c_opm_loai].str.contains('Intransit Receipt', case=False, na=False))].groupby('Key')['KL'].sum().to_dict()
-        opm_03g_po = df_opm_clean[(df_opm_clean['Kho_Clean'] == '03G') & (df_opm_clean[c_opm_loai].str.contains('PO Receipt', case=False, na=False))].groupby('Key')['KL'].sum().to_dict()
-        opm_03g_rtv = df_opm_clean[(df_opm_clean['Kho_Clean'] == '03G') & (df_opm_clean[c_opm_loai].str.contains('Return to Vendor', case=False, na=False))].groupby('Key')['KL'].sum().to_dict()
+            total_data_rows = max_r - 13
 
-    # 6. TÍNH CÁC CỘT THEO ĐÚNG CÔNG THỨC EXCEL MẪU
-    res_df['NHẬP/XUẤT'] = phieu_can_bbnt.map(lambda x: dict_tc_phanloai.get(x, 'Nhập hàng'))
-    res_df['Mã hóa'] = ma_hoa
-    res_df['Khối lượng net theo PL'] = ma_hoa.map(dict_pl).fillna(0).astype(float)
+            for idx in range(13, max_r):
+                if (idx - 13) % 500 == 0 or idx == max_r - 1:
+                    row_prog = (idx - 12) / total_data_rows
+                    overall_prog = (file_idx + row_prog) / total_files
+                    percent = int(min(overall_prog, 1.0) * 100)
+                    progress_bar.progress(min(overall_prog, 1.0))
+                    status_text.markdown(f"🔄 **Đang quét:** `{f_tk.name}` (Dòng {idx + 1}/{max_r}) ➔ **{percent}% hoàn thành**")
 
-    net_ct = pd.to_numeric(df_bbnt[col_net], errors='coerce').fillna(0).astype(float)
-    res_df['Đối chiếu'] = net_ct - res_df['Khối lượng net theo PL']
+                row_vals = rows_all[idx]
+                ma_hang = safe_str(get_cell(row_vals, 1))
+                gross_num = safe_float(get_cell(row_vals, 21))
 
-    res_df['KL theo bc nhập hàng'] = ma_cuon.map(dict_bv_kl).fillna(0).astype(float)
-    res_df['Số phiếu cân'] = ma_cuon.map(dict_bv_phieu).fillna('')
-    res_df['Đối chiếu số phiếu cân'] = phieu_can_bbnt == res_df['Số phiếu cân'].astype(str)
+                if not ma_hang and gross_num <= 0:
+                    continue
+                if gross_num <= 0:
+                    tong_da_xoa += 1
+                    continue
 
-    # Khối lượng trạm cân: tra theo số phiếu cân của BẢO VỆ (theo đúng công thức VLOOKUP V10 của Excel)
-    res_df['KL theo bc trạm cân'] = res_df['Số phiếu cân'].map(dict_tc_kl).fillna(0).astype(float)
-    res_df['Đối chiếu KL TC & KL BCBV'] = res_df['KL theo bc trạm cân'] == res_df['KL theo bc nhập hàng']
+                if not (ma_hang.startswith("3") or ma_hang.startswith("4")):
+                    tong_da_xoa += 1
+                    continue
 
-    can_ban = pd.to_numeric(df_bbnt[col_canban], errors='coerce').fillna(0).astype(float)
-    res_df['Đối chiếu KL TC & KL BBNT'] = res_df['KL theo bc trạm cân'] == can_ban
+                ma_lo = safe_str(get_cell(row_vals, 19)).replace(".0", "").upper()
+                if ma_lo and ma_lo in set_loai_tru:
+                    tong_da_xoa += 1
+                    continue
 
-    gross_ct = pd.to_numeric(df_bbnt[col_gross], errors='coerce').replace(0, pd.NA).fillna(1).astype(float)
-    res_df['Chênh lệch (kg)'] = res_df['KL theo bc trạm cân'] - gross_ct
-    res_df['Chênh lệch dung sai'] = res_df['Chênh lệch (kg)'] / gross_ct
+                danh_ten_ak = safe_str(get_cell(row_vals, 36)).upper()
+                if danh_ten_ak and any(kw in danh_ten_ak for kw in TU_KHOA_LOAI_AK):
+                    tong_da_xoa += 1
+                    continue
 
-    dsai_bbnt = pd.to_numeric(df_bbnt[col_dsai], errors='coerce').fillna(0).astype(float)
-    res_df['Đối chiếu dung sai'] = res_df['Chênh lệch dung sai'].round(6) == dsai_bbnt.round(6)
-    res_df['So với quy định ( >+-0.3%)'] = res_df['Chênh lệch dung sai'].apply(lambda x: 'VUOT DUNG SAI' if abs(x) > 0.003 else 'OK')
+                ten_hang = safe_str(get_cell(row_vals, 2))
+                phan_loai = safe_str(get_cell(row_vals, 4)).upper()
+                locator = safe_str(get_cell(row_vals, 17))
+                net_num = safe_float(get_cell(row_vals, 22))
+                kg_loi_san = safe_float(get_cell(row_vals, 23))
+                loai_loi = safe_str(get_cell(row_vals, 24))
 
-    res_df['KL Nhập kho 035'] = ma_hoa.map(lambda x: opm_035_po.get(x, 0) - abs(opm_035_rtv.get(x, 0)))
-    res_df['Chênh lệch '] = res_df['Khối lượng net theo PL'] - res_df['KL Nhập kho 035']
+                bo_loc_kho = locator[3].upper() if len(locator) >= 4 else "-"
+                gross_net = round(gross_num - net_num, 2)
+                hang = xac_dinh_hang(gross_num)
+                kg_chuan = tinh_kg_chuan(hang, loai_loi, kg_loi_san)
+                lech_co_dau = round(gross_net - kg_chuan, 2)
 
-    res_df['KL Nhập kho 031'] = ma_hoa.map(lambda x: opm_031.get(x, 0))
-    res_df['Chênh lệch  '] = res_df.apply(lambda r: 0 if r['KL Nhập kho 031'] == 0 else r['Khối lượng net theo PL'] - r['KL Nhập kho 031'], axis=1)
+                is_thep_day_khong_loi = ("thép dày" in ten_hang.lower() and kg_loi_san == 0 and loai_loi == "")
+                tag_cxl = " - Hàng CXL" if phan_loai == "CXL" else ""
 
-    res_df['KL Nhập kho 03G-3H'] = ma_hoa.map(lambda x: opm_03g_po.get(x, 0) - abs(opm_03g_rtv.get(x, 0)))
-    res_df['Chênh lệch   '] = res_df['Khối lượng net theo PL'] - res_df['KL Nhập kho 03G-3H']
+                fill_color = None
+                is_error = False
 
-    return res_df
+                if gross_num < net_num:
+                    trang_thai = f"NGHIÊM TRỌNG (Gross < Net{tag_cxl})"
+                    fill_color = red_fill
+                    is_error = True
+                    tong_do += 1
+                elif gross_num == net_num:
+                    if is_thep_day_khong_loi:
+                        trang_thai = "ĐẠT"
+                        lech_co_dau = 0.0
+                    else:
+                        trang_thai = f"NGHIÊM TRỌNG (Lỗi Gross = Net{tag_cxl})"
+                        fill_color = red_fill
+                        is_error = True
+                        tong_do += 1
+                elif kg_loi_san > 0 and gross_net < kg_loi_san:
+                    trang_thai = f"NGHIÊM TRỌNG (Bì < Lõi khai báo{tag_cxl})"
+                    fill_color = red_fill
+                    is_error = True
+                    tong_do += 1
+                elif gross_net > 250:
+                    trang_thai = f"NGHIÊM TRỌNG (Nghi chưa cập nhật Gross{tag_cxl})"
+                    fill_color = red_fill
+                    is_error = True
+                    tong_do += 1
+                elif lech_co_dau > 50:
+                    trang_thai = f"NGHIÊM TRỌNG (Dư bì > 50kg{tag_cxl})"
+                    fill_color = red_fill
+                    is_error = True
+                    tong_do += 1
+                elif lech_co_dau < -50 and not is_thep_day_khong_loi:
+                    if kg_loi_san > 0 and gross_net == kg_loi_san:
+                        trang_thai = f"NGHI NGỜ (Chưa cộng bao bì{tag_cxl})"
+                        fill_color = yellow_fill
+                        is_error = True
+                        tong_vang += 1
+                    else:
+                        trang_thai = f"NGHIÊM TRỌNG (Thiếu bì > 50kg{tag_cxl})"
+                        fill_color = red_fill
+                        is_error = True
+                        tong_do += 1
+                elif lech_co_dau > 15:
+                    trang_thai = f"NGHI NGỜ (Dư bì > 15kg{tag_cxl})"
+                    fill_color = yellow_fill
+                    is_error = True
+                    tong_vang += 1
+                elif lech_co_dau < -20 and not is_thep_day_khong_loi:
+                    if kg_loi_san > 0 and gross_net == kg_loi_san:
+                        trang_thai = f"NGHI NGỜ (Chưa cộng bao bì{tag_cxl})"
+                    else:
+                        trang_thai = f"NGHI NGỜ (Thiếu bì > 20kg{tag_cxl})"
+                        fill_color = yellow_fill
+                        is_error = True
+                        tong_vang += 1
+                else:
+                    trang_thai = "ĐẠT"
+
+                tong_giu_lai += 1
+                row_ksnb = [
+                    trang_thai, lech_co_dau, gross_net,
+                    hang, kg_chuan, bo_loc_kho
+                ]
+                row_goc = [get_cell(row_vals, c) for c in range(max_c_global)]
+                ws_tong.append(row_ksnb + row_goc)
+
+                if fill_color:
+                    for cell in ws_tong[ws_tong.max_row]:
+                        cell.fill = fill_color
+
+                if is_error:
+                    live_preview_data.append({
+                        "Bộ Lọc Kho": bo_loc_kho,
+                        "Mã Lô": ma_lo,
+                        "Trạng Thái KSNB": trang_thai,
+                        "Độ Lệch (Kg)": lech_co_dau,
+                        "Gross - Net": gross_net,
+                        "Kg Chuẩn": kg_chuan,
+                        "Tên Hàng": ten_hang
+                    })
+
+        if ws_tong.max_row >= 1:
+            ws_tong.auto_filter.ref = ws_tong.dimensions
+            ws_tong.freeze_panes = "A2"
+
+        status_text.markdown("📦 **Đang đóng gói Báo cáo Excel Tổng hợp...**")
+        file_tong = io.BytesIO()
+        wb_tong.save(file_tong)
+        wb_tong.close()
+
+        progress_bar.empty()
+        status_text.empty()
+        st.toast("🎉 Kiểm toán hoàn tất!")
+
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("✅ Tổng cuộn đưa vào báo cáo", f"{tong_giu_lai:,}")
+        c2.metric("🗑️ Dòng rác / Thu hồi đã dọn", f"{tong_da_xoa:,}")
+        c3.metric("🔴 Lỗi Nghiêm Trọng (Đỏ)", f"{tong_do:,}", delta_color="inverse")
+        c4.metric("🟡 Nghi Ngờ (Vàng)", f"{tong_vang:,}", delta_color="off")
+
+        st.download_button(
+            label="📊 TẢI BÁO CÁO KSNB TỔNG HỢP (1 FILE DUY NHẤT)",
+            data=file_tong.getvalue(),
+            file_name="KSNB_Bao_Cao_Tong_Hop.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
+        )
+
+        if live_preview_data:
+            st.warning(f"🔍 XEM TRƯỚC {len(live_preview_data)} CUỘN BẤT THƯỜNG (Sắp xếp theo độ lệch):")
+            df_preview = pd.DataFrame(live_preview_data)
+            df_preview["abs_sort"] = df_preview["Độ Lệch (Kg)"].abs()
+            df_preview = df_preview.sort_values(by="abs_sort", ascending=False).drop(columns=["abs_sort"]).reset_index(drop=True)
+            st.dataframe(df_preview, use_container_width=True)
+        else:
+            st.success("✅ Tất cả các cuộn tồn kho đều ĐẠT chuẩn KSNB!")
+
+    except Exception as e:
+        st.error(f"Đã xảy ra lỗi hệ thống: {e}")
