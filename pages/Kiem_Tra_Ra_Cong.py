@@ -191,8 +191,8 @@ if st.button("🚀 Bắt đầu đối soát & Xuất Báo Cáo", use_container_
                     return clean_key_series(df_021_export[col]) if col in df_021_export.columns else ""
                 
                 # Nối đúng cột 'Loại giao dịch' của 021 vào Chuỗi 2 để đi dò sang 105
-                df_021_export['Chuỗi 2 '] = safe_str('Mă kho') + safe_str('Subinventory') + safe_str('Locator') + safe_str('LPN') + safe_str('Loại giao dịch')
-                df_021_export['Chuỗi Pick'] = safe_str('Mă kho') + safe_str('Subinventory') + safe_str('Locator') + safe_str('LPN') + "SALES ORDER PICK"
+                df_021_export['Chuỗi 2 '] = safe_str('Mã kho') + safe_str('Subinventory') + safe_str('Locator') + safe_str('LPN') + safe_str('Loại giao dịch')
+                df_021_export['Chuỗi Pick'] = safe_str('Mã kho') + safe_str('Subinventory') + safe_str('Locator') + safe_str('LPN') + "SALES ORDER PICK"
 
                 if not df_105_all.empty and 'Chuỗi' in df_105_all.columns:
                     map_105 = df_105_all[df_105_all['Chuỗi'] != ""].drop_duplicates(subset=['Chuỗi'], keep='first').set_index('Chuỗi')
