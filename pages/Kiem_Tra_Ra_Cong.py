@@ -87,6 +87,16 @@ def clean_key_series(series):
         .fillna('')
     )
 
+# Hàm chuẩn hóa khóa Số chứng từ để gom nhóm chính xác (kể cả khi nhiều chứng từ nối dấu + khác thứ tự/khoảng trắng)
+def normalize_ct_group_key(val):
+    s = str(val).strip().upper()
+    if not s or s in ['NAN', 'NONE', '<NA>']:
+        return ''
+    parts = [p.strip().replace('.0', '') for p in s.replace('+', ',').split(',') if p.strip()]
+    if not parts:
+        return ''
+    return "+".join(sorted(parts))
+
 def get_clean_col(df, col_name):
     target = remove_accents(col_name)
     matched = [c for c in df.columns if remove_accents(c) == target]
@@ -164,7 +174,6 @@ def read_and_process_105(file_bytes, is_cungung=True):
 @st.cache_data(show_spinner=False)
 def read_and_process_021(file_bytes, is_cungung=True):
     try:
-        # Đọc dtype=str để chống lỗi Mã lô biến thành số mũ khoa học 3.4012e+14
         df = pd.read_excel(io.BytesIO(file_bytes), header=None, dtype=str)
         header_idx = df.apply(lambda row: row.astype(str).str.contains('Số chứng từ', case=False, na=False).any(), axis=1).idxmax()
         if pd.isna(header_idx): return pd.DataFrame()
@@ -200,8 +209,8 @@ if st.button("🚀 Bắt đầu đối soát & Hiển thị Dashboard", use_cont
         progress_bar = st.progress(0)
         
         try:
-            # --- BƯỚC 1: ĐỌC DỮ LIỆU TRẠM CÂN (VECTOR HÓA 100%) ---
-            progress_text.markdown('<div class="progress-text">⏳ Đang xử lý dữ liệu Trạm Cân với tốc độ cao... (15%)</div>', unsafe_allow_html=True)
+            # --- BƯỚC 1: ĐỌC DỮ LIỆU TRẠM CÂN & LỌC DUY NHẤT PHIẾU CÂN LỚN NHẤT CHO MỖI CHỨNG TỪ ---
+            progress_text.markdown('<div class="progress-text">⏳ Đang lọc lấy Phiếu cân có khối lượng lớn nhất theo Số chứng từ... (15%)</div>', unsafe_allow_html=True)
             progress_bar.progress(15)
             
             xls_tc = pd.ExcelFile(f_tramcan_nm)
@@ -209,26 +218,44 @@ if st.button("🚀 Bắt đầu đối soát & Hiển thị Dashboard", use_cont
             df_tc_raw = pd.read_excel(f_tramcan_nm, sheet_name=sheet_tc)
             df_tc_full = df_tc_raw.dropna(subset=['PHIẾU CÂN']).copy()
             
-            # Vector hóa việc quét 4 cổng cân thay cho iterrows()
             df_tc_full['PC_CLEAN'] = clean_key_series(df_tc_full['PHIẾU CÂN'])
             df_tc_full['CONG_CLEAN'] = clean_key_series(df_tc_full.get('BÀN CÂN RA', pd.Series('', index=df_tc_full.index)))
             df_tc_full['KL_TAM'] = pd.to_numeric(df_tc_full.get('KHỐI LƯỢNG PHIẾU CÂN', 0), errors='coerce').fillna(0)
             
+            # Quét 4 bàn cân theo từng Phiếu cân
             pivot_cong = df_tc_full.pivot_table(
                 index='PC_CLEAN', columns='CONG_CLEAN', values='KL_TAM', aggfunc='max'
             )
+            # Tính số cân lớn nhất của từng Phiếu cân để so sánh khi trùng Số chứng từ
+            pc_max_kl = df_tc_full.groupby('PC_CLEAN')['KL_TAM'].max().to_dict()
+            df_tc_full['MAX_KL_OF_PC'] = df_tc_full['PC_CLEAN'].map(pc_max_kl).fillna(df_tc_full['KL_TAM'])
 
             col_chungtu = 'Lấy phiếu xuất.1' if 'Lấy phiếu xuất.1' in df_tc_full.columns else 'SỐ CHỨNG TỪ'
-            df_tc_full['CT_TAM'] = clean_key_series(df_tc_full[col_chungtu])
+            df_tc_full['CT_KEY'] = df_tc_full[col_chungtu].apply(normalize_ct_group_key)
             
-            df_has_ct = df_tc_full[df_tc_full['CT_TAM'] != ''].copy()
-            df_no_ct = df_tc_full[df_tc_full['CT_TAM'] == ''].copy()
+            # 1. Với các phiếu có Số chứng từ: Gom theo Số chứng từ (CT_KEY), sắp xếp giảm dần theo số cân lớn nhất và CHỈ GIỮ LẠI 1 PHIẾU CÂN LỚN NHẤT
+            df_has_ct = df_tc_full[df_tc_full['CT_KEY'] != ''].copy()
+            df_has_ct = (
+                df_has_ct.sort_values(by=['MAX_KL_OF_PC', 'KL_TAM'], ascending=[False, False])
+                .drop_duplicates(subset=['CT_KEY'], keep='first')
+            )
             
-            df_has_ct = df_has_ct.sort_values(by='KL_TAM', ascending=False).drop_duplicates(subset=['CT_TAM'], keep='first')
+            # 2. Với các phiếu không có Số chứng từ: Chỉ giữ lại dòng có khối lượng lớn nhất theo từng Mã phiếu cân
+            df_no_ct = df_tc_full[df_tc_full['CT_KEY'] == ''].copy()
+            df_no_ct = (
+                df_no_ct.sort_values(by='KL_TAM', ascending=False)
+                .drop_duplicates(subset=['PC_CLEAN'], keep='first')
+            )
+            
+            # Gộp lại và đảm bảo mỗi Phiếu cân chỉ xuất hiện 1 dòng duy nhất
             df_tc_main = pd.concat([df_has_ct, df_no_ct], ignore_index=True)
-            df_tc_main = df_tc_main.drop_duplicates(subset=['PC_CLEAN']).reset_index(drop=True)
+            df_tc_main = (
+                df_tc_main.sort_values(by='MAX_KL_OF_PC', ascending=False)
+                .drop_duplicates(subset=['PC_CLEAN'], keep='first')
+                .reset_index(drop=True)
+            )
             
-            # Tạo tập hợp (Set) các chứng từ đơn lẻ trên trạm cân để check O(1)
+            # Tập hợp các chứng từ đơn lẻ trên trạm cân để đánh dấu Check ra cổng O(1)
             all_tc_vouchers_set = set(
                 df_tc_main[col_chungtu].dropna().astype(str)
                 .str.replace('+', ',', regex=False).str.split(',').explode()
@@ -332,16 +359,14 @@ if st.button("🚀 Bắt đầu đối soát & Hiển thị Dashboard", use_cont
 
                 df_021_export['Chuyển text'] = sct_021_clean + "A" 
                 df_021_export['Chuỗi 1'] = df_021_export['Chuyển text'] + loai_gd_021
-                
-                # Tối ưu tốc độ Check ra cổng O(1) bằng .isin()
                 df_021_export['Check ra cổng'] = np.where(sct_021_clean.isin(all_tc_vouchers_set), 1, 0)
                 
                 cols_10_first = ['Check ra cổng', 'Thời gian pick SO', 'Người Pick SO', 'Ngày xuất', 'Thời gian thao tác', 'Người thực hiện', 'Số Gross', 'Chuỗi 2 ', 'Chuỗi 1', 'Chuyển text']
                 final_021_cols = cols_10_first + [c for c in df_021_all.columns if c not in cols_10_first and c not in ['Chuỗi 2 ', 'Chuỗi Pick']]
                 df_021_export = df_021_export[final_021_cols]
 
-            # --- BƯỚC 4: TÍNH TOÁN BẢNG TỔNG HỢP KSKT (VECTOR HÓA) ---
-            progress_text.markdown('<div class="progress-text">⏳ Đang đối soát dung sai & phát hiện lỗi vận hành... (85%)</div>', unsafe_allow_html=True)
+            # --- BƯỚC 4: TÍNH TOÁN BẢNG TỔNG HỢP KSKT ---
+            progress_text.markdown('<div class="progress-text">⏳ Đang đối soát dung sai với Phiếu cân lớn nhất... (85%)</div>', unsafe_allow_html=True)
             progress_bar.progress(85)
             
             dict_net, dict_gross, dict_xe_021 = {}, {}, {}
@@ -357,7 +382,6 @@ if st.button("🚀 Bắt đầu đối soát & Hiển thị Dashboard", use_cont
                         dict_net = sl_num.groupby(phieu_series).sum().to_dict()
                     if 'Số Gross' in df_021_export.columns:
                         dict_gross = pd.to_numeric(df_021_export['Số Gross'], errors='coerce').fillna(0).groupby(phieu_series).sum().to_dict()
-                    # Kiểm tra chứng từ 034 có bị lẫn nhiều biển số xe trong cùng 1 chứng từ không
                     if col_tc_calc:
                         df_034 = df_021_export[phieu_series.str.startswith('PX034')].copy()
                         if not df_034.empty:
@@ -401,7 +425,6 @@ if st.button("🚀 Bắt đầu đối soát & Hiển thị Dashboard", use_cont
             df_out['Khối lượng Net'] = net_total
             df_out['Khối lượng Gross'] = gross_total
             
-            # Ánh xạ 4 bàn cân bằng Vector
             pc_keys = clean_key_series(df_out['Số phiếu cân'])
             for cong_name in ['1-CỔNG TRƯỚC', '2-CỔNG TRƯỚC', '1-CỔNG SAU', '2-CỔNG SAU']:
                 if cong_name in pivot_cong.columns:
@@ -411,14 +434,18 @@ if st.button("🚀 Bắt đầu đối soát & Hiển thị Dashboard", use_cont
 
             cong_cols = ['1-CỔNG TRƯỚC', '2-CỔNG TRƯỚC', '1-CỔNG SAU', '2-CỔNG SAU']
             temp_cong = df_out[cong_cols].replace(0, np.nan)
-            df_out['KL bàn cân lớn nhất'] = temp_cong.max(axis=1).fillna(df_out['Khối lượng hàng hóa'])
+            
+            # Lấy số cân lớn nhất của Phiếu cân đại diện đó làm chuẩn để so sánh với Gross ERP
+            df_out['KL bàn cân lớn nhất'] = np.maximum(
+                temp_cong.max(axis=1).fillna(0),
+                df_out['Khối lượng hàng hóa']
+            )
             df_out['Chênh lệch Max - Min'] = temp_cong.max(axis=1) - temp_cong.min(axis=1)
 
             df_out['Chênh lệch'] = df_out['Khối lượng Gross'] - df_out['KL bàn cân lớn nhất']
             dung_sai_num = np.where(df_out['Khối lượng Gross'] != 0, (df_out['Chênh lệch'] / df_out['Khối lượng Gross']).round(4), 0)
             df_out['Dung sai'] = np.where(np.abs(dung_sai_num) > 0.003, 'Vượt dung sai', 'OK')
             
-            # Tự động phát hiện lỗi Bảo vệ nhập lặp chứng từ & lỗi Kho 034 lẫn xe
             def phan_tich_ghi_chu(row):
                 notes = []
                 raw_sct = str(row['Số chứng từ']).strip()
@@ -436,7 +463,6 @@ if st.button("🚀 Bắt đầu đối soát & Hiển thị Dashboard", use_cont
 
             df_out['Ghi chú'] = df_out.apply(phan_tich_ghi_chu, axis=1)
 
-            # Phân loại Đánh giá KSNB bằng Vector
             cond_missing = (df_out['Khối lượng Gross'] == 0) & (df_out['Khối lượng Net'] == 0)
             cond_scale_err = df_out['Chênh lệch Max - Min'].notna() & (df_out['Chênh lệch Max - Min'] > 30)
             cond_tol_err = df_out['Dung sai'] == 'Vượt dung sai'
@@ -447,7 +473,6 @@ if st.button("🚀 Bắt đầu đối soát & Hiển thị Dashboard", use_cont
                 default='🟢 An toàn'
             )
 
-            # Lưu vào Session State để hiển thị trên Web mượt mà
             st.session_state['df_out'] = df_out
             st.session_state['df_021_export'] = df_021_export
 
@@ -467,7 +492,6 @@ if st.button("🚀 Bắt đầu đối soát & Hiển thị Dashboard", use_cont
                 fill_green = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
                 font_green = Font(color="006100")
                 
-                # Tô màu nhanh trên cột Dung sai (cột 25 - Y) và Đánh giá KSNB (cột 27 - AA)
                 for row_idx in range(2, len(df_out) + 2):
                     for col_idx in [25, 27]:
                         cell = ws1.cell(row=row_idx, column=col_idx)
@@ -507,13 +531,12 @@ if 'df_out' in st.session_state:
 
     st.markdown("### 📊 Bảng Điều Khiển Kết Quả Đối Soát (KSNB Dashboard)")
     
-    # 5 Ô KPI Cards
     st.markdown(f"""
     <div class="kpi-grid">
         <div class="kpi-card pastel-blue">
             <div class="kpi-title">Tổng Phiếu Cân</div>
             <div class="kpi-value" style="color: #0071e3;">{total_cnt:,}</div>
-            <div class="kpi-sub">100% phiếu sau lọc trùng</div>
+            <div class="kpi-sub">Đã lọc giữ phiếu lớn nhất</div>
         </div>
         <div class="kpi-card pastel-green">
             <div class="kpi-title">🟢 An Toàn (Chuẩn)</div>
@@ -550,7 +573,6 @@ if 'df_out' in st.session_state:
     </div>
     """, unsafe_allow_html=True)
 
-    # Nút tải báo cáo nổi bật ngay dưới KPI
     if 'excel_bytes' in st.session_state:
         st.download_button(
             label="📥 Tải Xuống File Báo Cáo Chuẩn KSNB (.xlsx - Đã Tô Màu & Auto Filter)",
@@ -560,7 +582,6 @@ if 'df_out' in st.session_state:
             use_container_width=True
         )
 
-    # Khu vực Tabs tra cứu trực tiếp trên Web
     st.markdown("#### 🔍 Tra cứu & Soi lỗi trực tiếp trên Web")
     search_kw = st.text_input("🔎 Tìm nhanh theo Số phiếu cân, Biển số xe hoặc Số chứng từ:", placeholder="Nhập biển số xe (VD: 50E89471) hoặc mã chứng từ...")
     
