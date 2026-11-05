@@ -217,6 +217,12 @@ if st.button("🚀 Bắt đầu đối soát & Hiển thị Dashboard", use_cont
             df_tc_raw = pd.read_excel(f_tramcan_nm, sheet_name=sheet_tc)
             df_tc_full = df_tc_raw.dropna(subset=['PHIẾU CÂN']).copy()
             
+            # ---> LỌC PHÂN LOẠI "XUẤT HÀNG" <---
+            col_phan_loai = [c for c in df_tc_full.columns if 'phân loại' in str(c).lower() or remove_accents(c) == 'phan loai']
+            if col_phan_loai:
+                pl_col = col_phan_loai[0]
+                df_tc_full = df_tc_full[df_tc_full[pl_col].astype(str).str.lower().str.contains('xuất', na=False)]
+            
             df_tc_full['PC_CLEAN'] = clean_key_series(df_tc_full['PHIẾU CÂN'])
             df_tc_full['CONG_CLEAN'] = clean_key_series(df_tc_full.get('BÀN CÂN RA', pd.Series('', index=df_tc_full.index)))
             df_tc_full['KL_TAM'] = pd.to_numeric(df_tc_full.get('KHỐI LƯỢNG PHIẾU CÂN', 0), errors='coerce').fillna(0)
@@ -387,7 +393,6 @@ if st.button("🚀 Bắt đầu đối soát & Hiển thị Dashboard", use_cont
                         dict_gross = df_calc_unique.groupby('SCT')['Gross'].sum().to_dict()
                         
                         # --- QUAN TRỌNG: DỌN RÁC CHUỖI RỖNG ---
-                        # Xóa bỏ các dòng không có mã chứng từ để tránh cộng dồn rác (triệu kg) vào mọi chuyến xe
                         dict_net.pop('', None)
                         dict_gross.pop('', None)
 
@@ -422,13 +427,12 @@ if st.button("🚀 Bắt đầu đối soát & Hiển thị Dashboard", use_cont
             net_total = pd.Series(0.0, index=df_out.index)
             gross_total = pd.Series(0.0, index=df_out.index)
             
-            # --- QUAN TRỌNG: CHẶN CHUỖI RỖNG (mask_valid) ---
+            # --- CHẶN CHUỖI RỖNG ---
             for i in range(1, 6):
                 if i - 1 < split_vouchers.shape[1]:
                     col_v = clean_key_series(split_vouchers[i - 1])
                     df_out[str(i)] = col_v
                     
-                    # Chỉ áp dụng việc cộng tổng nếu ô đó THỰC SỰ có mã chứng từ (khác rỗng)
                     mask_valid = col_v != ''
                     net_total += np.where(mask_valid, col_v.map(dict_net).fillna(0), 0)
                     gross_total += np.where(mask_valid, col_v.map(dict_gross).fillna(0), 0)
@@ -453,10 +457,20 @@ if st.button("🚀 Bắt đầu đối soát & Hiển thị Dashboard", use_cont
                 df_out['Khối lượng hàng hóa']
             )
             df_out['Chênh lệch Max - Min'] = temp_cong.max(axis=1) - temp_cong.min(axis=1)
-
+            
+            # ---> CẬP NHẬT: LOGIC TÍNH DUNG SAI & LỖI THIẾU GROSS <---
             df_out['Chênh lệch'] = df_out['Khối lượng Gross'] - df_out['KL bàn cân lớn nhất']
+            
             dung_sai_num = np.where(df_out['Khối lượng Gross'] != 0, (df_out['Chênh lệch'] / df_out['Khối lượng Gross']).round(4), 0)
-            df_out['Dung sai'] = np.where(np.abs(dung_sai_num) > 0.003, 'Vượt dung sai', 'OK')
+            
+            cond_vuot_tyle = np.abs(dung_sai_num) > 0.003
+            cond_thieu_gross = (df_out['Khối lượng Gross'] == 0) & (df_out['KL bàn cân lớn nhất'] > 0)
+            
+            df_out['Dung sai'] = np.select(
+                [cond_thieu_gross, cond_vuot_tyle],
+                ['Lỗi (Thiếu Gross)', 'Vượt dung sai'],
+                default='OK'
+            )
             
             def phan_tich_ghi_chu(row):
                 notes = []
@@ -478,10 +492,11 @@ if st.button("🚀 Bắt đầu đối soát & Hiển thị Dashboard", use_cont
             cond_missing = (df_out['Khối lượng Gross'] == 0) & (df_out['Khối lượng Net'] == 0)
             cond_scale_err = df_out['Chênh lệch Max - Min'].notna() & (df_out['Chênh lệch Max - Min'] > 30)
             cond_tol_err = df_out['Dung sai'] == 'Vượt dung sai'
+            cond_gross_err = df_out['Dung sai'] == 'Lỗi (Thiếu Gross)'
             
             df_out['Đánh giá KSNB'] = np.select(
-                [cond_missing, cond_scale_err, cond_tol_err],
-                ['🔴 Rủi ro (Thiếu dữ liệu ERP)', '🔴 Rủi ro (Bất thường bàn cân)', '🔴 Rủi ro Cao (Vượt dung sai)'],
+                [cond_missing, cond_scale_err, cond_gross_err, cond_tol_err],
+                ['🔴 Rủi ro (Thiếu dữ liệu ERP)', '🔴 Rủi ro (Bất thường bàn cân)', '🔴 Rủi ro (Thiếu Gross)', '🔴 Rủi ro Cao (Vượt dung sai)'],
                 default='🟢 An toàn'
             )
 
@@ -508,7 +523,7 @@ if st.button("🚀 Bắt đầu đối soát & Hiển thị Dashboard", use_cont
                     for col_idx in [25, 27]:
                         cell = ws1.cell(row=row_idx, column=col_idx)
                         val_str = str(cell.value or '')
-                        if '🔴' in val_str or val_str == 'Vượt dung sai':
+                        if '🔴' in val_str or 'Lỗi' in val_str or val_str == 'Vượt dung sai':
                             cell.fill = fill_red
                             cell.font = font_red
                         elif '🟢' in val_str or val_str == 'OK':
@@ -534,7 +549,7 @@ if 'df_out' in st.session_state:
     total_cnt = len(df_res)
     safe_cnt = int((df_res['Đánh giá KSNB'] == '🟢 An toàn').sum())
     vuot_cnt = int((df_res['Dung sai'] == 'Vượt dung sai').sum())
-    missing_cnt = int((df_res['Đánh giá KSNB'] == '🔴 Rủi ro (Thiếu dữ liệu ERP)').sum())
+    missing_cnt = int((df_res['Đánh giá KSNB'].str.contains('Thiếu', na=False)).sum())
     ops_err_cnt = int((df_res['Ghi chú'] != '').sum())
 
     safe_pct = round(safe_cnt / total_cnt * 100, 1) if total_cnt else 0
@@ -563,7 +578,7 @@ if 'df_out' in st.session_state:
         <div class="kpi-card pastel-amber">
             <div class="kpi-title">🟡 Thiếu Dữ Liệu ERP</div>
             <div class="kpi-value" style="color: #e37400;">{missing_cnt:,}</div>
-            <div class="kpi-sub">Chiếm {missing_pct}% (Net & Gross = 0)</div>
+            <div class="kpi-sub">Chiếm {missing_pct}% (Thiếu Net hoặc Gross)</div>
         </div>
         <div class="kpi-card pastel-purple">
             <div class="kpi-title">🟣 Cảnh Báo Vận Hành</div>
@@ -575,7 +590,7 @@ if 'df_out' in st.session_state:
     <div class="ratio-bar-wrap">
         <div style="display:flex; justify-content:space-between; font-size:13px; font-weight:600; color:#424245;">
             <span>Tỷ trọng phân bổ trạng thái phiếu cân</span>
-            <span>🟢 An toàn: {safe_pct}%  |  🔴 Vượt dung sai: {vuot_pct}%  |  🟡 Thiếu ERP: {missing_pct}%</span>
+            <span>🟢 An toàn: {safe_pct}%  |  🔴 Vượt dung sai: {vuot_pct}%  |  🟡 Lỗi thiếu ERP: {missing_pct}%</span>
         </div>
         <div class="ratio-bar">
             <div style="width:{safe_pct}%; background:#34c759;"></div>
@@ -610,7 +625,7 @@ if 'df_out' in st.session_state:
     tab1, tab2, tab3, tab4 = st.tabs([
         f"🔴 Vượt Dung Sai ({len(df_view[df_view['Dung sai'] == 'Vượt dung sai'])})",
         f"🟣 Cảnh Báo Bảo Vệ / Kho ({len(df_view[df_view['Ghi chú'] != ''])})",
-        f"🟡 Thiếu Dữ Liệu ERP ({len(df_view[df_view['Đánh giá KSNB'].str.contains('Thiếu dữ liệu ERP', na=False)])})",
+        f"🟡 Lỗi Thiếu ERP ({len(df_view[df_view['Đánh giá KSNB'].str.contains('Thiếu', na=False)])})",
         f"📋 Tất Cả Phiếu Cân ({len(df_view)})"
     ])
 
@@ -621,6 +636,6 @@ if 'df_out' in st.session_state:
     with tab2:
         st.dataframe(df_view[df_view['Ghi chú'] != ''][cols_show], use_container_width=True, height=420)
     with tab3:
-        st.dataframe(df_view[df_view['Đánh giá KSNB'].str.contains('Thiếu dữ liệu ERP', na=False)][cols_show], use_container_width=True, height=420)
+        st.dataframe(df_view[df_view['Đánh giá KSNB'].str.contains('Thiếu', na=False)][cols_show], use_container_width=True, height=420)
     with tab4:
         st.dataframe(df_view[cols_show], use_container_width=True, height=420)
