@@ -373,21 +373,23 @@ if st.button("🚀 Bắt đầu đối soát & Hiển thị Dashboard", use_cont
                     phieu_series = clean_key_series(df_021_export[col_sct_calc[0]])
                     
                     if col_sl_calc:
-                        # --- BẮT ĐẦU VÙNG CODE ĐƯỢC THAY ĐỔI THEO CÁCH 1 ---
+                        # GOM CUỘN VÀ TÍNH TỔNG (Tránh nhân đôi cuộn tôn)
                         df_calc = pd.DataFrame({
                             'SCT': phieu_series,
-                            'Lot_LPN': lot_or_lpn_021, # Gọi lại series Lot/LPN đã extract ở Bước 3
+                            'Lot_LPN': lot_or_lpn_021,
                             'Net': pd.to_numeric(df_021_export[col_sl_calc[0]].astype(str).str.replace(',', '', regex=False), errors='coerce').fillna(0),
                             'Gross': pd.to_numeric(df_021_export.get('Số Gross', 0), errors='coerce').fillna(0)
                         })
                         
-                        # Xóa trùng lặp theo CẶP (Số chứng từ + Mã lô/LPN)
-                        # Đảm bảo 1 cuộn tôn trong 1 chứng từ chỉ được tính Net/Gross 1 lần duy nhất
                         df_calc_unique = df_calc.sort_values('Gross', ascending=False).drop_duplicates(subset=['SCT', 'Lot_LPN'], keep='first')
                         
                         dict_net = df_calc_unique.groupby('SCT')['Net'].sum().to_dict()
                         dict_gross = df_calc_unique.groupby('SCT')['Gross'].sum().to_dict()
-                        # --- KẾT THÚC VÙNG CODE THAY ĐỔI ---
+                        
+                        # --- QUAN TRỌNG: DỌN RÁC CHUỖI RỖNG ---
+                        # Xóa bỏ các dòng không có mã chứng từ để tránh cộng dồn rác (triệu kg) vào mọi chuyến xe
+                        dict_net.pop('', None)
+                        dict_gross.pop('', None)
 
                     if col_tc_calc:
                         df_034 = df_021_export[phieu_series.str.startswith('PX034')].copy()
@@ -420,12 +422,16 @@ if st.button("🚀 Bắt đầu đối soát & Hiển thị Dashboard", use_cont
             net_total = pd.Series(0.0, index=df_out.index)
             gross_total = pd.Series(0.0, index=df_out.index)
             
+            # --- QUAN TRỌNG: CHẶN CHUỖI RỖNG (mask_valid) ---
             for i in range(1, 6):
                 if i - 1 < split_vouchers.shape[1]:
                     col_v = clean_key_series(split_vouchers[i - 1])
                     df_out[str(i)] = col_v
-                    net_total += col_v.map(dict_net).fillna(0)
-                    gross_total += col_v.map(dict_gross).fillna(0)
+                    
+                    # Chỉ áp dụng việc cộng tổng nếu ô đó THỰC SỰ có mã chứng từ (khác rỗng)
+                    mask_valid = col_v != ''
+                    net_total += np.where(mask_valid, col_v.map(dict_net).fillna(0), 0)
+                    gross_total += np.where(mask_valid, col_v.map(dict_gross).fillna(0), 0)
                 else:
                     df_out[str(i)] = ""
 
