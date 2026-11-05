@@ -48,6 +48,7 @@ st.title("📊 BÁO CÁO TỔNG HỢP NXT NVL CHÍNH")
 
 HOASEN_LOGO_B64 = "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"
 
+
 # --- 1. TỐI ƯU: GẮN CACHE ĐỂ KHÔNG PHẢI TẠO LẠI EXCEL KHI RERUN ---
 @st.cache_data(show_spinner=False)
 def export_to_excel(df_tb1, df_tb2, df_tb3, df_tb4, ngay_str):
@@ -319,13 +320,15 @@ def process_inv110(files):
                     report_date_str = pd.to_datetime("today").strftime("%d/%m/%Y")
                 f.seek(0)
 
-            df = pd.read_excel(f, skiprows=13, header=None, usecols=[0, 2, 3, 4, 22])
+            # Đọc các cột: 0 (Vị trí kho), 1 (Mã hàng), 2 (Tên hàng), 3 (Mã loại), 4 (Phân loại), 22 (Khối lượng)
+            df = pd.read_excel(f, skiprows=13, header=None, usecols=[0, 1, 2, 3, 4, 22])
             sub_df = pd.DataFrame({
                 'Kho': df.iloc[:, 0].astype(str).str.strip(),
-                'TenHang': df.iloc[:, 1].astype(str).str.strip(),
-                'MaLoai': df.iloc[:, 2].astype(str).str.strip(),
-                'PhanLoai': df.iloc[:, 3].astype(str).str.strip(),
-                'KhoiLuong': pd.to_numeric(df.iloc[:, 4], errors='coerce').fillna(0)
+                'MaHang': df.iloc[:, 1].astype(str).str.strip(),
+                'TenHang': df.iloc[:, 2].astype(str).str.strip(),
+                'MaLoai': df.iloc[:, 3].astype(str).str.strip(),
+                'PhanLoai': df.iloc[:, 4].astype(str).str.strip(),
+                'KhoiLuong': pd.to_numeric(df.iloc[:, 5], errors='coerce').fillna(0)
             })
             sub_df = sub_df[~sub_df['TenHang'].isin(['nan', '', 'None'])]
             df_list.append(sub_df)
@@ -336,41 +339,28 @@ def process_inv110(files):
         return None, None, ""
 
     data = pd.concat(df_list, ignore_index=True)
-        # ... (phần code đọc file ở trên)
-    
-    if not df_list:
-        return None, None, ""
 
-    data = pd.concat(df_list, ignore_index=True)
-    
-    # BỔ SUNG: Thêm dòng này ngay sau khi vừa gộp data xong
+    # Xóa bỏ mặt hàng "Hợp kim kẽm nhôm magie (dạng xỉ)" ra khỏi dữ liệu tính toán
     data = data[~data['TenHang'].str.contains('Hợp kim kẽm nhôm magie (dạng xỉ)', na=False, case=False, regex=False)]
-    
-    loai_tru = 'thứ phẩm|phế liệu|biên|vụn|pubcoil|xỉ'
+
+    # Điều kiện Mã hàng không bắt đầu bằng "A" (khớp với LEFT(C)<>"A" trong Excel)
+    not_a_code = ~data['MaHang'].str.startswith('A', na=False)
 
     # --- BẢNG 1: TỒN KHO HRC - PO - CR - CM ---
-    # 1. HRC: ÉP ĐIỀU KIỆN Phân loại 1 ...
-    
-    loai_tru = 'thứ phẩm|phế liệu|biên|vụn|pubcoil|xỉ'
-
-    # --- BẢNG 1: TỒN KHO HRC - PO - CR - CM ---
-    # 1. HRC: ÉP ĐIỀU KIỆN Phân loại 1 (Loại bỏ phẩm 2, CXL để ra đúng 1635 cuộn)
-    is_hrc = (data['MaLoai'].isin(['1.01.01', '2.01.03']) | data['TenHang'].str.contains('HRC|Thép cán nóng', na=False, case=False)) & \
+    # 1. HRC: Tên chứa "Thép cán nóng", không chứa "tẩy rỉ", và Mã hàng khác "A"
+    is_hrc = data['TenHang'].str.contains('Thép cán nóng', na=False, case=False) & \
              (~data['TenHang'].str.contains('tẩy rỉ', na=False, case=False)) & \
-             (~data['TenHang'].str.contains(loai_tru, na=False, case=False))
+             not_a_code
              
-    hrc_thuong = data[is_hrc & (~data['Kho'].str.contains('035', na=False)) & (data['PhanLoai'] == '1')]
-    hrc_cang   = data[is_hrc & (data['Kho'].str.contains('035', na=False)) & (data['PhanLoai'] == '1')]
+    hrc_thuong = data[is_hrc & (~data['Kho'].str.contains('035', na=False))]
+    hrc_cang   = data[is_hrc & (data['Kho'].str.contains('035', na=False))]
 
-    # 2. PO: Lấy TẤT CẢ phân loại (Ra đúng 122 cuộn) - Đã loại bỏ lỗi dính chữ Dung môi Epoxy
-    is_po = data['TenHang'].str.contains('tẩy rỉ|PO', na=False, case=False) & \
-            (~data['TenHang'].str.contains(loai_tru, na=False, case=False)) & \
-            (~data['TenHang'].str.contains('Epoxy', na=False, case=False))
+    # 2. PO: Tên chứa "Thép cán nóng tẩy rỉ" và Mã hàng khác "A"
+    is_po = data['TenHang'].str.contains('Thép cán nóng tẩy rỉ', na=False, case=False) & not_a_code
     po = data[is_po]
 
-    # 3. CM + CR: Lấy TẤT CẢ phân loại (Ra đúng 490 cuộn)
-    is_cm = data['TenHang'].str.contains('cán nguội|SPCC', na=False, case=False) & \
-            (~data['TenHang'].str.contains(loai_tru, na=False, case=False))
+    # 3. CM + CR: Tên chứa "Thép cán nguội" và Mã hàng khác "A"
+    is_cm = data['TenHang'].str.contains('Thép cán nguội', na=False, case=False) & not_a_code
     cm_cr = data[is_cm]
 
     tb1 = pd.DataFrame({
@@ -387,11 +377,10 @@ def process_inv110(files):
     tb1.loc[len(tb1)] = ['Tổng', tb1['Số lượng (Cuộn)'].sum(), tb1['Khối lượng (Tấn)'].sum(), '']
 
     # --- BẢNG 2: KIM LOẠI MÀU ---
-    # FIX MAGIE: Loại trừ chữ "thứ phẩm/phế liệu" để không dính "Thép dày mạ Kẽm nhôm magie thứ phẩm"
-    cgg = data[data['TenHang'].str.contains('Kẽm không hợp kim|CGG|99.995% Zn', na=False, case=False) & (~data['TenHang'].str.contains(loai_tru, na=False, case=False))]
-    nhom_kem = data[data['TenHang'].str.contains('Nhôm - Kẽm|nhôm kẽm', na=False, case=False) & (~data['TenHang'].str.contains(loai_tru, na=False, case=False))]
-    magie = data[data['TenHang'].str.contains('Magie', na=False, case=False) & (~data['TenHang'].str.contains(loai_tru, na=False, case=False))]
-    pha_che = data[data['TenHang'].str.contains('Antimon|pha chế', na=False, case=False) & (~data['TenHang'].str.contains(loai_tru, na=False, case=False))]
+    cgg      = data[data['TenHang'].str.contains('Kẽm không hợp kim', na=False, case=False) & not_a_code]
+    nhom_kem = data[data['TenHang'].str.contains('Hợp kim Nhôm - Kẽm', na=False, case=False) & not_a_code]
+    magie    = data[data['TenHang'].str.contains('Hợp kim Kẽm Nhôm Magie', na=False, case=False) & not_a_code]
+    pha_che  = data[data['TenHang'].str.contains('Antimon', na=False, case=False) & not_a_code]
 
     tb2 = pd.DataFrame({
         'Tên hàng': ['Tồn kho CGG', 'Tồn kho Hợp kim nhôm kẽm', 'Tồn kho Hợp kim kẽm Magie', 'Tồn kho nguyên liệu pha chế'],
@@ -414,10 +403,14 @@ def process_105(files):
     
     for f in files:
         try:
-            df = pd.read_excel(f, skiprows=9, usecols=[0, 4, 9])
-            df.columns = ['LoaiGD', 'TenHang', 'KhoiLuong']
+            # Đọc các cột: 0 (Loại GD), 2 (Dây Chuyền), 3 (Mã Hàng), 4 (Tên Hàng), 9 (Khối Lượng)
+            df = pd.read_excel(f, skiprows=9, usecols=[0, 2, 3, 4, 9])
+            df.columns = ['LoaiGD', 'DayChuyen', 'MaHang', 'TenHang', 'KhoiLuong']
+            
             df = df[~df['LoaiGD'].astype(str).str.contains(r'\[', na=False)]
             df['LoaiGD'] = df['LoaiGD'].astype(str).str.strip()
+            df['DayChuyen'] = df['DayChuyen'].astype(str).str.strip()
+            df['MaHang'] = df['MaHang'].astype(str).str.strip()
             df['TenHang'] = df['TenHang'].astype(str).str.strip()
             df['KhoiLuong'] = pd.to_numeric(df['KhoiLuong'], errors='coerce').fillna(0)
             df = df[~df['TenHang'].isin(['nan', '', 'None'])]
@@ -429,11 +422,17 @@ def process_105(files):
         return None, None
 
     data = pd.concat(df_list, ignore_index=True)
-    loai_tru = 'thứ phẩm|phế liệu|biên|vụn|pubcoil|xỉ'
 
-    # FIX HRC/PO/CM: Phải lấy (WIP Issue + WIP Return) để bù trừ âm dương ra số chuẩn 12.246 và 14.572
+    # 1. ĐIỀU KIỆN DÂY CHUYỀN: Loại bỏ các dây chuyền có chữ "xử lý", "gia công", "tái sinh"
+    valid_line = ~data['DayChuyen'].str.contains('xử lý|gia công|tái sinh', na=False, case=False)
+    
+    # 2. ĐIỀU KIỆN MÃ HÀNG: Bắt đầu bằng "A" vs khác "A"
+    is_a_code = data['MaHang'].str.startswith('A', na=False)
+    not_a_code = ~is_a_code
+
+    # Hàm tính NLC (WIP Issue và WIP Return trên các dây chuyền hợp lệ)
     def calc_stats_nlc(cond):
-        df_sub = data[cond]
+        df_sub = data[cond & valid_line & not_a_code]
         issue = df_sub[df_sub['LoaiGD'] == 'WIP Issue']
         ret = df_sub[df_sub['LoaiGD'] == 'WIP Return']
         qty = len(issue) - len(ret)
@@ -441,26 +440,21 @@ def process_105(files):
         return qty, weight
 
     # HRC
-    cond_hrc = data['TenHang'].str.contains('HRC|Cán nóng', na=False, case=False) & \
-               (~data['TenHang'].str.contains('tẩy rỉ', na=False, case=False)) & \
-               (~data['TenHang'].str.contains(loai_tru, na=False, case=False))
+    cond_hrc = data['TenHang'].str.contains('Thép cán nóng', na=False, case=False) & \
+               (~data['TenHang'].str.contains('tẩy rỉ', na=False, case=False))
     hrc_q, hrc_w = calc_stats_nlc(cond_hrc)
 
     # PO
-    cond_po = data['TenHang'].str.contains('PO|tẩy rỉ', na=False, case=False) & \
-              (~data['TenHang'].str.contains(loai_tru, na=False, case=False)) & \
-              (~data['TenHang'].str.contains('Epoxy', na=False, case=False))
+    cond_po = data['TenHang'].str.contains('Thép cán nóng tẩy rỉ', na=False, case=False)
     po_q, po_w = calc_stats_nlc(cond_po)
 
     # CM
-    cond_cm = data['TenHang'].str.contains('CM|Cán nguội', na=False, case=False) & \
-              (~data['TenHang'].str.contains(loai_tru, na=False, case=False))
+    cond_cm = data['TenHang'].str.contains('Thép cán nguội', na=False, case=False)
     cm_q, cm_w = calc_stats_nlc(cond_cm)
 
-    # Hao hụt + phế liệu:
-    # FIX: Chỉ cộng các lệnh sinh phế liệu và BỎ qua "Xỉ" để ra đúng 1084.3
-    cond_scrap = data['TenHang'].str.contains(loai_tru, na=False, case=False) & (~data['TenHang'].str.contains('xỉ', na=False, case=False))
-    scrap = data[cond_scrap & data['LoaiGD'].isin(['WIP Byproduct Completion', 'WIP Byproduct Return', 'WIP Completion', 'WIP Completion Return'])]
+    # Hao hụt + phế liệu
+    loai_gd_2 = ['WIP Byproduct Completion', 'WIP Byproduct Return', 'WIP Completion', 'WIP Completion Return']
+    scrap = data[is_a_code & valid_line & data['LoaiGD'].isin(loai_gd_2)]
     scrap_w = abs(scrap['KhoiLuong'].sum()) / 1000
 
     tb3 = pd.DataFrame({
@@ -471,15 +465,15 @@ def process_105(files):
     })
     tb3.loc[len(tb3)] = ['Tổng', tb3['Số lượng (Cuộn)'].sum(), tb3['Khối lượng (Tấn)'].sum(), '']
 
-    # BẢNG 4
+    # --- BẢNG 4: TÌNH HÌNH SỬ DỤNG NPL ---
     def calc_npl_weight(pattern):
-        df_npl = data[data['TenHang'].str.contains(pattern, na=False, case=False)]
+        df_npl = data[data['TenHang'].str.contains(pattern, na=False, case=False) & not_a_code & valid_line]
         return abs(df_npl['KhoiLuong'].sum()) / 1000
 
-    nhom_kem_w = calc_npl_weight('Nhôm - Kẽm|nhôm kẽm')
-    kem_w      = calc_npl_weight('Kẽm không hợp kim|CGG|99.995% Zn')
-    magie_w    = calc_npl_weight('Magie')
-    pha_che_w  = calc_npl_weight('Antimon|pha chế')
+    nhom_kem_w = calc_npl_weight('Hợp kim Nhôm - Kẽm')
+    kem_w      = calc_npl_weight('Kẽm không hợp kim')
+    magie_w    = calc_npl_weight('Hợp kim Kẽm Nhôm Magie')
+    pha_che_w  = calc_npl_weight('Antimon')
 
     tb4 = pd.DataFrame({
         'Tên hàng': ['Hợp kim nhôm kẽm', 'Kẽm không hợp kim', 'Hợp kim kẽm Magie', 'Nguyên liệu pha chế'],
@@ -488,6 +482,8 @@ def process_105(files):
     })
 
     return tb3, tb4
+
+
 # --- 4. GIAO DIỆN HƯỚNG DẪN & UPLOAD ---
 st.markdown("### 📥 Nạp Dữ Liệu Nguồn")
 
@@ -575,7 +571,6 @@ if inv110_files and file105_files:
     if df_tb1 is not None and df_tb3 is not None:
         col_left, col_right = st.columns(2)
 
-        # TỐI ƯU: Dùng trực tiếp Base64 nội bộ, không phụ thuộc đường truyền mạng
         logo_html = f'<img src="data:image/png;base64,{HOASEN_LOGO_B64}" width="45" style="vertical-align: middle; margin-bottom: 6px;">'
 
         with col_left:
@@ -609,7 +604,6 @@ if inv110_files and file105_files:
             st.dataframe(style_table(df_tb4, is_weight_only=True), use_container_width=True, hide_index=True)
 
         st.write("")
-        # Gọi hàm xuất Excel (đã được cache, không bị sinh lại khi rerun)
         excel_data = export_to_excel(df_tb1, df_tb2, df_tb3, df_tb4, report_date_str)
         st.download_button(
             label="📥 Tải Báo Cáo Ra File Excel (.xlsx)",
