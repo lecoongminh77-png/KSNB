@@ -371,11 +371,24 @@ if st.button("🚀 Bắt đầu đối soát & Hiển thị Dashboard", use_cont
                 
                 if col_sct_calc:
                     phieu_series = clean_key_series(df_021_export[col_sct_calc[0]])
+                    
                     if col_sl_calc:
-                        sl_num = pd.to_numeric(df_021_export[col_sl_calc[0]].astype(str).str.replace(',', '', regex=False), errors='coerce').fillna(0)
-                        dict_net = sl_num.groupby(phieu_series).sum().to_dict()
-                    if 'Số Gross' in df_021_export.columns:
-                        dict_gross = pd.to_numeric(df_021_export['Số Gross'], errors='coerce').fillna(0).groupby(phieu_series).sum().to_dict()
+                        # --- BẮT ĐẦU VÙNG CODE ĐƯỢC THAY ĐỔI THEO CÁCH 1 ---
+                        df_calc = pd.DataFrame({
+                            'SCT': phieu_series,
+                            'Lot_LPN': lot_or_lpn_021, # Gọi lại series Lot/LPN đã extract ở Bước 3
+                            'Net': pd.to_numeric(df_021_export[col_sl_calc[0]].astype(str).str.replace(',', '', regex=False), errors='coerce').fillna(0),
+                            'Gross': pd.to_numeric(df_021_export.get('Số Gross', 0), errors='coerce').fillna(0)
+                        })
+                        
+                        # Xóa trùng lặp theo CẶP (Số chứng từ + Mã lô/LPN)
+                        # Đảm bảo 1 cuộn tôn trong 1 chứng từ chỉ được tính Net/Gross 1 lần duy nhất
+                        df_calc_unique = df_calc.sort_values('Gross', ascending=False).drop_duplicates(subset=['SCT', 'Lot_LPN'], keep='first')
+                        
+                        dict_net = df_calc_unique.groupby('SCT')['Net'].sum().to_dict()
+                        dict_gross = df_calc_unique.groupby('SCT')['Gross'].sum().to_dict()
+                        # --- KẾT THÚC VÙNG CODE THAY ĐỔI ---
+
                     if col_tc_calc:
                         df_034 = df_021_export[phieu_series.str.startswith('PX034')].copy()
                         if not df_034.empty:
