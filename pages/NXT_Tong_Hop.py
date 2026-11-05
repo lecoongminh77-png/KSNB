@@ -336,6 +336,21 @@ def process_inv110(files):
         return None, None, ""
 
     data = pd.concat(df_list, ignore_index=True)
+        # ... (phần code đọc file ở trên)
+    
+    if not df_list:
+        return None, None, ""
+
+    data = pd.concat(df_list, ignore_index=True)
+    
+    # BỔ SUNG: Thêm dòng này ngay sau khi vừa gộp data xong
+    data = data[~data['TenHang'].str.contains('Hợp kim kẽm nhôm magie (dạng xỉ)', na=False, case=False, regex=False)]
+    
+    loai_tru = 'thứ phẩm|phế liệu|biên|vụn|pubcoil|xỉ'
+
+    # --- BẢNG 1: TỒN KHO HRC - PO - CR - CM ---
+    # 1. HRC: ÉP ĐIỀU KIỆN Phân loại 1 ...
+    
     loai_tru = 'thứ phẩm|phế liệu|biên|vụn|pubcoil|xỉ'
 
     # --- BẢNG 1: TỒN KHO HRC - PO - CR - CM ---
