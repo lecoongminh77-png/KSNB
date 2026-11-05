@@ -48,13 +48,13 @@ with col_home:
 st.markdown("""
 <div class="apple-header-box">
     <div><h1 class="apple-main-title">🚛 Kiểm Tra Hàng Ra Cổng (Trạm Cân)</h1></div>
-    <div><div class="apple-sub-text">Đối soát dung sai & Chênh lệch Net/Gross.<span>Lê Công Minh Workspace ›</span></div></div>
+    <div><div class="apple-sub-text">Đối soát dung sai & Quản trị dữ liệu tháng.<span>Lê Công Minh Workspace ›</span></div></div>
 </div>
 <hr style='border: none; border-top: 1px solid #e5e5ea; margin: 12px 0 20px 0;'>
 """, unsafe_allow_html=True)
 
 # KHU VỰC TẢI FILE
-with st.expander("📂 Khu vực nạp dữ liệu Trạm Cân & ERP (Click để thu gọn/mở rộng)", expanded=True):
+with st.expander("📂 Khu vực nạp dữ liệu Trạm Cân & ERP (Tháng)", expanded=True):
     st.markdown('<div class="section-title">📥 1. Dữ liệu Trạm Cân (Thực tế)</div>', unsafe_allow_html=True)
     f_tramcan_nm = st.file_uploader("File Trạm Cân (Nhà Máy)", type=["xlsx", "xls", "xlsb"], key="tc_nm")
 
@@ -200,7 +200,7 @@ def read_and_process_021(file_bytes, is_cungung=True):
         return pd.DataFrame()
 
 # XỬ LÝ CHÍNH
-if st.button("🚀 Bắt đầu đối soát & Hiển thị Dashboard", use_container_width=True):
+if st.button("🚀 Bắt đầu đối soát dữ liệu tháng", use_container_width=True):
     if not f_tramcan_nm:
         st.warning("⚠️ Vui lòng nạp File Trạm Cân Nhà Máy!")
     else:
@@ -208,8 +208,8 @@ if st.button("🚀 Bắt đầu đối soát & Hiển thị Dashboard", use_cont
         progress_bar = st.progress(0)
         
         try:
-            # --- BƯỚC 1: ĐỌC TRẠM CÂN & LỌC DUY NHẤT PHIẾU CÂN LỚN NHẤT THEO SỐ CHỨNG TỪ ---
-            progress_text.markdown('<div class="progress-text">⏳ Đang lọc lấy Phiếu cân lớn nhất theo Số chứng từ... (15%)</div>', unsafe_allow_html=True)
+            # --- BƯỚC 1: ĐỌC TRẠM CÂN & LỌC DUY NHẤT PHIẾU CÂN LỚN NHẤT ---
+            progress_text.markdown('<div class="progress-text">⏳ Đang lọc dữ liệu Trạm cân... (15%)</div>', unsafe_allow_html=True)
             progress_bar.progress(15)
             
             xls_tc = pd.ExcelFile(f_tramcan_nm)
@@ -217,7 +217,6 @@ if st.button("🚀 Bắt đầu đối soát & Hiển thị Dashboard", use_cont
             df_tc_raw = pd.read_excel(f_tramcan_nm, sheet_name=sheet_tc)
             df_tc_full = df_tc_raw.dropna(subset=['PHIẾU CÂN']).copy()
             
-            # ---> LỌC PHÂN LOẠI "XUẤT HÀNG" <---
             col_phan_loai = [c for c in df_tc_full.columns if 'phân loại' in str(c).lower() or remove_accents(c) == 'phan loai']
             if col_phan_loai:
                 pl_col = col_phan_loai[0]
@@ -236,25 +235,14 @@ if st.button("🚀 Bắt đầu đối soát & Hiển thị Dashboard", use_cont
             col_chungtu = 'Lấy phiếu xuất.1' if 'Lấy phiếu xuất.1' in df_tc_full.columns else 'SỐ CHỨNG TỪ'
             df_tc_full['CT_KEY'] = df_tc_full[col_chungtu].apply(normalize_ct_group_key)
             
-            # GIỮ LẠI PHIẾU CÂN LỚN NHẤT CHO MỖI CHỨNG TỪ
             df_has_ct = df_tc_full[df_tc_full['CT_KEY'] != ''].copy()
-            df_has_ct = (
-                df_has_ct.sort_values(by=['MAX_KL_OF_PC', 'KL_TAM'], ascending=[False, False])
-                .drop_duplicates(subset=['CT_KEY'], keep='first')
-            )
+            df_has_ct = df_has_ct.sort_values(by=['MAX_KL_OF_PC', 'KL_TAM'], ascending=[False, False]).drop_duplicates(subset=['CT_KEY'], keep='first')
             
             df_no_ct = df_tc_full[df_tc_full['CT_KEY'] == ''].copy()
-            df_no_ct = (
-                df_no_ct.sort_values(by='KL_TAM', ascending=False)
-                .drop_duplicates(subset=['PC_CLEAN'], keep='first')
-            )
+            df_no_ct = df_no_ct.sort_values(by='KL_TAM', ascending=False).drop_duplicates(subset=['PC_CLEAN'], keep='first')
             
             df_tc_main = pd.concat([df_has_ct, df_no_ct], ignore_index=True)
-            df_tc_main = (
-                df_tc_main.sort_values(by='MAX_KL_OF_PC', ascending=False)
-                .drop_duplicates(subset=['PC_CLEAN'], keep='first')
-                .reset_index(drop=True)
-            )
+            df_tc_main = df_tc_main.sort_values(by='MAX_KL_OF_PC', ascending=False).drop_duplicates(subset=['PC_CLEAN'], keep='first').reset_index(drop=True)
             
             all_tc_vouchers_set = set(
                 df_tc_main[col_chungtu].dropna().astype(str)
@@ -263,7 +251,7 @@ if st.button("🚀 Bắt đầu đối soát & Hiển thị Dashboard", use_cont
             ) - {'', 'NAN'}
 
             # --- BƯỚC 2: ĐỌC VÀ LỌC ERP ---
-            progress_text.markdown('<div class="progress-text">⏳ Đang đọc và chuẩn hóa dữ liệu ERP 105 & 021... (40%)</div>', unsafe_allow_html=True)
+            progress_text.markdown('<div class="progress-text">⏳ Đang đọc dữ liệu ERP 105 & 021... (40%)</div>', unsafe_allow_html=True)
             progress_bar.progress(40)
             
             frames_105, frames_021 = [], []
@@ -276,7 +264,7 @@ if st.button("🚀 Bắt đầu đối soát & Hiển thị Dashboard", use_cont
             df_021_all = pd.concat(frames_021, ignore_index=True) if frames_021 else pd.DataFrame()
 
             # --- BƯỚC 3: ÁNH XẠ ĐA TẦNG 021 SANG 105 ---
-            progress_text.markdown('<div class="progress-text">⏳ Đang thực hiện VLOOKUP lấy Net và Gross từ 021 qua 105... (65%)</div>', unsafe_allow_html=True)
+            progress_text.markdown('<div class="progress-text">⏳ Đang VLOOKUP Net và Gross từ 021 qua 105... (65%)</div>', unsafe_allow_html=True)
             progress_bar.progress(65)
             
             df_021_export = pd.DataFrame()
@@ -333,7 +321,7 @@ if st.button("🚀 Bắt đầu đối soát & Hiển thị Dashboard", use_cont
                     g_t4 = pd.to_numeric(s_021_nolo.map(map_105_t4['Gross_AN']), errors='coerce')
                     
                     gross_final = g_t1.where(g_t1.notna() & (g_t1 != 0), g_t2)
-                    gross_final = gross_final.where(gross_final.notna() & (gross_final != 0), g_t3)
+                    gross_final = gross_final.where(gross_final.notna() & (gross_final != 0), gross_final.fillna(0))
                     
                     mask_empty_lot = (lot_or_lpn_021 == '')
                     if mask_empty_lot.any():
@@ -366,10 +354,12 @@ if st.button("🚀 Bắt đầu đối soát & Hiển thị Dashboard", use_cont
                 df_021_export = df_021_export[final_021_cols]
 
             # --- BƯỚC 4: TÍNH TOÁN VÀ ĐỐI SOÁT ---
-            progress_text.markdown('<div class="progress-text">⏳ Đang tổng hợp Net/Gross theo chứng từ để đối soát... (85%)</div>', unsafe_allow_html=True)
+            progress_text.markdown('<div class="progress-text">⏳ Đang tổng hợp Net/Gross theo chứng từ... (85%)</div>', unsafe_allow_html=True)
             progress_bar.progress(85)
             
             dict_net, dict_gross, dict_xe_021 = {}, {}, {}
+            duplicate_lpn_list = [] # Tính năng 11: Lưu danh sách LPN trùng lặp
+            
             if not df_021_export.empty:
                 col_sct_calc = [c for c in df_021_export.columns if remove_accents(c) == 'so chung tu']
                 col_sl_calc = [c for c in df_021_export.columns if remove_accents(c) == 'so luong']
@@ -379,7 +369,6 @@ if st.button("🚀 Bắt đầu đối soát & Hiển thị Dashboard", use_cont
                     phieu_series = clean_key_series(df_021_export[col_sct_calc[0]])
                     
                     if col_sl_calc:
-                        # GOM CUỘN VÀ TÍNH TỔNG (Tránh nhân đôi cuộn tôn)
                         df_calc = pd.DataFrame({
                             'SCT': phieu_series,
                             'Lot_LPN': lot_or_lpn_021,
@@ -387,12 +376,17 @@ if st.button("🚀 Bắt đầu đối soát & Hiển thị Dashboard", use_cont
                             'Gross': pd.to_numeric(df_021_export.get('Số Gross', 0), errors='coerce').fillna(0)
                         })
                         
+                        # --- TÍNH NĂNG 11: PHÁT HIỆN CUỘN TÔN XUẤT ĐÚP TRONG THÁNG ---
+                        # Kiểm tra mã LPN hợp lệ (khác rỗng) xuất hiện ở nhiều chứng từ/dòng khác nhau
+                        valid_lpn_df = df_calc[df_calc['Lot_LPN'] != '']
+                        lpn_counts = valid_lpn_df.groupby('Lot_LPN')['SCT'].nunique()
+                        duplicate_lpn_list = lpn_counts[lpn_counts > 1].index.tolist()
+                        
                         df_calc_unique = df_calc.sort_values('Gross', ascending=False).drop_duplicates(subset=['SCT', 'Lot_LPN'], keep='first')
                         
                         dict_net = df_calc_unique.groupby('SCT')['Net'].sum().to_dict()
                         dict_gross = df_calc_unique.groupby('SCT')['Gross'].sum().to_dict()
                         
-                        # --- QUAN TRỌNG: DỌN RÁC CHUỖI RỖNG ---
                         dict_net.pop('', None)
                         dict_gross.pop('', None)
 
@@ -427,12 +421,10 @@ if st.button("🚀 Bắt đầu đối soát & Hiển thị Dashboard", use_cont
             net_total = pd.Series(0.0, index=df_out.index)
             gross_total = pd.Series(0.0, index=df_out.index)
             
-            # --- CHẶN CHUỖI RỖNG ---
             for i in range(1, 6):
                 if i - 1 < split_vouchers.shape[1]:
                     col_v = clean_key_series(split_vouchers[i - 1])
                     df_out[str(i)] = col_v
-                    
                     mask_valid = col_v != ''
                     net_total += np.where(mask_valid, col_v.map(dict_net).fillna(0), 0)
                     gross_total += np.where(mask_valid, col_v.map(dict_gross).fillna(0), 0)
@@ -458,9 +450,7 @@ if st.button("🚀 Bắt đầu đối soát & Hiển thị Dashboard", use_cont
             )
             df_out['Chênh lệch Max - Min'] = temp_cong.max(axis=1) - temp_cong.min(axis=1)
             
-            # ---> CẬP NHẬT: LOGIC TÍNH DUNG SAI & LỖI THIẾU GROSS <---
             df_out['Chênh lệch'] = df_out['Khối lượng Gross'] - df_out['KL bàn cân lớn nhất']
-            
             dung_sai_num = np.where(df_out['Khối lượng Gross'] != 0, (df_out['Chênh lệch'] / df_out['Khối lượng Gross']).round(4), 0)
             
             cond_vuot_tyle = np.abs(dung_sai_num) > 0.003
@@ -500,52 +490,61 @@ if st.button("🚀 Bắt đầu đối soát & Hiển thị Dashboard", use_cont
                 default='🟢 An toàn'
             )
 
+            # Thêm cột tương tác cho Tính năng 10
+            df_out['[✓] Đã xử lý'] = False
+            df_out['Ghi chú giải trình KSNB'] = ""
+
             st.session_state['df_out'] = df_out
             st.session_state['df_021_export'] = df_021_export
+            st.session_state['duplicate_lpn_list'] = duplicate_lpn_list
 
-            # --- BƯỚC 5: ĐÓNG GÓI EXCEL ---
-            progress_text.markdown('<div class="progress-text">⏳ Đang đóng gói Excel tốc độ cao... (95%)</div>', unsafe_allow_html=True)
+            # --- BƯỚC 5: ĐÓNG GÓI EXCEL (CÓ TÍCH HỢP TAB SUMMARY BÁO CÁO THÁNG - TÍNH NĂNG 20) ---
+            progress_text.markdown('<div class="progress-text">⏳ Đang đóng gói Báo cáo Quản trị Tháng... (95%)</div>', unsafe_allow_html=True)
             progress_bar.progress(95)
             
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine="openpyxl") as writer:
                 df_out.to_excel(writer, index=False, sheet_name="KSKTDulieucan-NM")
-                ws1 = writer.sheets["KSKTDulieucan-NM"]
-                ws1.freeze_panes = "A2"
-                ws1.auto_filter.ref = ws1.dimensions
                 
-                fill_red = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
-                font_red = Font(color="9C0006")
-                fill_green = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
-                font_green = Font(color="006100")
-                
-                for row_idx in range(2, len(df_out) + 2):
-                    for col_idx in [25, 27]:
-                        cell = ws1.cell(row=row_idx, column=col_idx)
-                        val_str = str(cell.value or '')
-                        if '🔴' in val_str or 'Lỗi' in val_str or val_str == 'Vượt dung sai':
-                            cell.fill = fill_red
-                            cell.font = font_red
-                        elif '🟢' in val_str or val_str == 'OK':
-                            cell.fill = fill_green
-                            cell.font = font_green
+                # Tạo sheet Báo cáo Quản trị Tháng (Tính năng 20)
+                summary_data = {
+                    "Chỉ số Quản trị KSNB Tháng": [
+                        "Tổng số chuyến xe kiểm soát",
+                        "Tổng khối lượng thực tế qua trạm cân (Tấn)",
+                        "Tổng khối lượng Gross lý thuyết ERP (Tấn)",
+                        "Số chuyến an toàn (Chuẩn)",
+                        "Số chuyến vượt dung sai (>0.3%)",
+                        "Số chuyến lỗi thiếu dữ liệu ERP / Gross",
+                        "Tỷ lệ vận hành an toàn đạt được (%)"
+                    ],
+                    "Giá trị": [
+                        len(df_out),
+                        round(df_out['KL bàn cân lớn nhất'].sum() / 1000, 2),
+                        round(df_out['Khối lượng Gross'].sum() / 1000, 2),
+                        int((df_out['Đánh giá KSNB'] == '🟢 An toàn').sum()),
+                        int((df_out['Dung sai'] == 'Vượt dung sai').sum()),
+                        int((df_out['Đánh giá KSNB'].str.contains('Thiếu', na=False)).sum()),
+                        round((df_out['Đánh giá KSNB'] == '🟢 An toàn').sum() / len(df_out) * 100, 2) if len(df_out) > 0 else 0
+                    ]
+                }
+                pd.DataFrame(summary_data).to_excel(writer, index=False, sheet_name="Summary_BaoCao")
 
                 if not df_021_export.empty:
                     df_021_export.to_excel(writer, index=False, sheet_name="021")
-                    ws2 = writer.sheets["021"]
-                    ws2.freeze_panes = "A2"
-                    ws2.auto_filter.ref = ws2.dimensions
 
             st.session_state['excel_bytes'] = output.getvalue()
-            progress_text.markdown('<div class="progress-text" style="color: #28a745;">✅ Hoàn tất đối soát! Dữ liệu đã sẵn sàng hiển thị bên dưới.</div>', unsafe_allow_html=True)
+            progress_text.markdown('<div class="progress-text" style="color: #28a745;">✅ Hoàn tất đối soát tháng!</div>', unsafe_allow_html=True)
             progress_bar.progress(100)
 
         except Exception as e:
-            progress_text.markdown(f'<div class="progress-text" style="color: #dc3545;">❌ Lỗi trong quá trình xử lý: {e}</div>', unsafe_allow_html=True)
+            progress_text.markdown(f'<div class="progress-text" style="color: #dc3545;">❌ Lỗi xử lý: {e}</div>', unsafe_allow_html=True)
 
 # HIỂN THỊ KẾT QUẢ TRỰC QUAN TRÊN WEB (DASHBOARD)
 if 'df_out' in st.session_state:
     df_res = st.session_state['df_out']
+    df_021_exp = st.session_state.get('df_021_export', pd.DataFrame())
+    dup_lpns = st.session_state.get('duplicate_lpn_list', [])
+
     total_cnt = len(df_res)
     safe_cnt = int((df_res['Đánh giá KSNB'] == '🟢 An toàn').sum())
     vuot_cnt = int((df_res['Dung sai'] == 'Vượt dung sai').sum())
@@ -556,61 +555,53 @@ if 'df_out' in st.session_state:
     vuot_pct = round(vuot_cnt / total_cnt * 100, 1) if total_cnt else 0
     missing_pct = round(missing_cnt / total_cnt * 100, 1) if total_cnt else 0
 
-    st.markdown("### 📊 Bảng Điều Khiển Kết Quả Đối Soát (KSNB Dashboard)")
+    st.markdown("### 📊 Dashboard Quản Trị KSNB (Dữ Liệu Tháng)")
     
     st.markdown(f"""
     <div class="kpi-grid">
         <div class="kpi-card pastel-blue">
-            <div class="kpi-title">Tổng Phiếu Cân</div>
+            <div class="kpi-title">Tổng Phiếu Cân Tháng</div>
             <div class="kpi-value" style="color: #0071e3;">{total_cnt:,}</div>
-            <div class="kpi-sub">Đã lọc giữ phiếu lớn nhất</div>
+            <div class="kpi-sub">Đã chuẩn hóa phiếu lớn nhất</div>
         </div>
         <div class="kpi-card pastel-green">
             <div class="kpi-title">🟢 An Toàn (Chuẩn)</div>
             <div class="kpi-value" style="color: #1e8e3e;">{safe_cnt:,}</div>
-            <div class="kpi-sub">Chiếm {safe_pct}% tổng phiếu</div>
+            <div class="kpi-sub">Chiếm {safe_pct}% tổng số</div>
         </div>
         <div class="kpi-card pastel-red">
             <div class="kpi-title">🔴 Vượt Dung Sai (>0.3%)</div>
             <div class="kpi-value" style="color: #d93025;">{vuot_cnt:,}</div>
-            <div class="kpi-sub">Chiếm {vuot_pct}% tổng phiếu</div>
+            <div class="kpi-sub">Chiếm {vuot_pct}% tổng số</div>
         </div>
         <div class="kpi-card pastel-amber">
             <div class="kpi-title">🟡 Thiếu Dữ Liệu ERP</div>
             <div class="kpi-value" style="color: #e37400;">{missing_cnt:,}</div>
-            <div class="kpi-sub">Chiếm {missing_pct}% (Thiếu Net hoặc Gross)</div>
+            <div class="kpi-sub">Thiếu Net / Gross / Lỗi hệ thống</div>
         </div>
         <div class="kpi-card pastel-purple">
             <div class="kpi-title">🟣 Cảnh Báo Vận Hành</div>
             <div class="kpi-value" style="color: #8e24aa;">{ops_err_cnt:,}</div>
-            <div class="kpi-sub">Lỗi bảo vệ / Lẫn xe / Kho HAB</div>
-        </div>
-    </div>
-    
-    <div class="ratio-bar-wrap">
-        <div style="display:flex; justify-content:space-between; font-size:13px; font-weight:600; color:#424245;">
-            <span>Tỷ trọng phân bổ trạng thái phiếu cân</span>
-            <span>🟢 An toàn: {safe_pct}%  |  🔴 Vượt dung sai: {vuot_pct}%  |  🟡 Lỗi thiếu ERP: {missing_pct}%</span>
-        </div>
-        <div class="ratio-bar">
-            <div style="width:{safe_pct}%; background:#34c759;"></div>
-            <div style="width:{vuot_pct}%; background:#ff3b30;"></div>
-            <div style="width:{missing_pct}%; background:#ff9500;"></div>
+            <div class="kpi-sub">Lỗi bảo vệ / Lẫn xe kho 034</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
+    if dup_lpns:
+        st.error(f"🚨 **CẢNH BÁO ĐỎ (Tính năng 11):** Phát hiện **{len(dup_lpns)}** Mã lô/LPN bị xuất hiện trùng lặp ở nhiều chuyến xe khác nhau trong tháng! Vui lòng kiểm tra lại.")
+
     if 'excel_bytes' in st.session_state:
         st.download_button(
-            label="📥 Tải Xuống File Báo Cáo Chuẩn KSNB (.xlsx - Đã Tô Màu & Auto Filter)",
+            label="📥 Tải Xuống File Báo Cáo KSNB Tháng (.xlsx - Kèm Sheet Summary & Giải Trình)",
             data=st.session_state['excel_bytes'],
-            file_name="Bao_Cao_KSNB_Ra_Cong.xlsx",
+            file_name="Bao_Cao_KSNB_Thang.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True
         )
 
-    st.markdown("#### 🔍 Tra cứu & Soi lỗi trực tiếp trên Web")
-    search_kw = st.text_input("🔎 Tìm nhanh theo Số phiếu cân, Biển số xe hoặc Số chứng từ:", placeholder="Nhập biển số xe (VD: 50E89471) hoặc mã chứng từ...")
+    st.markdown("---")
+    st.markdown("#### 🔍 Trung Tâm Xử Lý & Giải Trình KSNB")
+    search_kw = st.text_input("🔎 Tìm nhanh theo Số phiếu cân, Biển số xe hoặc Số chứng từ:", placeholder="Nhập biển số xe hoặc mã chứng từ...")
     
     df_view = df_res.copy()
     if search_kw.strip():
@@ -622,20 +613,71 @@ if 'df_out' in st.session_state:
         )
         df_view = df_view[mask_kw]
 
-    tab1, tab2, tab3, tab4 = st.tabs([
+    # CÁC TAB CHỨC NĂNG NÂNG CAO (1, 10, 14, 23)
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
         f"🔴 Vượt Dung Sai ({len(df_view[df_view['Dung sai'] == 'Vượt dung sai'])})",
-        f"🟣 Cảnh Báo Bảo Vệ / Kho ({len(df_view[df_view['Ghi chú'] != ''])})",
-        f"🟡 Lỗi Thiếu ERP ({len(df_view[df_view['Đánh giá KSNB'].str.contains('Thiếu', na=False)])})",
+        f"✍️ Tích Chọn & Giải Trình (Interactive)",
+        f"📦 Chứng Từ ERP Chưa Qua Cổng ({len(df_021_exp[df_021_exp['Check ra cổng'] == 0]) if not df_021_exp.empty else 0})",
+        f"🔍 Soi Chi Tiết Cuộn (Drill-down)",
         f"📋 Tất Cả Phiếu Cân ({len(df_view)})"
     ])
 
     cols_show = ['STT', 'Số phiếu cân', 'Bàn cân', 'Số xe', 'Số chứng từ', 'Khối lượng Net', 'Khối lượng Gross', 'KL bàn cân lớn nhất', 'Chênh lệch', 'Dung sai', 'Đánh giá KSNB', 'Ghi chú']
 
     with tab1:
-        st.dataframe(df_view[df_view['Dung sai'] == 'Vượt dung sai'][cols_show], use_container_width=True, height=420)
+        st.dataframe(df_view[df_view['Dung sai'] == 'Vượt dung sai'][cols_show], use_container_width=True, height=400)
+
     with tab2:
-        st.dataframe(df_view[df_view['Ghi chú'] != ''][cols_show], use_container_width=True, height=420)
+        st.info("💡 **Tính năng 10:** Bạn có thể tích chọn `[✓] Đã xử lý` và gõ chữ trực tiếp vào cột `Ghi chú giải trình KSNB` ngay trên bảng dưới đây. Dữ liệu sẽ tự động lưu vào file Excel khi bạn tải xuống.")
+        edited_df = st.data_editor(
+            df_view[['STT', 'Số phiếu cân', 'Số xe', 'Số chứng từ', 'Dung sai', '[✓] Đã xử lý', 'Ghi chú giải trình KSNB']],
+            use_container_width=True, height=400, key="audit_editor"
+        )
+        # Cập nhật ngược lại session state nếu có chỉnh sửa
+        for idx in edited_df.index:
+            st.session_state['df_out'].loc[idx, '[✓] Đã xử lý'] = edited_df.loc[idx, '[✓] Đã xử lý']
+            st.session_state['df_out'].loc[idx, 'Ghi chú giải trình KSNB'] = edited_df.loc[idx, 'Ghi chú giải trình KSNB']
+
     with tab3:
-        st.dataframe(df_view[df_view['Đánh giá KSNB'].str.contains('Thiếu', na=False)][cols_show], use_container_width=True, height=420)
+        st.markdown("#### ⚠️ Danh sách chứng từ đã phát hành trên ERP nhưng không có trạm cân ghi nhận qua cổng (Tháng)")
+        if not df_021_exp.empty and 'Check ra cổng' in df_021_exp.columns:
+            unshipped_df = df_021_exp[df_021_exp['Check ra cổng'] == 0]
+            st.dataframe(unshipped_df, use_container_width=True, height=400)
+        else:
+            st.warning("Không có dữ liệu ERP hoặc chưa nạp file 021.")
+
     with tab4:
-        st.dataframe(df_view[cols_show], use_container_width=True, height=420)
+        st.markdown("#### 🔍 Soi chi tiết danh sách cuộn tôn (Drill-down - Tính năng 1")
+        selected_pc = st.selectbox("Chọn Số phiếu cân hoặc Số chứng từ để xem chi tiết cuộn:", options=df_view['Số phiếu cân'].tolist())
+        if selected_pc and not df_021_exp.empty:
+            # Lọc các dòng trong 021 khớp với phiếu cân hoặc chứng từ đang chọn
+            match_row = df_view[df_view['Số phiếu cân'] == selected_pc]
+            if not match_row.empty:
+                sct_str = str(match_row.iloc[0]['Số chứng từ'])
+                st.write(f"**Thông tin chuyến xe:** Phiếu cân: `{selected_pc}` | Số xe: `{match_row.iloc[0]['Số xe']}` | Chứng từ: `{sct_str}`")
+                
+                # Lọc 021 theo các chứng từ của xe này
+                sct_list = [p.strip().upper() for p in sct_str.replace('+', ',').split(',') if p.strip()]
+                col_sct_021 = [c for c in df_021_exp.columns if remove_accents(c) == 'so chung tu'][0]
+                detail_cuon = df_021_exp[df_021_exp[col_sct_021].astype(str).str.upper().isin(sct_list)]
+                
+                if not detail_cuon.empty:
+                    st.dataframe(detail_cuon, use_container_width=True, height=300)
+                    
+                    # TÍNH NĂNG 14: NÚT XUẤT PHIẾU GIẢI TRÌNH LẺ CHO CHUYẾN NÀY
+                    buffer_slip = io.BytesIO()
+                    with pd.ExcelWriter(buffer_slip, engine='openpyxl') as slip_writer:
+                        match_row.to_excel(slip_writer, index=False, sheet_name="ThongTinChuyenXe")
+                        detail_cuon.to_excel(slip_writer, index=False, sheet_name="ChiTietCacCuonTon")
+                    
+                    st.download_button(
+                        label=f"🖨️ Xuất Phiếu Yêu Cầu Giải Trình (Cho Phiếu cân {selected_pc})",
+                        data=buffer_slip.getvalue(),
+                        file_name=f"Phieu_Giai_Trinh_PC_{selected_pc}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
+                else:
+                    st.info("Không tìm thấy dòng cuộn chi tiết tương ứng trong bảng 021.")
+
+    with tab5:
+        st.dataframe(df_view[cols_show], use_container_width=True, height=400)
