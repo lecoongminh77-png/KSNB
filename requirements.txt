@@ -12,3 +12,4 @@ requests
 openai
 pypdf
 google-genai
+python-docx
