@@ -1252,7 +1252,7 @@ def kiem_tra_dinh_muc_ton_kho():
 
     st.write('')
     if f_erp is not None and f_pcu is not None:
-        if st.button('🚀 Chạy Đối Chiếu & Mở Bảng Điều Khiển Tương Tác', use_container_width=True):
+        if st.button('🚀 Chạy Đối Chiếu', use_container_width=True):
             prog = st.progress(0, text='⏳ Đang khởi động bộ xử lý dữ liệu siêu tốc...')
             try:
                 bundle = doc_va_phan_tich_du_lieu(f_erp, f_pcu, prog)
