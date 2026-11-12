@@ -450,7 +450,7 @@ def doc_va_phan_tich_du_lieu(f_erp, f_pcu, progress_bar):
 
         dict_pcu_lookup[key_chuoi] = {
             'dvkd': str(row_vals[40] or '').strip(),
-            'tinh_tk': str(row_vals[42] or '').strip(),
+            'tinh_tk': str(row_vals[41] or '').strip(),
             'tuoi': str(row_vals[45] or '').strip(),
             'clc': str(row_vals[46] or '').strip(),
         }
