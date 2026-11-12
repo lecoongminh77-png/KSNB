@@ -203,7 +203,7 @@ st.markdown(
     """
 <div class="apple-header-box">
     <div>
-        <h1 class="apple-main-title">⚖️ Kiểm Tra Định Mức Tồn Kho & CLC</h1>
+        <h1 class="apple-main-title">⚖️ Tính Phạt Tồn Kho Thành Phẩm Bán Thành Phẩm</h1>
     </div>
 </div>
 """,
