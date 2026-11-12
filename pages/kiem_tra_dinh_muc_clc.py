@@ -124,7 +124,7 @@ st.markdown(
     """
 <div class="apple-header-box">
     <div>
-        <h1 class="apple-main-title">📊 Kiểm Tra Định Mức Tồn Kho & CLC</h1>
+        <h1 class="apple-main-title">⚖️ Kiểm Tra Định Mức Tồn Kho & CLC</h1>
     </div>
 </div>
 """,
@@ -138,136 +138,15 @@ st.markdown(
 
 
 # -------------------------------------------------------------
-# DANH MỤC THAM CHIẾU CỐ ĐỊNH (ĐƯA VÀO CÁC SHEET PHỤ)
+# DANH MỤC CỐ ĐỊNH (ĐÃ NHÚNG TRỰC TIẾP, KHÔNG CẦN SHEET PHỤ)
 # -------------------------------------------------------------
 NM_KHAC_LIST = [
     'HS-NHONHOI', 'HS-BINHDUONG', 'NHUNG-XB-XK', 'NHUNGNONG-XB',
     'HS-BINH DUONG', 'HS-NHUNGNONG', 'HS-BINH DUONG ', 'HS-NHUA',
-    'HS-BINHDUONG', 'HS-NGHEAN', 'NHUNG', 'NHUNGNONG',
-    'NHUNG-XK', 'NHONHOA-OT'
+    'HS-NGHEAN', 'NHUNG', 'NHUNGNONG', 'NHUNG-XK', 'NHONHOA-OT'
 ]
 
-SUB_KHO_033 = [
-    ('033', '033-01', 'Kho Nhận Gia Công', 'Active'),
-    ('033', '033-02', 'Kho Nhận gia công TTL Phú Mỹ', 'Active'),
-]
-
-SUB_KHO_ALL = [
-    ('031', '031-100', 'Kho TPM gửi gia công Hồng Nguyên', 'Active'),
-    ('031', '031-101', 'Kho hàng hóa TPM tại cảng Hồng Long', 'Active'),
-    ('031', '031-102', 'Kho hàng hóa TPM tại cảng Bảo Long', 'Active'),
-    ('031', '031-103', 'Kho hang hoa TPM - SP-ITC', 'Active'),
-    ('031', '031-104', 'Kho hang hoa TPM - ICD Phuoc Long 3', 'Active'),
-    ('031', '031-105', 'Kho hang hoa TPM - ICD Cat Lai Giang Nam', 'Active'),
-    ('031', '031-106', 'Kho hang hoa TPM - CMIT', 'Active'),
-    ('031', '031-107', 'Kho hang hoa TPM - TCIT', 'Active'),
-    ('031', '031-108', 'Kho hang hoa TPM - Gemalink', 'Active'),
-    ('031', '031-109', 'Kho TPM gửi gia công Khải Hoàn', 'Active'),
-    ('031', '031-110', 'Kho HH TPM - Cảng Tân Cảng Hiệp Phước.', 'Active'),
-    ('031', '031-111', 'Kho HH TPM - Cảng Phước An', 'Active'),
-    ('031', '031-51', 'Kho hàng hóa TPM', 'Active'),
-    ('031', '031-52', 'Kho nguyên vật liệu phụ-CCDC TPM', 'Active'),
-    ('031', '031-53', 'Kho tôn mồi TPM', 'Active'),
-    ('031', '031-54', 'Kho hàng hóa TPM tại Dĩ An', 'Active'),
-    ('031', '031-55', 'Kho hàng hóa TPM tại VLXD', 'Active'),
-    ('031', '031-56', 'Kho TPM gửi gia công Ngọc Biển', 'Active'),
-    ('031', '031-57', 'Kho TPM gửi gia công Thép SMC', 'Active'),
-    ('031', '031-58', 'Kho TPM gửi gia công CN Tân Thành', 'Active'),
-    ('031', '031-59', 'Kho TPM gửi gia công An Phú', 'Active'),
-    ('031', '031-60', 'Kho TPM gửi gia công Thuận An', 'Active'),
-    ('031', '031-61', 'Kho TPM gửi gia công Thanh Thanh Huyền', 'Active'),
-    ('031', '031-62', 'Kho TPM tại cảng TCCM', 'Active'),
-    ('031', '031-63', 'Kho TPM tại cảng SSIT', 'Active'),
-    ('031', '031-64', 'Kho TPM tại cảng TCTT', 'Active'),
-    ('031', '031-65', 'Kho TPM tại cảng PTSC', 'Active'),
-    ('031', '031-66', 'Kho TPM tại cảng SITV', 'Active'),
-    ('031', '031-67', 'Kho TPM tại cảng ODA Thị Vải', 'Active'),
-    ('031', '031-68', 'Kho TPM tại cảng SP-PSA', 'Active'),
-    ('031', '031-69', 'Kho TPM tại cảng Gò Dầu', 'Active'),
-    ('031', '031-70', 'Kho TPM tại cảng BARIA SERECE', 'Active'),
-    ('031', '031-71', 'Kho TPM tại cảng Bòn Bon', 'Active'),
-    ('031', '031-72', 'Kho TPM tại TTL Thống Nhất', 'Active'),
-    ('031', '031-73', 'Kho TPM tại TTL Phú Mỹ', 'Active'),
-    ('031', '031-74', 'Kho TPM tại Thép Sài Gòn', 'Active'),
-    ('031', '031-75', 'Kho TPM tại BOKUTO', 'Active'),
-    ('031', '031-76', 'Kho TPM tại Đông Hồi', 'Active'),
-    ('031', '031-77', 'Kho TPM tại Ngọc Phước', 'Active'),
-    ('031', '031-78', 'Kho TPM tại Nhơn Hội', 'Active'),
-    ('031', '031-79', 'Kho hàng hóa TPM tại Nhúng Nóng', 'Active'),
-    ('031', '031-80', 'Kho hàng hóa TPM tại TTL Thống Nhất', 'Active'),
-    ('031', '031-81', 'Kho TPM tại cảng Phương Quân', 'Active'),
-    ('031', '031-82', 'Kho TPM tại cửa khẩu Mộc Bài', 'Active'),
-    ('031', '031-83', 'Kho TPM tại cảng 622 Thủ Đức', 'Active'),
-    ('031', '031-84', 'Kho TPM tại cảng Tân Thuận', 'Active'),
-    ('031', '031-85', 'Kho TPM gửi gia công Phương Nam', 'Active'),
-    ('031', '031-86', 'Kho TPM tại cảng Quốc Tế Thị Vải', 'Active'),
-    ('031', '031-87', 'Kho TPM gửi gia công Lê Ngân Hà', 'Active'),
-    ('031', '031-88', 'Kho TPM tại cảng Ba Son', 'Active'),
-    ('031', '031-89', 'Kho TPM gửi gia công Posco', 'Active'),
-    ('031', '031-90', 'Kho hàng hóa TPM tại 4Ha', 'Active'),
-    ('031', '031-91', 'Kho TPM gửi gia công Huynh Đệ Tư Gia', 'Active'),
-    ('031', '031-92', 'Tổng kho Cái Cui', 'Active'),
-    ('031', '031-93', 'Kho TPM tại cảng Hưng Thái', 'Active'),
-    ('031', '031-94', 'Kho hàng hóa TPM tại Trần Tiến Thịnh', 'Active'),
-    ('031', '031-95', 'Kho hàng hóa TPM tại cảng Phú Mỹ 3', 'Active'),
-    ('031', '031-96', 'Kho hàng hóa TPM tại Long An', 'Active'),
-    ('031', '031-97', 'Kho hàng hóa TPM tại cảng Cát Lái', 'Active'),
-    ('031', '031-98', 'Kho hàng hóa TPM tại Thành Chí', 'Active'),
-    ('031', '031-99', 'Kho hàng hóa TPM tại SMC', 'Active'),
-    ('031', '031-STA', 'Kho Staging', 'Active'),
-    ('031', '041-37', 'Kho hàng hóa TPM tại Thành Chí', 'Active'),
-    ('032', '032-05', 'Kho MH TP VLXD tại kho VLXD', 'Active'),
-    ('032', '032-06', 'Kho MH TP VLXD tại kho HSG-PM', 'Active'),
-    ('032', '032-07', 'Kho MH TP VLXD tại kho Đá Tấm', 'Active'),
-    ('032', '032-08', 'Kho MH TP VLXD tại kho TCCM', 'Active'),
-    ('032', '032-09', 'Kho MH VLXD tại cảng Bòn Bon', 'Active'),
-    ('032', '032-10', 'Kho MH TP VLXD tại QTTV', 'Active'),
-    ('033', '033-01', 'Kho Nhận Gia Công', 'Active'),
-    ('033', '033-02', 'Kho Nhận gia công TTL Phú Mỹ', 'Active'),
-    ('034', '034-11', 'Kho hàng gửi ĐVKD tại TPM', 'Active'),
-    ('034', '034-13', 'Kho hàng gửi TPM tại cảng SSIT', 'Active'),
-    ('034', '034-14', 'Kho hàng gửi TPM tại TTL Thống Nhất', 'Active'),
-    ('034', '034-15', 'Kho hàng gửi TPM tại TTL Phú Mỹ', 'Active'),
-    ('034', '034-16', 'Kho hàng gửi TPM tại cảng TCTT', 'Active'),
-    ('034', '034-17', 'Kho hàng gửi TPM tại Nhúng Nóng', 'Active'),
-    ('034', '034-18', 'Kho hàng gửi TPM tại Quốc Tế Thị Vải', 'Active'),
-    ('034', '034-19', 'Kho hàng gửi TPM tại SMC', 'Active'),
-    ('035', '035-20', 'Kho Mua hàng HSG tại SSIT', 'Active'),
-    ('035', '035-21', 'Kho Mua hàng HSG tại TCTT', 'Active'),
-    ('035', '035-22', 'Kho Mua hàng HSG tại TCCM', 'Active'),
-    ('035', '035-23', 'Kho Mua hàng HSG tại SITV', 'Active'),
-    ('035', '035-24', 'Kho Mua hàng HSG tại SP-PSA', 'Active'),
-    ('035', '035-25', 'Kho Mua hàng HSG tại Cảng Bến Nghé', 'Active'),
-    ('035', '035-26', 'Kho Mua hàng HSG tại Cảng Lotus', 'Active'),
-    ('035', '035-27', 'Kho Mua hàng HSG tại Cảng Tân Thuận', 'Active'),
-    ('035', '035-28', 'Kho Mua hàng HSG tại Cảng Tân Thuận 2', 'Active'),
-    ('035', '035-29', 'Kho Mua hàng HSG tại Cảng ODA Thị Vải', 'Active'),
-    ('035', '035-30', 'Kho Mua hàng HSG tại Cảng Thép Miền Nam', 'Active'),
-    ('035', '035-31', 'Kho Mua hàng HSG tại Cảng PTSC Phú Mỹ', 'Active'),
-    ('035', '035-32', 'Kho mua hàng HSG tại Cảng Ba Son', 'Active'),
-    ('035', '035-33', 'Kho mua hàng HSG tại Kho Ngọc Biển', 'Active'),
-    ('035', '035-34', 'Kho hàng hóa HSG tại cảng Hưng Thái', 'Active'),
-    ('035', '035-35', 'Kho hàng hóa HSG tại Cảng Bà Rịa Serece', 'Active'),
-    ('035', '035-36', 'Kho Mua hàng HSG tại Cảng QT Thị Vải', 'Active'),
-    ('035', '035-37', 'Kho mua hàng HSG tại Cảng Tân Thuận Đông', 'Active'),
-    ('035', '035-38', 'Kho mua  hàng HSG tại cảng Hồng Long', 'Active'),
-    ('036', '036-11', 'Kho mua hàng nội bộ tại Đông Hồi', 'Active'),
-    ('036', '036-12', 'Kho mua hàng nội bộ tại TPM', 'Active'),
-    ('036', '036-13', 'Kho mua hàng nội bộ tại Nhơn Hội', 'Active'),
-    ('036', '036-14', 'Kho mua hàng nội bộ tại Nhúng Nóng', 'Active'),
-    ('036', '036-15', 'Kho mua hàng nội bộ tại QT Thị Vải', 'Active'),
-    ('036', '036-16', 'Kho mua hàng nội bộ tại SMC', 'Active'),
-    ('036', '036-17', 'Kho mua hàng nội bộ tại cảng Ba Son', 'Active'),
-    ('036', '036-18', 'Kho mua hàng nội bộ tại cảng SSIT', 'Active'),
-    ('036', '036-19', 'Kho mua hàng nội bộ tại cảng SITV', 'Active'),
-    ('036', '036-20', 'Kho mua hàng NB tại cảng ODA Thị Vải', 'Active'),
-    ('036', '036-21', 'Kho mua hàng nội bộ tại Cảng Hồng Long', 'Active'),
-    ('036', '036-22', 'Kho mua hàng nội bộ tại cảng Cát Lái', 'Active'),
-    ('037', '037-01', 'Kho thành phẩm ống thép mạ kẽm', 'Active'),
-    ('038', '038-01', 'Kho Cung ứng HSG-SMC', 'Active'),
-    ('038', '038-02', 'Kho hàng hóa TPM tại Cơ Khí SMC', 'Active'),
-    ('039', '039-01', 'Kho hàng hóa TPM tại Thành Chí', 'Active'),
-]
+SUB_KHO_033_ACTIVE = ('033-01', '033-02')
 
 
 # -------------------------------------------------------------
@@ -311,8 +190,8 @@ def tinh_logic_ksnb_dong(
     ten_hang, phan_loai, ma_lo, kl_net, dv_kd, danh_ten, ngay_nhap, kho_cn, ngay_chot
 ):
     """
-    Thực thi chính xác 100% logic công thức KSNB của bạn trên từng dòng dữ liệu
-    để vừa ghi công thức Excel, vừa hiển thị báo cáo đối chiếu ngay trên Web.
+    Thực thi chính xác 100% logic công thức KSNB trên từng dòng dữ liệu
+    để vừa đối chiếu tô đỏ trên Excel, vừa hiển thị báo cáo nhanh trên Web.
     """
     chuoi = f"{clean_str_code(ma_lo)}-{int(kl_net) if float(kl_net).is_integer() else kl_net}-{clean_str_code(phan_loai)}"
 
@@ -320,14 +199,14 @@ def tinh_logic_ksnb_dong(
     d_nhap = parse_erp_date(ngay_nhap)
     so_ngay_ton = (ngay_chot - d_nhap).days if (d_nhap and ngay_chot) else 0
 
-    # 2. Tuổi tồn kho (VLOOKUP Sheet2)
-    if so_ngay_ton <= 90:
+    # 2. Tuổi tồn kho
+    if so_ngay_ton < 91:
         tuoi_tk = 'Dưới 90 ngày'
-    elif so_ngay_ton <= 120:
+    elif so_ngay_ton < 121:
         tuoi_tk = 'Từ 91 đến 120 ngày'
-    elif so_ngay_ton <= 180:
+    elif so_ngay_ton < 181:
         tuoi_tk = 'Từ 121 đến 180 ngày'
-    elif so_ngay_ton <= 360:
+    elif so_ngay_ton < 361:
         tuoi_tk = 'Từ 181 đến 360 ngày'
     else:
         tuoi_tk = 'Trên 361 ngày'
@@ -364,12 +243,12 @@ def tinh_logic_ksnb_dong(
     elif ('VLXD' in ay_up) and ('CXL' not in ay_up):
         danh_ten_dv = 'VLXD'
     elif ay in NM_KHAC_LIST:
-        danh_ten_dv = 'Các NM khác'
+        danh_ten_dv = 'Các NM Khác'
     else:
         danh_ten_dv = 'NM THSPM'
 
     # 5. Đánh loại TÍNH / LOẠI (Cột M - Giữ nguyên 100% công thức IF của bạn)
-    sub_033_active = any(s[1] == clean_str_code(kho_cn) and s[3] == 'Active' for s in SUB_KHO_033)
+    sub_033_active = clean_str_code(kho_cn) in SUB_KHO_033_ACTIVE
     cond_loai = (
         ('BPDT' in ay_up)
         or (ay.startswith('DTHS') or ay == 'ĐTHS' or ay.startswith('DLHS'))
@@ -406,7 +285,7 @@ def tinh_logic_ksnb_dong(
 def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
     """
     Đọc file 003.xlsx (ERP) và file Chốt phạt tồn kho của P.Cung ứng,
-    xuất ra workbook hoàn chỉnh giống 100% file KIỂM TRA ĐỊNH MỨC TỒN KHO & CLC.
+    xuất ra workbook gồm đúng 4 sheet chính: TTR, ĐỐI CHIẾU, KSNB, P.Cung ứng.
     """
     # ---------------------------------------------------------
     # 1. ĐỌC FILE ERP (003.xlsx)
@@ -427,7 +306,6 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
         if ngay_chot:
             break
 
-    # Đọc toàn bộ các dòng dữ liệu cuộn thực tế (từ dòng 13 trở đi, loại bỏ dòng rỗng thừa cuối file)
     erp_headers_r11 = [ws_erp.cell(11, c).value for c in range(1, 47)]
     erp_headers_r12 = [ws_erp.cell(12, c).value for c in range(1, 47)]
     erp_meta_rows = []
@@ -449,7 +327,6 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
     f_pcu.seek(0)
     wb_pcu = openpyxl.load_workbook(f_pcu, data_only=True)
 
-    # Lấy ngày chốt từ sheet Data (ô AT1) nếu file ERP không có
     ws_pcu_data = wb_pcu['Data']
     if ngay_chot is None:
         ngay_chot = parse_erp_date(ws_pcu_data['AT1'].value) or datetime.date.today()
@@ -467,14 +344,11 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
         row_vals = [ws_pcu_data.cell(r, c).value for c in range(2, 50)]
         pcu_data_rows.append(row_vals)
 
-        # Tạo key chuỗi giống cột B của P.Cung ứng: Mã lô - Net - Phân loại
         phan_loai = clean_str_code(ws_pcu_data.cell(r, 5).value)
         kl_net = to_float(ws_pcu_data.cell(r, 20).value, 0.0)
         net_str = str(int(kl_net)) if kl_net.is_integer() else str(kl_net)
         key_chuoi = f"{clean_str_code(ma_lo)}-{net_str}-{phan_loai}"
 
-        # Lưu thông tin để đối chiếu nhanh trên Web:
-        # Cột AP(42)=ĐVKD-QV, AR(44)=Tính TK, AU(47)=TUỔI, AV(48)=TÍNH CLC
         dict_pcu_lookup[key_chuoi] = {
             'dvkd': str(ws_pcu_data.cell(r, 42).value or '').strip(),
             'tinh_tk': str(ws_pcu_data.cell(r, 44).value or '').strip(),
@@ -482,7 +356,7 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
             'clc': str(ws_pcu_data.cell(r, 48).value or '').strip(),
         }
 
-    # Đọc bảng tổng hợp từ sheet 'Tồn kho' của P.Cung ứng
+    # Đọc bảng tổng hợp từ sheet 'Tồn kho' của P.Cung ứng (Cột B..K = 2..11)
     ws_pcu_tk = wb_pcu['Tồn kho']
     pcu_tk_table1 = []  # Rows 12..17 (B..K)
     for r in range(12, 18):
@@ -492,14 +366,15 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
     for r in range(23, 29):
         pcu_tk_table2.append([ws_pcu_tk.cell(r, c).value for c in range(2, 12)])
 
+    # Bảng III CLC trong sheet 'Tồn kho' của P.CƯ nằm ở D33 (M1), E33 (M2), F33 (Tổng)
     pcu_tk_clc = [
-        ws_pcu_tk.cell(33, 3).value,  # M1
-        ws_pcu_tk.cell(33, 4).value,  # M2
-        ws_pcu_tk.cell(33, 5).value,  # Tổng
+        ws_pcu_tk.cell(33, 4).value,  # M1
+        ws_pcu_tk.cell(33, 5).value,  # M2
+        ws_pcu_tk.cell(33, 6).value,  # Tổng
     ]
 
     # ---------------------------------------------------------
-    # 3. KHỞI TẠO WORKBOOK ĐẦU RA VỚI ĐẦY ĐỦ CÔNG THỨC & ĐỊNH DẠNG
+    # 3. KHỞI TẠO WORKBOOK ĐẦU RA (CHỈ GỒM 4 SHEET CHÍNH)
     # ---------------------------------------------------------
     wb_out = openpyxl.Workbook()
     ws_ttr = wb_out.active
@@ -507,10 +382,6 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
     ws_dc = wb_out.create_sheet('ĐỐI CHIẾU')
     ws_ksnb = wb_out.create_sheet('KSNB')
     ws_pcu_out = wb_out.create_sheet('P.Cung ứng')
-    ws_s2 = wb_out.create_sheet('Sheet2')
-    ws_s3 = wb_out.create_sheet('Sheet3')
-    ws_s4 = wb_out.create_sheet('Sheet4')
-    ws_nmk = wb_out.create_sheet('NM Khác')
 
     # Fonts, Fills & Borders chuẩn
     f_title = Font(name='Times New Roman', size=14, bold=True, color='000000')
@@ -520,72 +391,24 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
     f_bold = Font(name='Times New Roman', size=11, bold=True, color='000000')
     f_red = Font(name='Times New Roman', size=11, bold=True, color='9C0006')
 
-    fill_hdr = PatternFill(start_color='D9E1F2', end_color='D9E1F2', fill_type='solid')
-    fill_sub = PatternFill(start_color='EDEDED', end_color='EDEDED', fill_type='solid')
-    fill_ksnb_hdr = PatternFill(start_color='FFF2CC', end_color='FFF2CC', fill_type='solid')
+    # 3 tông màu phân biệt 3 khu vực: P.Cung ứng (Xanh dương) | KSNB (Xanh lá) | Chênh lệch (Vàng cam)
+    fill_pcu_hdr = PatternFill(start_color='D9E1F2', end_color='D9E1F2', fill_type='solid')
+    fill_ksnb_green = PatternFill(start_color='E2EFDA', end_color='E2EFDA', fill_type='solid')
+    fill_diff_orange = PatternFill(start_color='FFF2CC', end_color='FFF2CC', fill_type='solid')
+    fill_sub = PatternFill(start_color='F2F2F2', end_color='F2F2F2', fill_type='solid')
     fill_red = PatternFill(start_color='FFC7CE', end_color='FFC7CE', fill_type='solid')
 
-    thin_side = Side(style='thin', color='000000')
-    border_all = Border(left=thin_side, right=thin_side, top=thin_side, bottom=thin_side)
+    thin_s = Side(style='thin', color='000000')
+    med_s = Side(style='medium', color='000000')
+    border_all = Border(left=thin_s, right=thin_s, top=thin_s, bottom=thin_s)
+    border_sep_left = Border(left=med_s, right=thin_s, top=thin_s, bottom=thin_s)
 
     al_center = Alignment(horizontal='center', vertical='center', wrap_text=True)
     al_left = Alignment(horizontal='left', vertical='center', wrap_text=True)
     al_right = Alignment(horizontal='right', vertical='center')
 
     # =========================================================
-    # A. GHI CÁC SHEET DANH MỤC PHỤ (Sheet2, Sheet3, Sheet4, NM Khác)
-    # =========================================================
-    s2_age = [
-        (0, 'Dưới 90 ngày', 'LOẠI', 0),
-        (91, 'Từ 91 đến 120 ngày', 'M1', 5),
-        (121, 'Từ 121 đến 180 ngày', 'M1', 5),
-        (181, 'Từ 181 đến 360 ngày', 'M2', 10),
-        (361, 'Trên 361 ngày', 'M2', 10),
-    ]
-    for idx, row_t in enumerate(s2_age, start=1):
-        for c_i, val in enumerate(row_t, start=1):
-            c = ws_s2.cell(idx, c_i, val)
-            c.font = f_data
-            c.border = border_all
-
-    ws_s2.cell(9, 1, 'Kho').font = f_hdr
-    ws_s2.cell(9, 2, 'Mã Sub').font = f_hdr
-    ws_s2.cell(9, 3, 'Tên Sub').font = f_hdr
-    ws_s2.cell(9, 4, 'Trạng thái').font = f_hdr
-    for idx, row_t in enumerate(SUB_KHO_033, start=10):
-        for c_i, val in enumerate(row_t, start=1):
-            c = ws_s2.cell(idx, c_i, val)
-            c.font = f_data
-            c.border = border_all
-
-    # Sheet3
-    ws_s3['A1'] = 'MẶT HÀNG'
-    ws_s3['B1'] = 'ĐƠN GIÁ PHẠT HTK > 90 NGÀY HIỆN TẠI (Đồng/Kg)'
-    ws_s3['C1'] = 'ĐƠN GIÁ MỚI (Đồng/Kg)'
-    ws_s3['C2'] = 'HTK 91 NGÀY – 180 NGÀY'
-    ws_s3['D2'] = 'HTK >180 NGÀY'
-    s3_rows = [
-        ('Tôn, Thép dày mạ', 5, 5, 10),
-        ('Ống thép', 5, 5, 10),
-        ('Ống nhựa', 7, 7, 14),
-    ]
-    for idx, r_t in enumerate(s3_rows, start=3):
-        for c_i, val in enumerate(r_t, start=1):
-            ws_s3.cell(idx, c_i, val)
-
-    # Sheet4
-    for c_i, h in enumerate(['Kho', 'Mã Sub', 'Tên Sub', 'Trạng thái'], start=1):
-        ws_s4.cell(1, c_i, h).font = f_hdr
-    for idx, r_t in enumerate(SUB_KHO_ALL, start=2):
-        for c_i, val in enumerate(r_t, start=1):
-            ws_s4.cell(idx, c_i, val).font = f_data
-
-    # NM Khác
-    for idx, nm_val in enumerate(NM_KHAC_LIST, start=1):
-        ws_nmk.cell(idx, 1, nm_val).font = f_data
-
-    # =========================================================
-    # B. GHI SHEET 'P.Cung ứng'
+    # A. GHI SHEET 'P.Cung ứng'
     # =========================================================
     ws_pcu_out['U1'] = f"=SUBTOTAL(9,$U$4:$U${len(pcu_data_rows) + 3})"
     ws_pcu_out['AU1'] = datetime.datetime(ngay_chot.year, ngay_chot.month, ngay_chot.day)
@@ -594,13 +417,13 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
     for idx, h_val in enumerate(pcu_headers_r2, start=3):
         c = ws_pcu_out.cell(2, idx, h_val)
         c.font = f_hdr
-        c.fill = fill_hdr
+        c.fill = fill_pcu_hdr
         c.alignment = al_center
         c.border = border_all
     for idx, h_val in enumerate(pcu_headers_r3, start=3):
         c = ws_pcu_out.cell(3, idx, h_val)
         c.font = f_hdr
-        c.fill = fill_hdr
+        c.fill = fill_pcu_hdr
         c.alignment = al_center
         c.border = border_all
 
@@ -615,11 +438,10 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
             cell.font = f_data
 
     # =========================================================
-    # C. GHI SHEET 'KSNB' (CỘT A..P CÔNG THỨC + CỘT Q..BJ DỮ LIỆU 003)
+    # B. GHI SHEET 'KSNB' (KHÔNG PHỤ THUỘC SHEET PHỤ)
     # =========================================================
     max_row_pcu = len(pcu_data_rows) + 3
 
-    # Khối tổng hợp đối chiếu đầu trang (Rows 3..6)
     ws_ksnb['I3'] = 'Đối chiếu KL & Số lượng'
     ws_ksnb['K3'] = 'Số lượng (cuộn)'
     ws_ksnb['M3'] = 'Khối lượng kg'
@@ -644,19 +466,16 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
             if r_i == 5 and c_i in (11, 12, 13, 14):
                 cell.number_format = '#,##0'
 
-    # Ghi metadata đầu file 003.xlsx vào Q1..BJ10
     for r_idx, m_row in enumerate(erp_meta_rows, start=1):
         for c_offset, val in enumerate(m_row, start=17):
             ws_ksnb.cell(r_idx, c_offset, val).font = f_data
 
-    # Ô P12: Ngày chốt tồn kho
     ws_ksnb['P12'] = datetime.datetime(ngay_chot.year, ngay_chot.month, ngay_chot.day)
     ws_ksnb['P12'].number_format = 'dd/mm/yyyy'
     ws_ksnb['P12'].font = f_hdr
-    ws_ksnb['P12'].fill = fill_ksnb_hdr
+    ws_ksnb['P12'].fill = fill_diff_orange
     ws_ksnb['P12'].alignment = al_center
 
-    # Tiêu đề cột A..P tại dòng 13
     ksnb_calc_headers = [
         'Đối chiếu tuổi tồn kho',       # A (1)
         'P.CƯ tính tuổi tồn kho',       # B (2)
@@ -678,34 +497,31 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
     for c_i, h_title in enumerate(ksnb_calc_headers, start=1):
         c = ws_ksnb.cell(13, c_i, h_title)
         c.font = f_hdr
-        c.fill = fill_ksnb_hdr
+        c.fill = fill_diff_orange
         c.alignment = al_center
         c.border = border_all
 
-    # Tiêu đề gốc của file 003 tại dòng 12 & 13 (Cột Q..BJ)
     for c_offset, val in enumerate(erp_headers_r11, start=17):
         c = ws_ksnb.cell(12, c_offset, val)
         c.font = f_hdr
-        c.fill = fill_hdr
+        c.fill = fill_pcu_hdr
         c.alignment = al_center
         c.border = border_all
     for c_offset, val in enumerate(erp_headers_r12, start=17):
         c = ws_ksnb.cell(13, c_offset, val)
         c.font = f_hdr
-        c.fill = fill_hdr
+        c.fill = fill_pcu_hdr
         c.alignment = al_center
         c.border = border_all
 
-    # Ghi dữ liệu cuộn & công thức KSNB từ dòng 14 trở đi
     discrepancy_records = []
     for idx, r_vals in enumerate(erp_data_rows, start=14):
-        # Đổ dữ liệu gốc 003 vào Q..BJ
         for c_offset, val in enumerate(r_vals, start=17):
             c = ws_ksnb.cell(idx, c_offset, val)
             c.font = f_data
             c.border = border_all
 
-        # Ghi công thức Excel chuẩn tại các cột A..P (giữ nguyên 100% logic gốc của bạn)
+        # Công thức tự thân 100% (không cần Sheet2 hay NM Khác)
         formulas_a_to_p = {
             1: f'=TEXT(B{idx},0)=TEXT(N{idx},0)',
             2: f"=VLOOKUP(J{idx},'P.Cung ứng'!$B$1:$AX${max_row_pcu},47,0)",
@@ -726,11 +542,11 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
                 f'IF(AND(OR(TEXT(AX{idx},0)="VPDH_MN_NM_BANNGOAI",TEXT(AX{idx},0)="VPDH_MT_NM_BANNGOAI"),TEXT(AY{idx},0)<>""),"Khách hàng ngoài trúng thầu",'
                 f'IF(OR(ISNUMBER(SEARCH("LỢP XƯỞNG",TEXT(AY{idx},0))),ISNUMBER(SEARCH("LOPXUONG",TEXT(AY{idx},0)))),"NM Lợp xưởng",'
                 f'IF(AND(TEXT(AX{idx},0)="PKDDA_HSH",OR(TEXT(AY{idx},0)="PKDDA_HSH",TEXT(AY{idx},0)="PKD_HSHome")),"PKDDA_HSH",'
-                f'IF(AND(OR(TEXT(AX{idx},0)="HSG_PXK", TEXT(AX{idx},)="VPDH_MN_NM"),OR(TEXT(AY{idx},0)="XK.HSG_OU",TEXT(AY{idx},0)="XK-L2",TEXT(AY{idx},0)="XK.HSG",TEXT(AY{idx},0)="SMC-XK")),"XK",'
+                f'IF(AND(OR(TEXT(AX{idx},0)="HSG_PXK",TEXT(AX{idx},0)="VPDH_MN_NM"),OR(TEXT(AY{idx},0)="XK.HSG_OU",TEXT(AY{idx},0)="XK-L2",TEXT(AY{idx},0)="XK.HSG",TEXT(AY{idx},0)="SMC-XK")),"XK",'
                 f'IF(TEXT(AY{idx},0)="BAOBI","BTP- BAO BÌ",'
                 f'IF(AND(OR(ISNUMBER(SEARCH("MM",TEXT(AY{idx},0))),ISNUMBER(SEARCH("XBPM",TEXT(AY{idx},0)))),ISERR(SEARCH("CXL",TEXT(AY{idx},0)))),"BTP- Mạ màu & Xẻ băng ",'
                 f'IF(AND(ISNUMBER(SEARCH("VLXD",TEXT(AY{idx},0))),ISERR(SEARCH("CXL",TEXT(AY{idx},0)))),"VLXD",'
-                f'IF(COUNTIF(\'NM Khác\'!$A$1:$A$20,TEXT(AY{idx},0))>0,"Các NM khác","NM THSPM")))))))))))))'
+                f'IF(OR(TEXT(AY{idx},0)="HS-NHONHOI",TEXT(AY{idx},0)="HS-BINHDUONG",TEXT(AY{idx},0)="NHUNG-XB-XK",TEXT(AY{idx},0)="NHUNGNONG-XB",TEXT(AY{idx},0)="HS-BINH DUONG",TEXT(AY{idx},0)="HS-NHUNGNONG",TEXT(AY{idx},0)="HS-BINH DUONG ",TEXT(AY{idx},0)="HS-NHUA",TEXT(AY{idx},0)="HS-NGHEAN",TEXT(AY{idx},0)="NHUNG",TEXT(AY{idx},0)="NHUNGNONG",TEXT(AY{idx},0)="NHUNG-XK",TEXT(AY{idx},0)="NHONHOA-OT"),"Các NM Khác","NM THSPM")))))))))))))'
             ),
             13: (
                 f'=IF(Q{idx}="","",IF(OR(ISNUMBER(SEARCH("BPDT",TEXT(AY{idx},0))),'
@@ -738,17 +554,16 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
                 f'OR(LEFT(TEXT(AY{idx},0),2)="CN",LEFT(TEXT(AY{idx},0),4)="VPDH"),'
                 f'AND(TEXT(AX{idx},0)="VPDH_MN_PKDTT",OR(TEXT(AY{idx},0)="KDMN01",TEXT(AY{idx},0)="PKDTT",TEXT(AY{idx},0)="KDTT-MN",TEXT(AY{idx},0)="P.KDTT_MN")),'
                 f'AND(TEXT(AX{idx},0)="VPDH_MN_NM_BANNGOAI",TEXT(AY{idx},0)<>""),'
-                f'AND(AX{idx}="VPDH_MN_NM", OR(AY{idx}="NM-LỢP XƯỞNG", AY{idx}="NM-LOPXUONG")),'
+                f'AND(AX{idx}="VPDH_MN_NM",OR(AY{idx}="NM-LỢP XƯỞNG",AY{idx}="NM-LOPXUONG")),'
                 f'AND(TEXT(AX{idx},0)="PKDDA_HSH",OR(TEXT(AY{idx},0)="PKDDA_HSH",TEXT(AY{idx},0)="PKD_HSHome")),'
                 f'AND(OR(TEXT(AX{idx},0)="HSG_PXK",TEXT(AX{idx},0)="VPDH_MN_NM"),OR(TEXT(AY{idx},0)="XK.HSG_OU",TEXT(AY{idx},0)="SMC-XK")),'
-                f'IFERROR(VLOOKUP(BF{idx},Sheet2!$B$9:$D$23,3,0),"")="Active"),"LOẠI","TÍNH"))'
+                f'OR(TEXT(BF{idx},0)="033-01",TEXT(BF{idx},0)="033-02")),"LOẠI","TÍNH"))'
             ),
-            14: f'=IF(Q{idx}="","",IF(O{idx}="","",VLOOKUP(O{idx},Sheet2!$A$1:$B$5,2,1)))',
+            14: f'=IF(Q{idx}="","",IF(O{idx}="","",IF(O{idx}<91,"Dưới 90 ngày",IF(O{idx}<121,"Từ 91 đến 120 ngày",IF(O{idx}<181,"Từ 121 đến 180 ngày",IF(O{idx}<361,"Từ 181 đến 360 ngày","Trên 361 ngày"))))))',
             15: f'=$P$12-BC{idx}',
             16: f'=IF(Q{idx}="","",IF(OR(V{idx}="1",V{idx}="A2"),1,2))',
         }
 
-        # Tính giá trị trực tiếp bằng Python để tô đỏ ô sai lệch & hiện báo cáo nhanh trên Web
         res_row = tinh_logic_ksnb_dong(
             ten_hang=r_vals[3],
             phan_loai=r_vals[5],
@@ -801,63 +616,87 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
             })
 
     # =========================================================
-    # D. GHI SHEET 'ĐỐI CHIẾU'
+    # C. GHI SHEET 'ĐỐI CHIẾU' (GỘP Ô & PHÂN 3 MÀU TÁCH BIỆT RÕ RÀNG)
     # =========================================================
     ws_dc['A3'] = 'BÁO CÁO TỒN KHO THỰC TẾ SO VỚI ĐỊNH MỨC BAN HÀNH'
     ws_dc['A3'].font = f_title
     ws_dc['A4'] = f"Tồn đến ngày {ngay_chot.strftime('%d/%m/%Y')}"
     ws_dc['A4'].font = f_sec
 
-    ws_dc['A7'] = 'Tổng tồn kho Nhà máy'
+    ws_dc['A7'] = 'I. Tổng tồn kho Nhà máy'
     ws_dc['A7'].font = f_sec
     ws_dc['H7'] = 'ĐVT: KG'
     ws_dc['H7'].font = f_hdr
 
-    age_cols_6 = ['Tổng cộng', 'Dưới 90 ngày', 'Từ 91 đến 120 ngày', 'Từ 121 đến 180 ngày', 'Từ 181 đến 360 ngày', 'Trên 361 ngày']
+    age_cols_6 = [
+        'Tổng cộng',
+        'Dưới 90 ngày',
+        'Từ 91 đến 120 ngày',
+        'Từ 121 đến 180 ngày',
+        'Từ 181 đến 360 ngày',
+        'Trên 361 ngày',
+    ]
 
     def setup_dc_table_headers(start_r):
+        """Thiết lập tiêu đề 2 dòng có gộp ô (Merge) và tô 3 màu phân vùng: P.CƯ | KSNB | Chênh lệch."""
         ws_dc.cell(start_r, 1, 'Số TT')
         ws_dc.cell(start_r, 2, 'Hạng mục')
         ws_dc.cell(start_r, 3, 'Khối lượng định mức (DM)')
-        ws_dc.cell(start_r, 4, 'Khối lượng thực tế (TT)')
-        ws_dc.cell(start_r, 10, 'Chênh lệch (TT - DM)')
+        ws_dc.cell(start_r, 4, 'KHỐI LƯỢNG THỰC TẾ THEO P.CUNG ỨNG (TT)')
+        ws_dc.cell(start_r, 10, 'Chênh lệch P.CƯ\n(TT - DM)')
         ws_dc.cell(start_r, 11, 'Ghi chú')
-        ws_dc.cell(start_r, 12, 'Theo KSNB')
-        ws_dc.cell(start_r, 18, 'Chênh lệch (TT - DM)')
-        ws_dc.cell(start_r, 19, 'Chênh lệch')
+        ws_dc.cell(start_r, 12, 'KHỐI LƯỢNG KIỂM TRA THEO KSNB')
+        ws_dc.cell(start_r, 18, 'Chênh lệch KSNB\n(TT - DM)')
+        ws_dc.cell(start_r, 19, 'CHÊNH LỆCH (KSNB - P.CUNG ỨNG)')
 
         for idx_a, lbl in enumerate(age_cols_6):
             ws_dc.cell(start_r + 1, 4 + idx_a, lbl)
             ws_dc.cell(start_r + 1, 12 + idx_a, lbl)
             ws_dc.cell(start_r + 1, 19 + idx_a, lbl)
 
+        # Tô màu & kẻ khung cho cả 2 dòng tiêu đề trước khi Merge
         for r_h in (start_r, start_r + 1):
             for c_h in range(1, 25):
                 c = ws_dc.cell(r_h, c_h)
                 c.font = f_hdr
-                c.fill = fill_hdr
                 c.alignment = al_center
-                c.border = border_all
+                if c_h <= 11:
+                    c.fill = fill_pcu_hdr
+                elif c_h <= 18:
+                    c.fill = fill_ksnb_green
+                else:
+                    c.fill = fill_diff_orange
+                c.border = border_sep_left if c_h in (12, 19) else border_all
 
-    # Bảng I: Tổng tồn kho Nhà máy (Rows 9..17)
-    setup_dc_table_headers(9)
+        # Gộp ô dọc cho các cột đơn và gộp ô ngang cho 3 cụm tiêu đề lớn
+        for col_m in (1, 2, 3, 10, 11, 18):
+            ws_dc.merge_cells(start_row=start_r, start_column=col_m, end_row=start_r + 1, end_column=col_m)
+        ws_dc.merge_cells(start_row=start_r, start_column=4, end_row=start_r, end_column=9)
+        ws_dc.merge_cells(start_row=start_r, start_column=12, end_row=start_r, end_column=17)
+        ws_dc.merge_cells(start_row=start_r, start_column=19, end_row=start_r, end_column=24)
+
+    # ---------------------------------------------------------
+    # Bảng I: Tổng tồn kho Nhà máy (Header tại dòng 10-11, Dữ liệu dòng 12-17)
+    # ---------------------------------------------------------
+    setup_dc_table_headers(10)
     for idx, row_pcu in enumerate(pcu_tk_table1):
         r_excel = 12 + idx
         is_total = (idx == 0)
         ws_dc.cell(r_excel, 1, 'I.' if is_total else idx)
-        ws_dc.cell(r_excel, 2, row_pcu[0])
-        ws_dc.cell(r_excel, 3, row_pcu[1])
+        ws_dc.cell(r_excel, 2, row_pcu[1])  # Cột C của P.CƯ: Hạng mục
+        ws_dc.cell(r_excel, 3, row_pcu[2])  # Cột D của P.CƯ: Định mức
 
         if is_total:
-            for c_i in range(4, 12):
+            for c_i in range(4, 11):
                 col_l = get_column_letter(c_i)
                 ws_dc.cell(r_excel, c_i, f'=SUM({col_l}13:{col_l}17)')
             for c_i in range(12, 25):
                 col_l = get_column_letter(c_i)
                 ws_dc.cell(r_excel, c_i, f'=SUM({col_l}13:{col_l}17)')
         else:
-            for c_off in range(2, 10):
-                ws_dc.cell(r_excel, 2 + c_off, row_pcu[c_off])
+            # Cột D..J (4..10) tương ứng index 3..9 trong row_pcu
+            for c_off in range(3, 10):
+                ws_dc.cell(r_excel, 1 + c_off, row_pcu[c_off])
             ws_dc.cell(r_excel, 12, f'=SUM(M{r_excel}:Q{r_excel})')
             for idx_age, col_ksnb_let in enumerate(['M', 'N', 'O', 'P', 'Q']):
                 ws_dc.cell(
@@ -873,24 +712,30 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
         for c_i in range(1, 25):
             cell = ws_dc.cell(r_excel, c_i)
             cell.font = f_bold if is_total else f_data
-            cell.border = border_all
+            cell.border = border_sep_left if c_i in (12, 19) else border_all
             if is_total:
                 cell.fill = fill_sub
-            if c_i >= 3:
+            if c_i == 1:
+                cell.alignment = al_center
+            elif c_i == 2:
+                cell.alignment = al_left
+            elif c_i >= 3:
                 cell.number_format = '#,##0'
                 cell.alignment = al_right
 
-    # Bảng II: Tồn kho hàng L2-A1, XKRL, CXL (Rows 19..28)
-    ws_dc['A19'] = 'Tồn kho hàng L2-A1, XKRL, CXL'
+    # ---------------------------------------------------------
+    # Bảng II: Tồn kho hàng L2-A1, XKRL, CXL (Header dòng 21-22, Dữ liệu dòng 23-28)
+    # ---------------------------------------------------------
+    ws_dc['A19'] = 'II. Tồn kho hàng L2-A1, XKRL, CXL'
     ws_dc['A19'].font = f_sec
-    setup_dc_table_headers(20)
+    setup_dc_table_headers(21)
 
     for idx, row_pcu in enumerate(pcu_tk_table2):
         r_excel = 23 + idx
         is_total = (idx == 0)
         ws_dc.cell(r_excel, 1, 'II.' if is_total else idx)
-        ws_dc.cell(r_excel, 2, row_pcu[0])
-        ws_dc.cell(r_excel, 3, row_pcu[1])
+        ws_dc.cell(r_excel, 2, row_pcu[1])  # Hạng mục
+        ws_dc.cell(r_excel, 3, row_pcu[2])  # Định mức
 
         if is_total:
             for c_i in range(4, 11):
@@ -900,8 +745,8 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
                 col_l = get_column_letter(c_i)
                 ws_dc.cell(r_excel, c_i, f'=SUM({col_l}24:{col_l}28)')
         else:
-            for c_off in range(2, 9):
-                ws_dc.cell(r_excel, 2 + c_off, row_pcu[c_off])
+            for c_off in range(3, 9):
+                ws_dc.cell(r_excel, 1 + c_off, row_pcu[c_off])
             if idx == 1:
                 ws_dc.cell(r_excel, 10, '=SUM(D24:D28)-C24')
             ws_dc.cell(r_excel, 12, f'=SUM(M{r_excel}:Q{r_excel})')
@@ -909,7 +754,7 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
                 ws_dc.cell(
                     r_excel,
                     13 + idx_age,
-                    f"=SUMIFS(KSNB!$AK$14:$AK${max_row_ksnb},KSNB!$L$14:$L${max_row_ksnb},'ĐỐI CHIẾU'!$B{r_excel},KSNB!$N$14:$N${max_row_ksnb},{col_ksnb_let}$22,KSNB!$P$14:$P${max_row_ksnb},\"2\")",
+                    f"=SUMIFS(KSNB!$AK$14:$AK${max_row_ksnb},KSNB!$L$14:$L${max_row_ksnb},'ĐỐI CHIẾU'!$B{r_excel},KSNB!$N$14:$N${max_row_ksnb},'ĐỐI CHIẾU'!{col_ksnb_let}$22,KSNB!$P$14:$P${max_row_ksnb},\"2\")",
                 )
             ws_dc.cell(r_excel, 18, f'=L{r_excel}-C{r_excel}')
             ws_dc.cell(r_excel, 19, f'=SUM(T{r_excel}:X{r_excel})')
@@ -919,17 +764,28 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
         for c_i in range(1, 25):
             cell = ws_dc.cell(r_excel, c_i)
             cell.font = f_bold if is_total else f_data
-            cell.border = border_all
+            cell.border = border_sep_left if c_i in (12, 19) else border_all
             if is_total:
                 cell.fill = fill_sub
-            if c_i >= 3:
+            if c_i == 1:
+                cell.alignment = al_center
+            elif c_i == 2:
+                cell.alignment = al_left
+            elif c_i >= 3:
                 cell.number_format = '#,##0'
                 cell.alignment = al_right
 
-    # Bảng III: Tồn kho CLC (Rows 30..33)
-    ws_dc['A30'] = 'Tồn kho CLC'
+    # ---------------------------------------------------------
+    # Bảng III: Tồn kho Chậm Luân Chuyển (CLC) (Dòng 30..33)
+    # ---------------------------------------------------------
+    ws_dc['A30'] = 'III. Tồn kho CLC'
     ws_dc['A30'].font = f_sec
-    ws_dc['J30'] = 'Chênh lệch'
+
+    # Dòng 30: Tiêu đề phân vùng 3 bên cho bảng CLC
+    ws_dc['B30'] = 'THEO P.CUNG ỨNG'
+    ws_dc['F30'] = 'THEO KSNB'
+    ws_dc['J30'] = 'CHÊNH LỆCH (P.CƯ - KSNB)'
+
     ws_dc['B31'] = 'Loại'
     ws_dc['C31'] = 'M1'
     ws_dc['D31'] = 'M2'
@@ -963,20 +819,32 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
     ws_dc['K33'] = '=D33-H33'
     ws_dc['L33'] = '=SUM(J33:K33)'
 
-    for r_i in range(31, 34):
+    for r_i in range(30, 34):
         for c_i in range(2, 13):
             c = ws_dc.cell(r_i, c_i)
-            c.border = border_all
-            c.font = f_hdr if r_i in (31, 32) else f_bold
-            if r_i in (31, 32):
-                c.fill = fill_hdr
+            c.border = border_sep_left if c_i in (6, 10) else border_all
+            c.font = f_hdr if r_i in (30, 31, 32) else f_bold
+            if r_i in (30, 31, 32):
                 c.alignment = al_center
+                if c_i <= 5:
+                    c.fill = fill_pcu_hdr
+                elif c_i <= 9:
+                    c.fill = fill_ksnb_green
+                else:
+                    c.fill = fill_diff_orange
             elif c_i in (3, 4, 5, 7, 8, 9, 10, 11, 12):
                 c.number_format = '#,##0'
                 c.alignment = al_right
 
+    ws_dc.merge_cells('B30:E30')
+    ws_dc.merge_cells('F30:I30')
+    ws_dc.merge_cells('J30:L30')
+    ws_dc.merge_cells('E31:E32')
+    ws_dc.merge_cells('I31:I32')
+    ws_dc.merge_cells('L31:L32')
+
     # =========================================================
-    # E. GHI SHEET 'TTR' (TỜ TRÌNH TỔNG HỢP PHẠT)
+    # D. GHI SHEET 'TTR' (TỜ TRÌNH TỔNG HỢP PHẠT)
     # =========================================================
     ws_ttr['C1'] = 'BÁO CÁO ĐỊNH MỨC TỒN KHO VÀ CHẬM LUÂN CHUYỂN'
     ws_ttr['C1'].font = f_title
@@ -991,11 +859,21 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
     ws_ttr['B3'].font = f_sec
     ws_ttr['H4'] = 'Đvt: kg'
 
-    ttr_cols = ['Nội dung', 'Tổng', 'NM THSPM', 'BTP- Mạ màu & Xẻ băng ', 'BTP- BAO BÌ', 'VLXD', 'TXL-ĐT', 'KHCU', 'Các NM Khác']
+    ttr_cols = [
+        'Nội dung',
+        'Tổng',
+        'NM THSPM',
+        'BTP- Mạ màu & Xẻ băng ',
+        'BTP- BAO BÌ',
+        'VLXD',
+        'TXL-ĐT',
+        'KHCU',
+        'Các NM Khác',
+    ]
     for idx, h_lbl in enumerate(ttr_cols, start=2):
         c = ws_ttr.cell(5, idx, h_lbl)
         c.font = f_hdr
-        c.fill = fill_hdr
+        c.fill = fill_pcu_hdr
         c.alignment = al_center
         c.border = border_all
 
@@ -1066,7 +944,7 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
             c.border = border_all
             c.font = f_hdr if r_i in (16, 21) else f_data
             if r_i == 16:
-                c.fill = fill_hdr
+                c.fill = fill_pcu_hdr
             if c_i == 3 and r_i >= 17:
                 c.number_format = '#,##0'
 
@@ -1103,7 +981,7 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
             c.border = border_all
             c.font = f_hdr if r_i in (26, 30) else f_data
             if r_i == 26:
-                c.fill = fill_hdr
+                c.fill = fill_pcu_hdr
             if r_i >= 28 and c_i >= 3:
                 c.number_format = '#,##0'
 
@@ -1130,11 +1008,12 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
         c_val.font = f_bold
         c_val.number_format = '#,##0'
 
-    # Căn chỉnh độ rộng cột đẹp mắt cho các sheet chính
+    # Căn chỉnh độ rộng cột
     for ws_tmp in (ws_ttr, ws_dc, ws_ksnb, ws_pcu_out):
         for col_idx in range(1, ws_tmp.max_column + 1):
             ws_tmp.column_dimensions[get_column_letter(col_idx)].width = 18
     ws_ttr.column_dimensions['B'].width = 42
+    ws_dc.column_dimensions['A'].width = 8
     ws_dc.column_dimensions['B'].width = 28
 
     output = io.BytesIO()
@@ -1146,12 +1025,11 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
     kl_nm_total = sum(to_float(r[20], 0.0) for r in erp_data_rows)
     kl_pcu_total = sum(to_float(r[18], 0.0) for r in pcu_data_rows)
 
-    # Tính nhanh số liệu tổng hợp KSNB từ bảng P.CƯ + điều chỉnh chênh lệch
-    tt_tong_nm = to_float(pcu_tk_table1[0][2], 0.0)
+    tt_tong_nm = to_float(pcu_tk_table1[0][3], 0.0)
     dm_tong_nm = 7640000.0
     phat_dm = max(0.0, (tt_tong_nm - dm_tong_nm) * 7.0)
 
-    tt_l2 = to_float(pcu_tk_table2[0][2], 0.0)
+    tt_l2 = to_float(pcu_tk_table2[0][3], 0.0)
     dm_l2 = 1800000.0
     phat_l2 = max(0.0, (tt_l2 - dm_l2) * 7.0)
 
@@ -1266,7 +1144,7 @@ Bao gồm đầy đủ các sheet: <b>Tồn kho</b>, <b>Data</b>, <b>Đánh tên
 
                     st.success(
                         f"✅ Đã đối soát hoàn tất số liệu chốt ngày **{res['ngay_chot_str']}**! "
-                        f"File kết quả đã tích hợp đầy đủ các sheet `TTR`, `ĐỐI CHIẾU`, `KSNB`, `P.Cung ứng` và tô đỏ các cuộn sai lệch."
+                        f"File xuất ra gồm đúng 4 sheet chính (`TTR`, `ĐỐI CHIẾU`, `KSNB`, `P.Cung ứng`) và đã phân vùng màu rõ ràng."
                     )
                     st.download_button(
                         f"📥 Tải File Kết Quả ({res['file_out_name']})",
