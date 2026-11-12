@@ -223,11 +223,11 @@ with col3:
     st.markdown("""
     <div class="app-card">
         <div>
-            <span class="badge badge-orange">Trí Tuệ Nhân Tạo (AI)</span>
-            <div class="card-title">📸 Kiểm Kê Hình Ảnh</div>
-            <div class="card-desc">Dùng công nghệ OCR quét chữ viết trên ảnh tem thực tế để tự động dò tìm trong file Excel.</div>
+            <span class="badge badge-orange">Kiểm Soát Nội Bộ</span>
+            <div class="card-title">⚖️ Định Mức & Phạt CLC</div>
+            <div class="card-desc">Đối chiếu tồn kho theo lô ERP (003) với P.Cung ứng, tự động lập bảng đối chiếu và tờ trình phạt CLC.</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
-    if st.button("Mở Kiểm Kê Hình Ảnh ➔", key="btn_ocr", use_container_width=True):
-        st.switch_page("pages/kiem_tra_hinh_anh.py")
+    if st.button("Mở Kiểm Tra Định Mức ➔", key="btn_clc", use_container_width=True):
+        st.switch_page("pages/kiem_tra_dinh_muc_clc.py")
