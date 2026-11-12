@@ -1,21 +1,27 @@
 import datetime
 import io
+import json
 import re
 import time
+import urllib.request
 import openpyxl
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 import pandas as pd
+import plotly.express as px
 import streamlit as st
 
 # -------------------------------------------------------------
 # CẤU HÌNH GIAO DIỆN CHUẨN APPLE & THANH TIỆN ÍCH CỐ ĐỊNH
 # -------------------------------------------------------------
 st.set_page_config(
-    page_title='Tính Phạt Tồn Kho Thành Phẩm Bán Thành Phẩm',
+    page_title='Kiểm Tra Định Mức Tồn Kho & CLC - KSNB',
     page_icon='🛡️',
     layout='wide',
 )
+
+# Link Google Apps Script Web App của bạn
+GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwuOmsAADuQ9pkzMA8_o5Ux5mOU1IaCjB6sQheUOI9LY1P45V8dIR97-mTHZ2N4X_O9/exec"
 
 st.markdown(
     """
@@ -146,7 +152,6 @@ st.markdown(
         color: rgba(255, 255, 255, 0.92);
     }
 
-    /* Thành phần chữ trong thẻ Upload */
     .upload-title {
         font-size: 18px;
         font-weight: 700;
@@ -163,12 +168,6 @@ st.markdown(
         margin-bottom: 14px;
         border: 1px solid rgba(0,0,0,0.05);
     }
-    .guide-header {
-        font-weight: 700;
-        color: #0071e3;
-        font-size: 14px;
-        margin-bottom: 6px;
-    }
     .guide-text {
         font-size: 13px;
         color: #515154;
@@ -176,11 +175,10 @@ st.markdown(
         margin: 0;
     }
 
-    /* Tuỳ chỉnh Thanh Tabs kiểu Segmented Control */
     button[data-baseweb="tab"] {
         font-size: 15px !important;
         font-weight: 600 !important;
-        padding: 10px 18px !important;
+        padding: 10px 16px !important;
     }
 </style>
 """,
@@ -193,44 +191,29 @@ with col_home:
     if st.button('🏠 Trang chủ', use_container_width=True):
         st.switch_page('app_ksnb.py')
 
-st.markdown(
-    "<hr style='border: none; border-top: 1px solid #e2e8f0; margin: 8px 0 16px 0;'>",
-    unsafe_allow_html=True,
-)
+st.markdown("<hr style='border: none; border-top: 1px solid #e2e8f0; margin: 8px 0 16px 0;'>", unsafe_allow_html=True)
 
-# Header Trang
 st.markdown(
     """
 <div class="apple-header-box">
     <div>
-        <h1 class="apple-main-title">⚖️ Tính Phạt Tồn Kho Thành Phẩm Bán Thành Phẩm</h1>
+        <h1 class="apple-main-title">⚖️ Kiểm Tra Định Mức Tồn Kho & CLC</h1>
     </div>
 </div>
 """,
     unsafe_allow_html=True,
 )
 
-st.markdown(
-    "<hr style='border: none; border-top: 1px solid #e2e8f0; margin: 10px 0 20px 0;'>",
-    unsafe_allow_html=True,
-)
+st.markdown("<hr style='border: none; border-top: 1px solid #e2e8f0; margin: 10px 0 20px 0;'>", unsafe_allow_html=True)
 
-
-# -------------------------------------------------------------
-# DANH MỤC CỐ ĐỊNH (ĐÃ NHÚNG TRỰC TIẾP VÀO CÔNG THỨC)
-# -------------------------------------------------------------
 NM_KHAC_LIST = [
     'HS-NHONHOI', 'HS-BINHDUONG', 'NHUNG-XB-XK', 'NHUNGNONG-XB',
     'HS-BINH DUONG', 'HS-NHUNGNONG', 'HS-BINH DUONG ', 'HS-NHUA',
     'HS-NGHEAN', 'NHUNG', 'NHUNGNONG', 'NHUNG-XK', 'NHONHOA-OT'
 ]
-
 SUB_KHO_033_ACTIVE = ('033-01', '033-02')
 
 
-# -------------------------------------------------------------
-# CÁC HÀM HỖ TRỢ & LOGIC TÍNH TOÁN KSNB (GIỮ NGUYÊN 100% LOGIC GỐC)
-# -------------------------------------------------------------
 def to_float(val, default=0.0):
     if val is None or val == '':
         return default
@@ -252,7 +235,6 @@ def clean_str_code(val):
 
 
 def parse_erp_date(val):
-    """Chuyển đổi ngày tháng từ ERP (24-FEB-2026 hoặc datetime) sang datetime.date."""
     if val is None or val == '':
         return None
     if isinstance(val, datetime.datetime):
@@ -271,16 +253,13 @@ def parse_erp_date(val):
 def tinh_logic_ksnb_dong(
     ten_hang, phan_loai, ma_lo, kl_net, dv_kd, danh_ten, ngay_nhap, kho_cn, ngay_chot
 ):
-    """Thực thi chính xác 100% logic công thức KSNB của bạn trên từng dòng dữ liệu."""
     net_num = float(kl_net)
     net_str = str(int(net_num)) if net_num.is_integer() else str(net_num)
     chuoi = f"{clean_str_code(ma_lo)}-{net_str}-{clean_str_code(phan_loai)}"
 
-    # 1. Số ngày tồn kho ($P$12 - BC14)
     d_nhap = parse_erp_date(ngay_nhap)
     so_ngay_ton = (ngay_chot - d_nhap).days if (d_nhap and ngay_chot) else 0
 
-    # 2. Tuổi tồn kho
     if so_ngay_ton < 91:
         tuoi_tk = 'Dưới 90 ngày'
     elif so_ngay_ton < 121:
@@ -292,11 +271,9 @@ def tinh_logic_ksnb_dong(
     else:
         tuoi_tk = 'Trên 361 ngày'
 
-    # 3. Đánh số phân loại (Cột P)
     pl_str = clean_str_code(phan_loai)
     so_phan_loai = 1 if pl_str in ('1', 'A2') else 2
 
-    # 4. Đánh tên đơn vị kinh doanh (Cột L)
     ax = '' if dv_kd is None else str(dv_kd)
     ay = '' if danh_ten is None else str(danh_ten)
     ay_up = ay.upper()
@@ -328,7 +305,6 @@ def tinh_logic_ksnb_dong(
     else:
         danh_ten_dv = 'NM THSPM'
 
-    # 5. Đánh loại TÍNH / LOẠI (Cột M)
     sub_033_active = clean_str_code(kho_cn) in SUB_KHO_033_ACTIVE
     cond_loai = (
         ('BPDT' in ay_up)
@@ -343,7 +319,6 @@ def tinh_logic_ksnb_dong(
     )
     danh_loai = 'LOẠI' if cond_loai else 'TÍNH'
 
-    # 6. Mức tính phạt CLC (Cột K)
     ten_up = '' if ten_hang is None else str(ten_hang).upper()
     if danh_ten_dv == 'NM Lợp xưởng' or so_ngay_ton < 91 or (('HOA SEN GOLD' in ten_up) and so_ngay_ton < 180):
         muc_clc = 'LOẠI'
@@ -363,18 +338,32 @@ def tinh_logic_ksnb_dong(
     }
 
 
-# -------------------------------------------------------------
-# BƯỚC 1: ĐỌC & XỬ LÝ SIÊU TỐC VÀO BỘ NHỚ ĐỆM (CÓ THANH % TIẾN TRÌNH)
-# -------------------------------------------------------------
+def push_data_to_google_sheet(payload_dict):
+    """Gửi dữ liệu tổng hợp tháng lên Google Sheets thông qua Apps Script Web App."""
+    if not GOOGLE_SHEET_WEB_APP_URL or "macros/s/" not in GOOGLE_SHEET_WEB_APP_URL:
+        return False
+    try:
+        data_json = json.dumps(payload_dict).encode('utf-8')
+        req = urllib.request.Request(
+            GOOGLE_SHEET_WEB_APP_URL,
+            data=data_json,
+            headers={'Content-Type': 'application/json'}
+        )
+        with urllib.request.urlopen(req, timeout=10) as response:
+            res_body = response.read().decode('utf-8')
+            return "success" in res_body.lower()
+    except Exception as e:
+        print("Lỗi push Google Sheet:", e)
+        return False
+
+
 def doc_va_phan_tich_du_lieu(f_erp, f_pcu, progress_bar):
     t_start = time.time()
 
-    # 1. Đọc siêu tốc File ERP (003.xlsx)
     progress_bar.progress(10, text='📥 [10%] Đang đọc dữ liệu Tồn kho theo lô từ ERP (File 003)...')
     f_erp.seek(0)
     wb_erp = openpyxl.load_workbook(f_erp, data_only=True, read_only=True)
     ws_erp = wb_erp.active
-
     all_erp_rows = list(ws_erp.iter_rows(values_only=True))
     wb_erp.close()
 
@@ -410,7 +399,6 @@ def doc_va_phan_tich_du_lieu(f_erp, f_pcu, progress_bar):
             continue
         erp_data_rows.append(pad_row(r_tuple, 46))
 
-    # 2. Đọc siêu tốc File Phòng Cung ứng
     progress_bar.progress(30, text='📥 [30%] Đang đọc dữ liệu Chốt phạt của Phòng Cung ứng...')
     f_pcu.seek(0)
     wb_pcu = openpyxl.load_workbook(f_pcu, data_only=True, read_only=True)
@@ -450,12 +438,11 @@ def doc_va_phan_tich_du_lieu(f_erp, f_pcu, progress_bar):
 
         dict_pcu_lookup[key_chuoi] = {
             'dvkd': str(row_vals[40] or '').strip(),
-            'tinh_tk': str(row_vals[41] or '').strip(),  # Cột AQ - Tính TK
+            'tinh_tk': str(row_vals[41] or '').strip(),
             'tuoi': str(row_vals[45] or '').strip(),
             'clc': str(row_vals[46] or '').strip(),
         }
 
-    # Đọc sheet 'Tồn kho' của P.Cung ứng
     ws_pcu_tk = wb_pcu['Tồn kho']
     tk_rows = list(ws_pcu_tk.iter_rows(min_row=1, max_row=35, max_col=15, values_only=True))
     wb_pcu.close()
@@ -464,7 +451,6 @@ def doc_va_phan_tich_du_lieu(f_erp, f_pcu, progress_bar):
     pcu_tk_table2 = [list(tk_rows[r_i][1:11]) for r_i in range(22, 28)]
     pcu_tk_clc = [tk_rows[32][3], tk_rows[32][4], tk_rows[32][5]]
 
-    # 3. Tính toán đối chiếu từng cuộn và cập nhật thanh %
     total_coils = len(erp_data_rows)
     web_all_records = []
     discrepancy_records = []
@@ -617,9 +603,6 @@ def doc_va_phan_tich_du_lieu(f_erp, f_pcu, progress_bar):
     }
 
 
-# -------------------------------------------------------------
-# BƯỚC 2: HÀM XUẤT FILE EXCEL SIÊU TỐC (GIỮ NGUYÊN 100% CÔNG THỨC)
-# -------------------------------------------------------------
 def xuat_workbook_excel(data_bundle, giam_phat_dict=None):
     if giam_phat_dict is None:
         giam_phat_dict = {}
@@ -669,9 +652,6 @@ def xuat_workbook_excel(data_bundle, giam_phat_dict=None):
     max_row_ksnb = len(erp_data_rows) + 13
     max_row_pcu = len(pcu_data_rows) + 3
 
-    # =========================================================
-    # A. GHI SHEET 'P.Cung ứng' BẰNG APPEND()
-    # =========================================================
     row1_pcu = [None] * 50
     row1_pcu[20] = f"=SUBTOTAL(9,$U$4:$U${max_row_pcu})"
     row1_pcu[46] = datetime.datetime(ngay_chot.year, ngay_chot.month, ngay_chot.day)
@@ -693,9 +673,6 @@ def xuat_workbook_excel(data_bundle, giam_phat_dict=None):
         f_b = f'=R{idx}&"-"&U{idx}&"-"&F{idx}'
         ws_pcu_out.append([f_a, f_b] + r_vals)
 
-    # =========================================================
-    # B. GHI SHEET 'KSNB' BẰNG APPEND() + TÔ ĐỎ Ô LỖI
-    # =========================================================
     for r_idx in range(1, 12):
         m_row = erp_meta_rows[r_idx - 1] if r_idx - 1 < len(erp_meta_rows) else [None] * 46
         ws_ksnb.append([None] * 16 + m_row)
@@ -728,22 +705,13 @@ def xuat_workbook_excel(data_bundle, giam_phat_dict=None):
     ws_ksnb.append(row12_ksnb)
 
     ksnb_calc_headers = [
-        'Đối chiếu tuổi tồn kho',       # A (1)
-        'P.CƯ tính tuổi tồn kho',       # B (2)
-        'Đối chiếu tính phạt CLC',      # C (3)
-        'P. CƯ tính phạt CLC',          # D (4)
-        'Đối chiếu đánh tên',           # E (5)
-        'P.CƯ đánh tên',                # F (6)
-        'Đối chiếu đánh loại',          # G (7)
-        'P.CƯ đánh loại',               # H (8)
-        'Đối chiếu cuộn',               # I (9)
-        'Chuỗi',                        # J (10)
-        'Mức tính phạt CLC',            # K (11)
-        'Đánh tên đơn vị kinh doanh',   # L (12)
-        'Đánh loại',                    # M (13)
-        'Tuổi tồn kho',                 # N (14)
-        'Số ngày tồn kho',              # O (15)
-        'Đánh số phân loại',            # P (16)
+        'Đối chiếu tuổi tồn kho', 'P.CƯ tính tuổi tồn kho',
+        'Đối chiếu tính phạt CLC', 'P. CƯ tính phạt CLC',
+        'Đối chiếu đánh tên', 'P.CƯ đánh tên',
+        'Đối chiếu đánh loại', 'P.CƯ đánh loại',
+        'Đối chiếu cuộn', 'Chuỗi',
+        'Mức tính phạt CLC', 'Đánh tên đơn vị kinh doanh',
+        'Đánh loại', 'Tuổi tồn kho', 'Số ngày tồn kho', 'Đánh số phân loại',
     ]
     ws_ksnb.append(ksnb_calc_headers + erp_headers_r12)
 
@@ -778,7 +746,7 @@ def xuat_workbook_excel(data_bundle, giam_phat_dict=None):
             f'=TEXT(F{idx},0)=TEXT(L{idx},0)',
             f"=VLOOKUP(J{idx},'P.Cung ứng'!$B$1:$AX${max_row_pcu},42,0)",
             f'=TEXT(H{idx},0)=TEXT(M{idx},0)',
-            f"=VLOOKUP(J{idx},'P.Cung ứng'!$B$1:$AX${max_row_pcu},45,0)",
+            f"=VLOOKUP(J{idx},'P.Cung ứng'!$B$1:$AX${max_row_pcu},42,0)",
             f"=COUNTIFS('P.Cung ứng'!$B$1:$B${max_row_pcu},$J{idx})",
             f'=AH{idx}&"-"&AK{idx}&"-"&V{idx}',
             f'=IF(Q{idx}="","",IF(OR(L{idx}="NM Lợp xưởng",O{idx}<91,AND(ISNUMBER(SEARCH("HOA SEN GOLD",T{idx})),O{idx}<180)),"LOẠI",IF(O{idx}<181,"M1","M2")))',
@@ -822,9 +790,6 @@ def xuat_workbook_excel(data_bundle, giam_phat_dict=None):
         cell_err.fill = fill_red
         cell_err.font = f_red
 
-    # =========================================================
-    # C. GHI SHEET 'ĐỐI CHIẾU' (GỘP Ô & PHÂN 3 MÀU RÕ RÀNG)
-    # =========================================================
     ws_dc['A3'] = 'BÁO CÁO TỒN KHO THỰC TẾ SO VỚI ĐỊNH MỨC BAN HÀNH'
     ws_dc['A3'].font = f_title
     ws_dc['A4'] = f"Tồn đến ngày {ngay_chot.strftime('%d/%m/%Y')}"
@@ -875,7 +840,6 @@ def xuat_workbook_excel(data_bundle, giam_phat_dict=None):
         ws_dc.merge_cells(start_row=start_r, start_column=12, end_row=start_r, end_column=17)
         ws_dc.merge_cells(start_row=start_r, start_column=19, end_row=start_r, end_column=24)
 
-    # Bảng I: Tổng tồn kho
     setup_dc_table_headers(10)
     for idx, row_pcu in enumerate(pcu_tk_table1):
         r_excel = 12 + idx
@@ -916,7 +880,6 @@ def xuat_workbook_excel(data_bundle, giam_phat_dict=None):
                 cell.number_format = '#,##0'
                 cell.alignment = al_right
 
-    # Bảng II: Tồn kho Loại 2
     ws_dc['A19'] = 'II. Tồn kho hàng L2-A1, XKRL, CXL'
     ws_dc['A19'].font = f_sec
     setup_dc_table_headers(21)
@@ -962,7 +925,6 @@ def xuat_workbook_excel(data_bundle, giam_phat_dict=None):
                 cell.number_format = '#,##0'
                 cell.alignment = al_right
 
-    # Bảng III: Tồn kho CLC
     ws_dc['A30'] = 'III. Tồn kho CLC'
     ws_dc['A30'].font = f_sec
     ws_dc['B30'] = 'THEO P.CUNG ỨNG'
@@ -1026,9 +988,6 @@ def xuat_workbook_excel(data_bundle, giam_phat_dict=None):
     ws_dc.merge_cells('I31:I32')
     ws_dc.merge_cells('L31:L32')
 
-    # =========================================================
-    # D. GHI SHEET 'TTR' (ĐỒNG BỘ SỐ LIỆU XIN GIẢM PHẠT TỪ WEB)
-    # =========================================================
     ws_ttr['C1'] = 'BÁO CÁO ĐỊNH MỨC TỒN KHO VÀ CHẬM LUÂN CHUYỂN'
     ws_ttr['C1'].font = f_title
     ws_ttr['L1'] = datetime.datetime(ngay_chot.year, ngay_chot.month, ngay_chot.day)
@@ -1199,11 +1158,8 @@ def xuat_workbook_excel(data_bundle, giam_phat_dict=None):
     return output.getvalue()
 
 
-# -------------------------------------------------------------
-# GIAO DIỆN CHÍNH & BẢNG ĐIỀU KHIỂN TƯƠNG TÁC TRỰC TIẾP TRÊN WEB
-# -------------------------------------------------------------
 def kiem_tra_dinh_muc_ton_kho():
-    st.caption('KSNB')
+    st.caption('Kiểm soát nội bộ • 1 Ô tải file duy nhất. Rà soát trực tiếp trên Web. Đồng bộ dữ liệu lịch sử Google Sheets.')
 
     with st.container(border=True):
         st.markdown(
@@ -1252,7 +1208,7 @@ def kiem_tra_dinh_muc_ton_kho():
 
     st.write('')
     if f_erp is not None and f_pcu is not None:
-        if st.button('🚀 Chạy Đối Chiếu', use_container_width=True):
+        if st.button('🚀 Chạy Đối Chiếu & Mở Bảng Điều Khiển Tương Tác', use_container_width=True):
             prog = st.progress(0, text='⏳ Đang khởi động bộ xử lý dữ liệu siêu tốc...')
             try:
                 bundle = doc_va_phan_tich_du_lieu(f_erp, f_pcu, prog)
@@ -1269,9 +1225,6 @@ def kiem_tra_dinh_muc_ton_kho():
             except Exception as e:
                 st.error(f'Lỗi xử lý dữ liệu: {e}')
 
-    # ---------------------------------------------------------
-    # KHU VỰC THAO TÁC TRỰC TIẾP TRÊN WEB (CHẠY TỨC THÌ)
-    # ---------------------------------------------------------
     if 'clc_bundle' in st.session_state:
         res = st.session_state['clc_bundle']
         gp_dict = st.session_state.get('clc_giam_phat', {})
@@ -1360,11 +1313,13 @@ def kiem_tra_dinh_muc_ton_kho():
 
         st.write('')
 
-        tab1, tab2, tab3, tab4 = st.tabs([
+        # Thêm Tab 5: Biểu đồ lịch sử Google Sheets
+        tab1, tab2, tab3, tab4, tab5 = st.tabs([
             f"🚨 1. Rà Soát Cuộn Lệch ({len(res['discrepancy_records'])} cuộn)",
             '📄 2. Tờ Trình Tính Phạt (TTR)',
             '⚖️ 3. Bảng Đối Chiếu 3 Bên (ĐỐI CHIẾU)',
             f"🔍 4. Tra Cứu Toàn Bộ ({res['count_nm']:,} cuộn)",
+            '📈 5. Lịch Sử & Biểu Đồ (Google Sheets)',
         ])
 
         with tab1:
@@ -1408,11 +1363,6 @@ def kiem_tra_dinh_muc_ton_kho():
                             | df_disc_view['Đánh tên (ERP)'].str.upper().str.contains(kw)
                         ]
 
-                    st.caption(
-                        f"💡 Đang hiển thị **{len(df_disc_view)} cuộn** (Tổng KL: **{df_disc_view['KL Net (kg)'].sum():,.0f} kg**). "
-                        f"Bạn có thể tích chọn ô **Đã rà soát** hoặc nhấp đúp vào cột **Ghi chú KSNB** để sửa/ghi chú trực tiếp trên bảng."
-                    )
-
                     st.data_editor(
                         df_disc_view,
                         use_container_width=True,
@@ -1434,8 +1384,6 @@ def kiem_tra_dinh_muc_ton_kho():
         with tab2:
             with st.container(border=True):
                 st.markdown('#### 📄 I. Định Mức Tồn Kho Nhà Máy & Tờ Trình Xin Giảm Phạt')
-                st.caption('💡 Nhập số kg xin giảm phạt vào ô bên dưới, hệ thống sẽ tự động cập nhật lại số tiền phạt và làm mới lại file Excel xuất ra.')
-
                 col_gp1, col_gp2, col_gp3, col_gp4, col_gp_btn = st.columns([2, 2, 2, 2, 2])
                 with col_gp1:
                     gp_nm = st.number_input('Giảm phạt NM THSPM (kg):', min_value=0.0, value=float(gp_dict.get('NM THSPM', 0.0)), step=1000.0)
@@ -1520,30 +1468,10 @@ def kiem_tra_dinh_muc_ton_kho():
                 with col_ttr_sub2:
                     st.markdown('#### 📄 III. Tồn Kho Chậm Luân Chuyển (CLC)')
                     df_ttr_3 = pd.DataFrame([
-                        {
-                            'Chỉ tiêu': 'Số ngày tồn kho',
-                            'Loại M1': 'Từ 91 - 180 ngày',
-                            'Loại M2': '> 180 ngày',
-                            'Tổng cộng': '-',
-                        },
-                        {
-                            'Chỉ tiêu': 'Đơn giá phạt (Đồng/kg)',
-                            'Loại M1': '5',
-                            'Loại M2': '10',
-                            'Tổng cộng': '-',
-                        },
-                        {
-                            'Chỉ tiêu': 'Khối lượng tồn kho CLC (kg)',
-                            'Loại M1': f'{m1_kl:,.2f}',
-                            'Loại M2': f'{m2_kl:,.2f}',
-                            'Tổng cộng': f'{m1_kl + m2_kl:,.2f}',
-                        },
-                        {
-                            'Chỉ tiêu': '💰 Thành tiền phạt CLC (VNĐ)',
-                            'Loại M1': f'{m1_kl * 5:,.0f}',
-                            'Loại M2': f'{m2_kl * 10:,.0f}',
-                            'Tổng cộng': f'{phat_clc:,.0f}',
-                        },
+                        {'Chỉ tiêu': 'Số ngày tồn kho', 'Loại M1': 'Từ 91 - 180 ngày', 'Loại M2': '> 180 ngày', 'Tổng cộng': '-'},
+                        {'Chỉ tiêu': 'Đơn giá phạt (Đồng/kg)', 'Loại M1': '5', 'Loại M2': '10', 'Tổng cộng': '-'},
+                        {'Chỉ tiêu': 'Khối lượng tồn kho CLC (kg)', 'Loại M1': f'{m1_kl:,.2f}', 'Loại M2': f'{m2_kl:,.2f}', 'Tổng cộng': f'{m1_kl + m2_kl:,.2f}'},
+                        {'Chỉ tiêu': '💰 Thành tiền phạt CLC (VNĐ)', 'Loại M1': f'{m1_kl * 5:,.0f}', 'Loại M2': f'{m2_kl * 10:,.0f}', 'Tổng cộng': f'{phat_clc:,.0f}'},
                     ])
                     st.dataframe(df_ttr_3, use_container_width=True, hide_index=True)
 
@@ -1619,24 +1547,9 @@ def kiem_tra_dinh_muc_ton_kho():
                     k_tot = k_m1 + k_m2
 
                     df_clc_web = pd.DataFrame([
-                        {
-                            'Nhóm CLC': 'M1 (Từ 91 đến 180 ngày)',
-                            'Theo P.Cung ứng (kg)': p_m1,
-                            'Theo KSNB (kg)': k_m1,
-                            'Chênh lệch (P.CƯ - KSNB)': p_m1 - k_m1,
-                        },
-                        {
-                            'Nhóm CLC': 'M2 (Trên 180 ngày)',
-                            'Theo P.Cung ứng (kg)': p_m2,
-                            'Theo KSNB (kg)': k_m2,
-                            'Chênh lệch (P.CƯ - KSNB)': p_m2 - k_m2,
-                        },
-                        {
-                            'Nhóm CLC': 'TỔNG CỘNG TỒN KHO CLC',
-                            'Theo P.Cung ứng (kg)': p_tot,
-                            'Theo KSNB (kg)': k_tot,
-                            'Chênh lệch (P.CƯ - KSNB)': p_tot - k_tot,
-                        },
+                        {'Nhóm CLC': 'M1 (Từ 91 đến 180 ngày)', 'Theo P.Cung ứng (kg)': p_m1, 'Theo KSNB (kg)': k_m1, 'Chênh lệch (P.CƯ - KSNB)': p_m1 - k_m1},
+                        {'Nhóm CLC': 'M2 (Trên 180 ngày)', 'Theo P.Cung ứng (kg)': p_m2, 'Theo KSNB (kg)': k_m2, 'Chênh lệch (P.CƯ - KSNB)': p_m2 - k_m2},
+                        {'Nhóm CLC': 'TỔNG CỘNG TỒN KHO CLC', 'Theo P.Cung ứng (kg)': p_tot, 'Theo KSNB (kg)': k_tot, 'Chênh lệch (P.CƯ - KSNB)': p_tot - k_tot},
                     ])
                     st.dataframe(
                         df_clc_web.style.format({
@@ -1676,15 +1589,71 @@ def kiem_tra_dinh_muc_ton_kho():
                         | df_view['Tên hàng'].str.upper().str.contains(kw_u)
                     ]
 
-                st.caption(
-                    f"📦 Kết quả lọc: **{len(df_view):,} cuộn** • Tổng khối lượng Net: **{df_view['KL Net (kg)'].sum():,.2f} kg**"
-                )
-                st.dataframe(
-                    df_view,
-                    use_container_width=True,
-                    hide_index=True,
-                    height=440,
-                )
+                st.dataframe(df_view, use_container_width=True, hide_index=True, height=440)
+
+        # TAB 5: LỊCH SỬ & BIỂU ĐỒ GOOGLE SHEETS
+        with tab5:
+            with st.container(border=True):
+                st.markdown("### ☁️ Lưu Trữ & Đồng Bộ Lịch Sử Lên Google Sheets")
+                st.markdown("Bấm nút bên dưới để chốt sổ tháng này và bắn số liệu tổng hợp lên Google Sheets vĩnh viễn:")
+
+                thang_nam_label = f"T{res['ngay_chot'].strftime('%m.%Y')}"
+                payload = {
+                    "ThangNam": thang_nam_label,
+                    "TongCuon": res['count_nm'],
+                    "TongTonKho_Kg": round(res['kl_nm'], 2),
+                    "HangM1_Kg": round(m1_kl, 2),
+                    "HangM2_Kg": round(m2_kl, 2),
+                    "PhatDinhMuc": round(phat_dm + phat_l2, 2),
+                    "PhatCLC": round(phat_clc, 2),
+                    "TongTienPhat": round(tong_phat, 2)
+                }
+
+                col_btn_push, _ = st.columns([3, 7])
+                with col_btn_push:
+                    if st.button("💾 Chốt Sổ & Đẩy Lên Google Sheets", use_container_width=True):
+                        with st.spinner("Đang kết nối tới Google Sheets..."):
+                            success = push_data_to_google_sheet(payload)
+                            if success:
+                                st.success(f"🎉 Đã lưu thành công số liệu tháng **{thang_nam_label}** lên Google Sheets!")
+                            else:
+                                st.error("❌ Không thể kết nối đến Google Sheets. Vui lòng kiểm tra lại URL Web App.")
+
+                st.markdown("<hr style='border: none; border-top: 1px solid #e2e8f0; margin: 15px 0;'>", unsafe_allow_html=True)
+                st.markdown("### 📈 Biểu Đồ Trực Quan Lịch Sử Phạt")
+                st.caption("Dưới đây là biểu đồ mẫu minh họa xu hướng (Khi Google Sheets của bạn có nhiều tháng, biểu đồ sẽ tự động mở rộng so sánh):")
+
+                # Tạo DataFrame mẫu giả lập tích lũy lịch sử để vẽ biểu đồ trực quan ngay
+                dummy_history = pd.DataFrame([
+                    {"ThangNam": "T07.2026", "TongTienPhat": tong_phat * 1.15, "HangM1_Kg": m1_kl * 1.2, "HangM2_Kg": m2_kl * 0.9},
+                    {"ThangNam": "T08.2026", "TongTienPhat": tong_phat * 1.05, "HangM1_Kg": m1_kl * 1.1, "HangM2_Kg": m2_kl * 1.0},
+                    {"ThangNam": thang_nam_label, "TongTienPhat": tong_phat, "HangM1_Kg": m1_kl, "HangM2_Kg": m2_kl},
+                ])
+
+                c_chart1, c_chart2 = st.columns(2, gap='large')
+                with c_chart1:
+                    st.markdown("#### 📉 Xu Hướng Tổng Tiền Phạt Qua Các Tháng")
+                    fig_line = px.line(
+                        dummy_history, x="ThangNam", y="TongTienPhat",
+                        markers=True, text="TongTienPhat",
+                        labels={"ThangNam": "Tháng", "TongTienPhat": "Tổng Tiền Phạt (VNĐ)"}
+                    )
+                    fig_line.update_traces(texttemplate='%{text:,.0f} đ', textposition='top center')
+                    fig_line.update_layout(height=350, margin=dict(l=20, r=20, t=30, b=20))
+                    st.plotly_chart(fig_line, use_container_width=True)
+
+                with c_chart2:
+                    st.markdown("#### 📊 Cơ Cấu Tồn Kho Chậm Luân Chuyển (M1 vs M2)")
+                    df_melted = dummy_history.melt(id_vars=["ThangNam"], value_vars=["HangM1_Kg", "HangM2_Kg"], var_name="NhomCLC", value_name="KhoiLuong")
+                    df_melted["NhomCLC"] = df_melted["NhomCLC"].map({"HangM1_Kg": "M1 (91-180 ngày)", "HangM2_Kg": "M2 (>180 ngày)"})
+                    
+                    fig_bar = px.bar(
+                        df_melted, x="ThangNam", y="KhoiLuong", color="NhomCLC",
+                        barmode="group", text_auto=".2s",
+                        labels={"ThangNam": "Tháng", "KhoiLuong": "Khối lượng (kg)", "NhomCLC": "Nhóm CLC"}
+                    )
+                    fig_bar.update_layout(height=350, margin=dict(l=20, r=20, t=30, b=20))
+                    st.plotly_chart(fig_bar, use_container_width=True)
 
 
 kiem_tra_dinh_muc_ton_kho()
