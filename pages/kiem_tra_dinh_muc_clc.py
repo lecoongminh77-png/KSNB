@@ -1,6 +1,7 @@
 import datetime
 import io
 import re
+import time
 import openpyxl
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
@@ -35,11 +36,11 @@ st.markdown(
         display: flex;
         justify-content: space-between;
         align-items: flex-end;
-        padding: 20px 0 10px 0;
+        padding: 15px 0 10px 0;
         margin-bottom: 5px;
     }
     .apple-main-title {
-        font-size: 40px;
+        font-size: 38px;
         font-weight: 700;
         color: #1d1d1f;
         letter-spacing: -0.025em;
@@ -56,27 +57,101 @@ st.markdown(
         font-weight: 600 !important;
         font-size: 14px !important;
         box-shadow: 0 4px 12px rgba(0, 113, 227, 0.2) !important;
+        transition: all 0.2s ease !important;
     }
     div.stButton > button:first-child:hover {
         background: #0077ed !important;
+        color: #ffffff !important;
+        transform: translateY(-1px);
+    }
+
+    /* Nút Download nổi bật */
+    div.stDownloadButton > button:first-child {
+        background: #1e7e34 !important;
+        color: #ffffff !important;
+        border-radius: 980px !important;
+        border: none !important;
+        padding: 12px 24px !important;
+        font-weight: 700 !important;
+        font-size: 15px !important;
+        box-shadow: 0 6px 16px rgba(30, 126, 52, 0.25) !important;
+    }
+    div.stDownloadButton > button:first-child:hover {
+        background: #218838 !important;
         color: #ffffff !important;
     }
 
     /* Container Streamlit Thẻ Apple */
     [data-testid="stVerticalBlockBorderWrapper"] {
         background: #ffffff;
-        border-radius: 16px;
-        padding: 15px;
-        border: 1px solid rgba(0, 0, 0, 0.08);
-        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
+        border-radius: 18px;
+        padding: 18px;
+        border: 1px solid rgba(0, 0, 0, 0.07);
+        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.03);
     }
 
-    /* Thành phần chữ trong thẻ */
+    /* Thẻ KPI Bento Apple */
+    .bento-card {
+        background: #ffffff;
+        border-radius: 16px;
+        padding: 18px 20px;
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+        height: 100%;
+    }
+    .bento-card-highlight {
+        background: linear-gradient(135deg, #0071e3 0%, #005bb5 100%);
+        color: #ffffff !important;
+        border-radius: 16px;
+        padding: 18px 20px;
+        box-shadow: 0 8px 24px rgba(0, 113, 227, 0.22);
+        height: 100%;
+    }
+    .bento-label {
+        font-size: 13px;
+        font-weight: 600;
+        color: #86868b;
+        margin-bottom: 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+    .bento-label-white {
+        font-size: 13px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.85);
+        margin-bottom: 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+    .bento-value {
+        font-size: 26px;
+        font-weight: 700;
+        color: #1d1d1f;
+        margin-bottom: 6px;
+    }
+    .bento-value-white {
+        font-size: 28px;
+        font-weight: 800;
+        color: #ffffff;
+        margin-bottom: 6px;
+    }
+    .bento-sub {
+        font-size: 13px;
+        font-weight: 500;
+        color: #515154;
+    }
+    .bento-sub-white {
+        font-size: 13px;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.92);
+    }
+
+    /* Thành phần chữ trong thẻ Upload */
     .upload-title {
         font-size: 18px;
         font-weight: 700;
         color: #1d1d1f;
-        margin-bottom: 16px;
+        margin-bottom: 14px;
         display: flex;
         align-items: center;
         gap: 8px;
@@ -84,24 +159,28 @@ st.markdown(
     .guide-box {
         background: #fbfbfd;
         border-radius: 12px;
-        padding: 16px;
-        margin-bottom: 16px;
-        border: 1px solid rgba(0,0,0,0.04);
+        padding: 14px 16px;
+        margin-bottom: 14px;
+        border: 1px solid rgba(0,0,0,0.05);
     }
     .guide-header {
         font-weight: 700;
         color: #0071e3;
         font-size: 14px;
-        margin-bottom: 8px;
-        display: flex;
-        align-items: center;
-        gap: 6px;
+        margin-bottom: 6px;
     }
     .guide-text {
         font-size: 13px;
         color: #515154;
-        line-height: 1.6;
+        line-height: 1.55;
         margin: 0;
+    }
+
+    /* Tuỳ chỉnh Thanh Tabs kiểu Segmented Control */
+    button[data-baseweb="tab"] {
+        font-size: 15px !important;
+        font-weight: 600 !important;
+        padding: 10px 18px !important;
     }
 </style>
 """,
@@ -115,7 +194,7 @@ with col_home:
         st.switch_page('app_ksnb.py')
 
 st.markdown(
-    "<hr style='border: none; border-top: 1px solid #e2e8f0; margin: 10px 0 20px 0;'>",
+    "<hr style='border: none; border-top: 1px solid #e2e8f0; margin: 8px 0 16px 0;'>",
     unsafe_allow_html=True,
 )
 
@@ -132,13 +211,13 @@ st.markdown(
 )
 
 st.markdown(
-    "<hr style='border: none; border-top: 1px solid #e2e8f0; margin: 15px 0 25px 0;'>",
+    "<hr style='border: none; border-top: 1px solid #e2e8f0; margin: 10px 0 20px 0;'>",
     unsafe_allow_html=True,
 )
 
 
 # -------------------------------------------------------------
-# DANH MỤC CỐ ĐỊNH (ĐÃ NHÚNG TRỰC TIẾP, KHÔNG CẦN SHEET PHỤ)
+# DANH MỤC CỐ ĐỊNH (ĐÃ NHÚNG TRỰC TIẾP VÀO CÔNG THỨC)
 # -------------------------------------------------------------
 NM_KHAC_LIST = [
     'HS-NHONHOI', 'HS-BINHDUONG', 'NHUNG-XB-XK', 'NHUNGNONG-XB',
@@ -155,6 +234,8 @@ SUB_KHO_033_ACTIVE = ('033-01', '033-02')
 def to_float(val, default=0.0):
     if val is None or val == '':
         return default
+    if isinstance(val, (int, float)):
+        return float(val)
     try:
         return float(str(val).replace(',', '').strip())
     except Exception:
@@ -165,7 +246,8 @@ def clean_str_code(val):
     if val is None:
         return ''
     s = str(val).strip()
-    s = re.sub(r'\.0$', '', s)
+    if s.endswith('.0'):
+        s = s[:-2]
     return s.strip()
 
 
@@ -189,11 +271,10 @@ def parse_erp_date(val):
 def tinh_logic_ksnb_dong(
     ten_hang, phan_loai, ma_lo, kl_net, dv_kd, danh_ten, ngay_nhap, kho_cn, ngay_chot
 ):
-    """
-    Thực thi chính xác 100% logic công thức KSNB trên từng dòng dữ liệu
-    để vừa đối chiếu tô đỏ trên Excel, vừa hiển thị báo cáo nhanh trên Web.
-    """
-    chuoi = f"{clean_str_code(ma_lo)}-{int(kl_net) if float(kl_net).is_integer() else kl_net}-{clean_str_code(phan_loai)}"
+    """Thực thi chính xác 100% logic công thức KSNB của bạn trên từng dòng dữ liệu."""
+    net_num = float(kl_net)
+    net_str = str(int(net_num)) if net_num.is_integer() else str(net_num)
+    chuoi = f"{clean_str_code(ma_lo)}-{net_str}-{clean_str_code(phan_loai)}"
 
     # 1. Số ngày tồn kho ($P$12 - BC14)
     d_nhap = parse_erp_date(ngay_nhap)
@@ -282,23 +363,26 @@ def tinh_logic_ksnb_dong(
     }
 
 
-def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
-    """
-    Đọc file 003.xlsx (ERP) và file Chốt phạt tồn kho của P.Cung ứng,
-    xuất ra workbook gồm đúng 4 sheet chính: TTR, ĐỐI CHIẾU, KSNB, P.Cung ứng.
-    """
-    # ---------------------------------------------------------
-    # 1. ĐỌC FILE ERP (003.xlsx)
-    # ---------------------------------------------------------
+# -------------------------------------------------------------
+# BƯỚC 1: ĐỌC & XỬ LÝ SIÊU TỐC VÀO BỘ NHỚ ĐỆM (CÓ THANH % TIẾN TRÌNH)
+# -------------------------------------------------------------
+def doc_va_phan_tich_du_lieu(f_erp, f_pcu, progress_bar):
+    t_start = time.time()
+
+    # 1. Đọc siêu tốc File ERP (003.xlsx) bằng chế độ read_only
+    progress_bar.progress(10, text='📥 [10%] Đang đọc dữ liệu Tồn kho theo lô từ ERP (File 003)...')
     f_erp.seek(0)
-    wb_erp = openpyxl.load_workbook(f_erp, data_only=True)
+    wb_erp = openpyxl.load_workbook(f_erp, data_only=True, read_only=True)
     ws_erp = wb_erp.active
 
-    # Lấy ngày tồn kho từ dòng 8 (ví dụ: "Ngày tồn kho: 30-09-2026")
+    all_erp_rows = list(ws_erp.iter_rows(values_only=True))
+    wb_erp.close()
+
     ngay_chot = None
-    for r in range(1, 12):
-        for c in range(1, 10):
-            v = str(ws_erp.cell(r, c).value or '')
+    for r_i in range(min(12, len(all_erp_rows))):
+        row_v = all_erp_rows[r_i]
+        for c_i in range(min(10, len(row_v))):
+            v = str(row_v[c_i] or '')
             m = re.search(r'(\d{2}-\d{2}-\d{4})', v)
             if m:
                 ngay_chot = datetime.datetime.strptime(m.group(1), '%d-%m-%Y').date()
@@ -306,76 +390,265 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
         if ngay_chot:
             break
 
-    erp_headers_r11 = [ws_erp.cell(11, c).value for c in range(1, 47)]
-    erp_headers_r12 = [ws_erp.cell(12, c).value for c in range(1, 47)]
-    erp_meta_rows = []
-    for r in range(1, 11):
-        erp_meta_rows.append([ws_erp.cell(r, c).value for c in range(1, 47)])
+    def pad_row(r_tuple, length=46):
+        lst = list(r_tuple[:length]) if r_tuple else []
+        if len(lst) < length:
+            lst.extend([None] * (length - len(lst)))
+        return lst
+
+    erp_meta_rows = [pad_row(all_erp_rows[i], 46) for i in range(min(10, len(all_erp_rows)))]
+    erp_headers_r11 = pad_row(all_erp_rows[10], 46) if len(all_erp_rows) > 10 else [None] * 46
+    erp_headers_r12 = pad_row(all_erp_rows[11], 46) if len(all_erp_rows) > 11 else [None] * 46
 
     erp_data_rows = []
-    for r in range(13, ws_erp.max_row + 1):
-        kho_vt = ws_erp.cell(r, 1).value
-        ma_hang = ws_erp.cell(r, 3).value
+    for r_tuple in all_erp_rows[12:]:
+        if not r_tuple:
+            continue
+        kho_vt = r_tuple[0] if len(r_tuple) > 0 else None
+        ma_hang = r_tuple[2] if len(r_tuple) > 2 else None
         if (kho_vt is None or str(kho_vt).strip() == '') and (ma_hang is None or str(ma_hang).strip() == ''):
             continue
-        row_vals = [ws_erp.cell(r, c).value for c in range(1, 47)]
-        erp_data_rows.append(row_vals)
+        erp_data_rows.append(pad_row(r_tuple, 46))
 
-    # ---------------------------------------------------------
-    # 2. ĐỌC FILE PHÒNG CUNG ỨNG (CHỐT PHẠT TK...)
-    # ---------------------------------------------------------
+    # 2. Đọc siêu tốc File Phòng Cung ứng bằng chế độ read_only
+    progress_bar.progress(30, text='📥 [30%] Đang đọc dữ liệu Chốt phạt của Phòng Cung ứng...')
     f_pcu.seek(0)
-    wb_pcu = openpyxl.load_workbook(f_pcu, data_only=True)
-
+    wb_pcu = openpyxl.load_workbook(f_pcu, data_only=True, read_only=True)
     ws_pcu_data = wb_pcu['Data']
-    if ngay_chot is None:
-        ngay_chot = parse_erp_date(ws_pcu_data['AT1'].value) or datetime.date.today()
+    all_pcu_rows = list(ws_pcu_data.iter_rows(values_only=True))
 
-    pcu_headers_r2 = [ws_pcu_data.cell(2, c).value for c in range(2, 50)]
-    pcu_headers_r3 = [ws_pcu_data.cell(3, c).value for c in range(2, 50)]
+    if ngay_chot is None and len(all_pcu_rows) > 0 and len(all_pcu_rows[0]) >= 46:
+        ngay_chot = parse_erp_date(all_pcu_rows[0][45]) or datetime.date.today()
+    elif ngay_chot is None:
+        ngay_chot = datetime.date.today()
+
+    def slice_pcu_row(r_tuple):
+        lst = list(r_tuple[1:49]) if r_tuple and len(r_tuple) > 1 else []
+        if len(lst) < 48:
+            lst.extend([None] * (48 - len(lst)))
+        return lst
+
+    pcu_headers_r2 = slice_pcu_row(all_pcu_rows[1]) if len(all_pcu_rows) > 1 else [None] * 48
+    pcu_headers_r3 = slice_pcu_row(all_pcu_rows[2]) if len(all_pcu_rows) > 2 else [None] * 48
 
     pcu_data_rows = []
     dict_pcu_lookup = {}
-    for r in range(4, ws_pcu_data.max_row + 1):
-        ma_hang = ws_pcu_data.cell(r, 2).value
-        ma_lo = ws_pcu_data.cell(r, 17).value
+    for r_tuple in all_pcu_rows[3:]:
+        if not r_tuple:
+            continue
+        ma_hang = r_tuple[1] if len(r_tuple) > 1 else None
+        ma_lo = r_tuple[16] if len(r_tuple) > 16 else None
         if ma_hang is None and ma_lo is None:
             continue
-        row_vals = [ws_pcu_data.cell(r, c).value for c in range(2, 50)]
+        row_vals = slice_pcu_row(r_tuple)
         pcu_data_rows.append(row_vals)
 
-        phan_loai = clean_str_code(ws_pcu_data.cell(r, 5).value)
-        kl_net = to_float(ws_pcu_data.cell(r, 20).value, 0.0)
+        phan_loai = clean_str_code(row_vals[3])
+        kl_net = to_float(row_vals[18], 0.0)
         net_str = str(int(kl_net)) if kl_net.is_integer() else str(kl_net)
         key_chuoi = f"{clean_str_code(ma_lo)}-{net_str}-{phan_loai}"
 
         dict_pcu_lookup[key_chuoi] = {
-            'dvkd': str(ws_pcu_data.cell(r, 42).value or '').strip(),
-            'tinh_tk': str(ws_pcu_data.cell(r, 44).value or '').strip(),
-            'tuoi': str(ws_pcu_data.cell(r, 47).value or '').strip(),
-            'clc': str(ws_pcu_data.cell(r, 48).value or '').strip(),
+            'dvkd': str(row_vals[40] or '').strip(),
+            'tinh_tk': str(row_vals[42] or '').strip(),
+            'tuoi': str(row_vals[45] or '').strip(),
+            'clc': str(row_vals[46] or '').strip(),
         }
 
-    # Đọc bảng tổng hợp từ sheet 'Tồn kho' của P.Cung ứng (Cột B..K = 2..11)
+    # Đọc sheet 'Tồn kho' của P.Cung ứng
     ws_pcu_tk = wb_pcu['Tồn kho']
-    pcu_tk_table1 = []  # Rows 12..17 (B..K)
-    for r in range(12, 18):
-        pcu_tk_table1.append([ws_pcu_tk.cell(r, c).value for c in range(2, 12)])
+    tk_rows = list(ws_pcu_tk.iter_rows(min_row=1, max_row=35, max_col=15, values_only=True))
+    wb_pcu.close()
 
-    pcu_tk_table2 = []  # Rows 23..28 (B..K)
-    for r in range(23, 29):
-        pcu_tk_table2.append([ws_pcu_tk.cell(r, c).value for c in range(2, 12)])
+    pcu_tk_table1 = [list(tk_rows[r_i][1:11]) for r_i in range(11, 17)]
+    pcu_tk_table2 = [list(tk_rows[r_i][1:11]) for r_i in range(22, 28)]
+    pcu_tk_clc = [tk_rows[32][3], tk_rows[32][4], tk_rows[32][5]]
 
-    # Bảng III CLC trong sheet 'Tồn kho' của P.CƯ nằm ở D33 (M1), E33 (M2), F33 (Tổng)
-    pcu_tk_clc = [
-        ws_pcu_tk.cell(33, 4).value,  # M1
-        ws_pcu_tk.cell(33, 5).value,  # M2
-        ws_pcu_tk.cell(33, 6).value,  # Tổng
-    ]
+    # 3. Tính toán đối chiếu từng cuộn và cập nhật thanh %
+    total_coils = len(erp_data_rows)
+    web_all_records = []
+    discrepancy_records = []
+    ksnb_flags_list = []
 
-    # ---------------------------------------------------------
-    # 3. KHỞI TẠO WORKBOOK ĐẦU RA (CHỈ GỒM 4 SHEET CHÍNH)
-    # ---------------------------------------------------------
+    age_order = ['Dưới 90 ngày', 'Từ 91 đến 120 ngày', 'Từ 121 đến 180 ngày', 'Từ 181 đến 360 ngày', 'Trên 361 ngày']
+    dvkd_order = ['NM THSPM', 'BTP- Mạ màu & Xẻ băng ', 'BTP- BAO BÌ', 'VLXD', 'Các NM Khác']
+    ksnb_agg_t1 = {dv: {ag: 0.0 for ag in age_order} for dv in dvkd_order}
+    ksnb_agg_t2 = {dv: {ag: 0.0 for ag in age_order} for dv in dvkd_order}
+    ksnb_clc_m1 = 0.0
+    ksnb_clc_m2 = 0.0
+
+    step_update = max(1, total_coils // 5)
+    for i, r_vals in enumerate(erp_data_rows):
+        if i % step_update == 0:
+            pct = 40 + int((i / max(1, total_coils)) * 45)
+            progress_bar.progress(pct, text=f'🔍 [{pct}%] Đang đối chiếu chéo KSNB & P.CƯ: {i:,} / {total_coils:,} cuộn...')
+
+        idx_excel = i + 14
+        kl_net = to_float(r_vals[20], 0.0)
+        res_row = tinh_logic_ksnb_dong(
+            ten_hang=r_vals[3],
+            phan_loai=r_vals[5],
+            ma_lo=r_vals[17],
+            kl_net=kl_net,
+            dv_kd=r_vals[33],
+            danh_ten=r_vals[34],
+            ngay_nhap=r_vals[38],
+            kho_cn=r_vals[41],
+            ngay_chot=ngay_chot,
+        )
+
+        # Cộng dồn cho bảng ĐỐI CHIẾU theo KSNB
+        dv_key = res_row['danh_ten_dv']
+        ag_key = res_row['tuoi_tk']
+        if dv_key in ksnb_agg_t1 and ag_key in ksnb_agg_t1[dv_key]:
+            ksnb_agg_t1[dv_key][ag_key] += kl_net
+            if res_row['so_phan_loai'] == 2:
+                ksnb_agg_t2[dv_key][ag_key] += kl_net
+
+        if res_row['danh_loai'] == 'TÍNH':
+            if res_row['muc_clc'] == 'M1':
+                ksnb_clc_m1 += kl_net
+            elif res_row['muc_clc'] == 'M2':
+                ksnb_clc_m2 += kl_net
+
+        pcu_info = dict_pcu_lookup.get(res_row['chuoi'])
+        err_types = []
+        err_notes = []
+        check_flags = {1: True, 3: True, 5: True, 7: True}
+
+        if pcu_info is None:
+            err_types.append('Lệch Cuộn')
+            err_notes.append('Không tìm thấy chuỗi cuộn bên P.Cung ứng')
+            check_flags = {1: False, 3: False, 5: False, 7: False}
+            pcu_tuoi, pcu_clc, pcu_dvkd, pcu_loai = '', '', '', ''
+        else:
+            pcu_tuoi = pcu_info['tuoi']
+            pcu_clc = pcu_info['clc']
+            pcu_dvkd = pcu_info['dvkd']
+            pcu_loai = pcu_info['tinh_tk']
+
+            if pcu_tuoi.strip() != res_row['tuoi_tk'].strip():
+                check_flags[1] = False
+                err_types.append('Lệch Tuổi TK')
+                err_notes.append(f"Tuổi TK: P.CƯ ({pcu_tuoi}) ≠ KSNB ({res_row['tuoi_tk']})")
+            if pcu_clc.strip() != res_row['muc_clc'].strip():
+                check_flags[3] = False
+                err_types.append('Lệch Phạt CLC')
+                err_notes.append(f"Phạt CLC: P.CƯ ({pcu_clc}) ≠ KSNB ({res_row['muc_clc']})")
+            if pcu_dvkd.strip() != res_row['danh_ten_dv'].strip():
+                check_flags[5] = False
+                err_types.append('Lệch Đánh tên ĐVKD')
+                err_notes.append(f"Đánh tên: P.CƯ ({pcu_dvkd}) ≠ KSNB ({res_row['danh_ten_dv']})")
+            if pcu_loai.strip() != res_row['danh_loai'].strip():
+                check_flags[7] = False
+                err_types.append('Lệch Đánh loại')
+                err_notes.append(f"Đánh loại: P.CƯ ({pcu_loai}) ≠ KSNB ({res_row['danh_loai']})")
+
+        ksnb_flags_list.append((res_row, pcu_info, check_flags))
+
+        rec_full = {
+            'Dòng Excel': idx_excel,
+            'Kho': clean_str_code(r_vals[0]),
+            'Chuỗi cuộn': res_row['chuoi'],
+            'Mã lô': clean_str_code(r_vals[17]),
+            'Mã hàng': clean_str_code(r_vals[2]),
+            'Tên hàng': str(r_vals[3] or ''),
+            'Phân loại': clean_str_code(r_vals[5]),
+            'KL Net (kg)': kl_net,
+            'ĐVKD (ERP)': str(r_vals[33] or ''),
+            'Đánh tên (ERP)': str(r_vals[34] or ''),
+            'Số ngày tồn': res_row['so_ngay_ton'],
+            'KSNB: Tuổi TK': res_row['tuoi_tk'],
+            'P.CƯ: Tuổi TK': pcu_tuoi,
+            'KSNB: Đánh tên': res_row['danh_ten_dv'].strip(),
+            'P.CƯ: Đánh tên': pcu_dvkd,
+            'KSNB: Đánh loại': res_row['danh_loai'],
+            'P.CƯ: Đánh loại': pcu_loai,
+            'KSNB: Phạt CLC': res_row['muc_clc'],
+            'P.CƯ: Phạt CLC': pcu_clc,
+            'Trạng thái': '✅ Khớp 100%' if not err_notes else '❌ Có lệch',
+            'Nhóm lỗi': ', '.join(err_types) if err_types else 'Khớp',
+            'Chi tiết chênh lệch': ' | '.join(err_notes) if err_notes else '',
+        }
+        web_all_records.append(rec_full)
+
+        if err_notes:
+            discrepancy_records.append({
+                'Đã rà soát': False,
+                'Dòng Excel': idx_excel,
+                'Kho': clean_str_code(r_vals[0]),
+                'Chuỗi cuộn': res_row['chuoi'],
+                'KL Net (kg)': kl_net,
+                'ĐVKD (ERP)': str(r_vals[33] or ''),
+                'Đánh tên (ERP)': str(r_vals[34] or ''),
+                'KSNB: Đánh tên': res_row['danh_ten_dv'].strip(),
+                'P.CƯ: Đánh tên': pcu_dvkd,
+                'KSNB: Đánh loại': res_row['danh_loai'],
+                'P.CƯ: Đánh loại': pcu_loai,
+                'KSNB: Phạt CLC': res_row['muc_clc'],
+                'P.CƯ: Phạt CLC': pcu_clc,
+                'Nhóm lỗi': ', '.join(err_types),
+                'Ghi chú KSNB': ' | '.join(err_notes),
+            })
+
+    progress_bar.progress(95, text='📊 [95%] Đang tổng hợp bảng ĐỐI CHIẾU & Tờ trình (TTR)...')
+
+    elapsed = round(time.time() - t_start, 2)
+    progress_bar.progress(100, text=f'✅ [100%] Hoàn tất đối chiếu {total_coils:,} cuộn trong {elapsed} giây!')
+
+    return {
+        'ngay_chot': ngay_chot,
+        'ngay_chot_str': ngay_chot.strftime('%d/%m/%Y'),
+        'file_out_name': f"KIỂM TRA ĐỊNH MỨC TỒN KHO & CLC NM THSPM T{ngay_chot.strftime('%m.%Y')}.xlsx",
+        'erp_meta_rows': erp_meta_rows,
+        'erp_headers_r11': erp_headers_r11,
+        'erp_headers_r12': erp_headers_r12,
+        'erp_data_rows': erp_data_rows,
+        'pcu_headers_r2': pcu_headers_r2,
+        'pcu_headers_r3': pcu_headers_r3,
+        'pcu_data_rows': pcu_data_rows,
+        'pcu_tk_table1': pcu_tk_table1,
+        'pcu_tk_table2': pcu_tk_table2,
+        'pcu_tk_clc': pcu_tk_clc,
+        'ksnb_flags_list': ksnb_flags_list,
+        'ksnb_agg_t1': ksnb_agg_t1,
+        'ksnb_agg_t2': ksnb_agg_t2,
+        'ksnb_clc_m1': ksnb_clc_m1,
+        'ksnb_clc_m2': ksnb_clc_m2,
+        'web_all_records': web_all_records,
+        'discrepancy_records': discrepancy_records,
+        'count_nm': len(erp_data_rows),
+        'count_pcu': len(pcu_data_rows),
+        'kl_nm': sum(to_float(r[20], 0.0) for r in erp_data_rows),
+        'kl_pcu': sum(to_float(r[18], 0.0) for r in pcu_data_rows),
+        'elapsed_sec': elapsed,
+    }
+
+
+# -------------------------------------------------------------
+# BƯỚC 2: HÀM XUẤT FILE EXCEL SIÊU TỐC (GIỮ NGUYÊN 100% CÔNG THỨC SỐNG)
+# -------------------------------------------------------------
+def xuat_workbook_excel(data_bundle, giam_phat_dict=None):
+    """
+    Tạo file Excel giữ nguyên 100% công thức sống của KSNB.
+    Tối ưu tốc độ ghi 21,000 dòng bằng cách đẩy dữ liệu nhanh và chỉ định dạng ô cần thiết.
+    """
+    if giam_phat_dict is None:
+        giam_phat_dict = {}
+
+    ngay_chot = data_bundle['ngay_chot']
+    erp_meta_rows = data_bundle['erp_meta_rows']
+    erp_headers_r11 = data_bundle['erp_headers_r11']
+    erp_headers_r12 = data_bundle['erp_headers_r12']
+    erp_data_rows = data_bundle['erp_data_rows']
+    pcu_headers_r2 = data_bundle['pcu_headers_r2']
+    pcu_headers_r3 = data_bundle['pcu_headers_r3']
+    pcu_data_rows = data_bundle['pcu_data_rows']
+    pcu_tk_table1 = data_bundle['pcu_tk_table1']
+    pcu_tk_table2 = data_bundle['pcu_tk_table2']
+    pcu_tk_clc = data_bundle['pcu_tk_clc']
+    ksnb_flags_list = data_bundle['ksnb_flags_list']
+
     wb_out = openpyxl.Workbook()
     ws_ttr = wb_out.active
     ws_ttr.title = 'TTR'
@@ -391,7 +664,6 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
     f_bold = Font(name='Times New Roman', size=11, bold=True, color='000000')
     f_red = Font(name='Times New Roman', size=11, bold=True, color='9C0006')
 
-    # 3 tông màu phân biệt 3 khu vực: P.Cung ứng (Xanh dương) | KSNB (Xanh lá) | Chênh lệch (Vàng cam)
     fill_pcu_hdr = PatternFill(start_color='D9E1F2', end_color='D9E1F2', fill_type='solid')
     fill_ksnb_green = PatternFill(start_color='E2EFDA', end_color='E2EFDA', fill_type='solid')
     fill_diff_orange = PatternFill(start_color='FFF2CC', end_color='FFF2CC', fill_type='solid')
@@ -407,41 +679,41 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
     al_left = Alignment(horizontal='left', vertical='center', wrap_text=True)
     al_right = Alignment(horizontal='right', vertical='center')
 
-    # =========================================================
-    # A. GHI SHEET 'P.Cung ứng'
-    # =========================================================
-    ws_pcu_out['U1'] = f"=SUBTOTAL(9,$U$4:$U${len(pcu_data_rows) + 3})"
-    ws_pcu_out['AU1'] = datetime.datetime(ngay_chot.year, ngay_chot.month, ngay_chot.day)
-    ws_pcu_out['AU1'].number_format = 'dd/mm/yyyy'
-
-    for idx, h_val in enumerate(pcu_headers_r2, start=3):
-        c = ws_pcu_out.cell(2, idx, h_val)
-        c.font = f_hdr
-        c.fill = fill_pcu_hdr
-        c.alignment = al_center
-        c.border = border_all
-    for idx, h_val in enumerate(pcu_headers_r3, start=3):
-        c = ws_pcu_out.cell(3, idx, h_val)
-        c.font = f_hdr
-        c.fill = fill_pcu_hdr
-        c.alignment = al_center
-        c.border = border_all
-
     max_row_ksnb = len(erp_data_rows) + 13
-    for idx, r_vals in enumerate(pcu_data_rows, start=4):
-        c_a = ws_pcu_out.cell(idx, 1, f"=COUNTIFS(KSNB!$J$14:$J${max_row_ksnb},'P.Cung ứng'!B{idx})")
-        c_b = ws_pcu_out.cell(idx, 2, f'=R{idx}&"-"&U{idx}&"-"&F{idx}')
-        c_a.font = f_data
-        c_b.font = f_data
-        for c_offset, val in enumerate(r_vals, start=3):
-            cell = ws_pcu_out.cell(idx, c_offset, val)
-            cell.font = f_data
-
-    # =========================================================
-    # B. GHI SHEET 'KSNB' (KHÔNG PHỤ THUỘC SHEET PHỤ)
-    # =========================================================
     max_row_pcu = len(pcu_data_rows) + 3
 
+    # =========================================================
+    # A. GHI SIÊU TỐC SHEET 'P.Cung ứng' BẰNG APPEND()
+    # =========================================================
+    row1_pcu = [None] * 50
+    row1_pcu[20] = f"=SUBTOTAL(9,$U$4:$U${max_row_pcu})"
+    row1_pcu[46] = datetime.datetime(ngay_chot.year, ngay_chot.month, ngay_chot.day)
+    ws_pcu_out.append(row1_pcu)
+    ws_pcu_out.append([None, None] + pcu_headers_r2)
+    ws_pcu_out.append([None, None] + pcu_headers_r3)
+
+    ws_pcu_out['AU1'].number_format = 'dd/mm/yyyy'
+    for r_h in (2, 3):
+        for c_h in range(3, 51):
+            c = ws_pcu_out.cell(r_h, c_h)
+            c.font = f_hdr
+            c.fill = fill_pcu_hdr
+            c.alignment = al_center
+            c.border = border_all
+
+    for idx, r_vals in enumerate(pcu_data_rows, start=4):
+        f_a = f"=COUNTIFS(KSNB!$J$14:$J${max_row_ksnb},'P.Cung ứng'!B{idx})"
+        f_b = f'=R{idx}&"-"&U{idx}&"-"&F{idx}'
+        ws_pcu_out.append([f_a, f_b] + r_vals)
+
+    # =========================================================
+    # B. GHI SIÊU TỐC SHEET 'KSNB' BẰNG APPEND() + TÔ ĐỎ Ô LỖI
+    # =========================================================
+    for r_idx in range(1, 12):
+        m_row = erp_meta_rows[r_idx - 1] if r_idx - 1 < len(erp_meta_rows) else [None] * 46
+        ws_ksnb.append([None] * 16 + m_row)
+
+    # Ghi khối tổng hợp đối chiếu đầu trang (Rows 3..6)
     ws_ksnb['I3'] = 'Đối chiếu KL & Số lượng'
     ws_ksnb['K3'] = 'Số lượng (cuộn)'
     ws_ksnb['M3'] = 'Khối lượng kg'
@@ -466,15 +738,9 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
             if r_i == 5 and c_i in (11, 12, 13, 14):
                 cell.number_format = '#,##0'
 
-    for r_idx, m_row in enumerate(erp_meta_rows, start=1):
-        for c_offset, val in enumerate(m_row, start=17):
-            ws_ksnb.cell(r_idx, c_offset, val).font = f_data
-
-    ws_ksnb['P12'] = datetime.datetime(ngay_chot.year, ngay_chot.month, ngay_chot.day)
-    ws_ksnb['P12'].number_format = 'dd/mm/yyyy'
-    ws_ksnb['P12'].font = f_hdr
-    ws_ksnb['P12'].fill = fill_diff_orange
-    ws_ksnb['P12'].alignment = al_center
+    # Dòng 12 & 13: Tiêu đề
+    row12_ksnb = [None] * 15 + [datetime.datetime(ngay_chot.year, ngay_chot.month, ngay_chot.day)] + erp_headers_r11
+    ws_ksnb.append(row12_ksnb)
 
     ksnb_calc_headers = [
         'Đối chiếu tuổi tồn kho',       # A (1)
@@ -494,47 +760,45 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
         'Số ngày tồn kho',              # O (15)
         'Đánh số phân loại',            # P (16)
     ]
-    for c_i, h_title in enumerate(ksnb_calc_headers, start=1):
-        c = ws_ksnb.cell(13, c_i, h_title)
-        c.font = f_hdr
-        c.fill = fill_diff_orange
-        c.alignment = al_center
-        c.border = border_all
+    ws_ksnb.append(ksnb_calc_headers + erp_headers_r12)
 
-    for c_offset, val in enumerate(erp_headers_r11, start=17):
-        c = ws_ksnb.cell(12, c_offset, val)
-        c.font = f_hdr
-        c.fill = fill_pcu_hdr
-        c.alignment = al_center
-        c.border = border_all
-    for c_offset, val in enumerate(erp_headers_r12, start=17):
-        c = ws_ksnb.cell(13, c_offset, val)
-        c.font = f_hdr
-        c.fill = fill_pcu_hdr
-        c.alignment = al_center
-        c.border = border_all
+    ws_ksnb['P12'].number_format = 'dd/mm/yyyy'
+    ws_ksnb['P12'].font = f_hdr
+    ws_ksnb['P12'].fill = fill_diff_orange
+    ws_ksnb['P12'].alignment = al_center
 
-    discrepancy_records = []
-    for idx, r_vals in enumerate(erp_data_rows, start=14):
-        for c_offset, val in enumerate(r_vals, start=17):
-            c = ws_ksnb.cell(idx, c_offset, val)
-            c.font = f_data
-            c.border = border_all
+    for c_i in range(1, 63):
+        c12 = ws_ksnb.cell(12, c_i)
+        c13 = ws_ksnb.cell(13, c_i)
+        if c_i >= 17:
+            c12.font = f_hdr
+            c12.fill = fill_pcu_hdr
+            c12.alignment = al_center
+            c12.border = border_all
+        c13.font = f_hdr
+        c13.fill = fill_diff_orange if c_i <= 16 else fill_pcu_hdr
+        c13.alignment = al_center
+        c13.border = border_all
 
-        # Công thức tự thân 100% (không cần Sheet2 hay NM Khác)
-        formulas_a_to_p = {
-            1: f'=TEXT(B{idx},0)=TEXT(N{idx},0)',
-            2: f"=VLOOKUP(J{idx},'P.Cung ứng'!$B$1:$AX${max_row_pcu},47,0)",
-            3: f'=TEXT(D{idx},0)=TEXT(K{idx},0)',
-            4: f"=VLOOKUP(J{idx},'P.Cung ứng'!$B$1:$AX${max_row_pcu},48,0)",
-            5: f'=TEXT(F{idx},0)=TEXT(L{idx},0)',
-            6: f"=VLOOKUP(J{idx},'P.Cung ứng'!$B$1:$AX${max_row_pcu},42,0)",
-            7: f'=TEXT(H{idx},0)=TEXT(M{idx},0)',
-            8: f"=VLOOKUP(J{idx},'P.Cung ứng'!$B$1:$AX${max_row_pcu},45,0)",
-            9: f"=COUNTIFS('P.Cung ứng'!$B$1:$B${max_row_pcu},$J{idx})",
-            10: f'=AH{idx}&"-"&AK{idx}&"-"&V{idx}',
-            11: f'=IF(Q{idx}="","",IF(OR(L{idx}="NM Lợp xưởng",O{idx}<91,AND(ISNUMBER(SEARCH("HOA SEN GOLD",T{idx})),O{idx}<180)),"LOẠI",IF(O{idx}<181,"M1","M2")))',
-            12: (
+    # Đẩy nhanh 10,658 dòng KSNB bằng append() (Giữ nguyên 100% công thức gốc của bạn)
+    cells_to_highlight_red = []
+    for i, r_vals in enumerate(erp_data_rows):
+        idx = i + 14
+        _, _, check_flags = ksnb_flags_list[i]
+
+        f_list_a_to_p = [
+            f'=TEXT(B{idx},0)=TEXT(N{idx},0)',
+            f"=VLOOKUP(J{idx},'P.Cung ứng'!$B$1:$AX${max_row_pcu},47,0)",
+            f'=TEXT(D{idx},0)=TEXT(K{idx},0)',
+            f"=VLOOKUP(J{idx},'P.Cung ứng'!$B$1:$AX${max_row_pcu},48,0)",
+            f'=TEXT(F{idx},0)=TEXT(L{idx},0)',
+            f"=VLOOKUP(J{idx},'P.Cung ứng'!$B$1:$AX${max_row_pcu},42,0)",
+            f'=TEXT(H{idx},0)=TEXT(M{idx},0)',
+            f"=VLOOKUP(J{idx},'P.Cung ứng'!$B$1:$AX${max_row_pcu},45,0)",
+            f"=COUNTIFS('P.Cung ứng'!$B$1:$B${max_row_pcu},$J{idx})",
+            f'=AH{idx}&"-"&AK{idx}&"-"&V{idx}',
+            f'=IF(Q{idx}="","",IF(OR(L{idx}="NM Lợp xưởng",O{idx}<91,AND(ISNUMBER(SEARCH("HOA SEN GOLD",T{idx})),O{idx}<180)),"LOẠI",IF(O{idx}<181,"M1","M2")))',
+            (
                 f'=IF(Q{idx}="","",IF(ISNUMBER(SEARCH("BPDT",TEXT(AY{idx},0))),"DT_BPDT",'
                 f'IF(OR(LEFT(TEXT(AY{idx},0),4)="DTHS",LEFT(TEXT(AY{idx},0),4)="DLHS",TEXT(AY{idx},0)="ĐTHS"),"DTHS",'
                 f'IF(OR(LEFT(TEXT(AY{idx},0),2)="CN",LEFT(TEXT(AY{idx},0),4)="VPDH"),"HTPP",'
@@ -548,7 +812,7 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
                 f'IF(AND(ISNUMBER(SEARCH("VLXD",TEXT(AY{idx},0))),ISERR(SEARCH("CXL",TEXT(AY{idx},0)))),"VLXD",'
                 f'IF(OR(TEXT(AY{idx},0)="HS-NHONHOI",TEXT(AY{idx},0)="HS-BINHDUONG",TEXT(AY{idx},0)="NHUNG-XB-XK",TEXT(AY{idx},0)="NHUNGNONG-XB",TEXT(AY{idx},0)="HS-BINH DUONG",TEXT(AY{idx},0)="HS-NHUNGNONG",TEXT(AY{idx},0)="HS-BINH DUONG ",TEXT(AY{idx},0)="HS-NHUA",TEXT(AY{idx},0)="HS-NGHEAN",TEXT(AY{idx},0)="NHUNG",TEXT(AY{idx},0)="NHUNGNONG",TEXT(AY{idx},0)="NHUNG-XK",TEXT(AY{idx},0)="NHONHOA-OT"),"Các NM Khác","NM THSPM")))))))))))))'
             ),
-            13: (
+            (
                 f'=IF(Q{idx}="","",IF(OR(ISNUMBER(SEARCH("BPDT",TEXT(AY{idx},0))),'
                 f'OR(LEFT(TEXT(AY{idx},0),4)="DTHS",TEXT(AY{idx},0)="ĐTHS",LEFT(TEXT(AY{idx},0),4)="DLHS"),'
                 f'OR(LEFT(TEXT(AY{idx},0),2)="CN",LEFT(TEXT(AY{idx},0),4)="VPDH"),'
@@ -559,64 +823,24 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
                 f'AND(OR(TEXT(AX{idx},0)="HSG_PXK",TEXT(AX{idx},0)="VPDH_MN_NM"),OR(TEXT(AY{idx},0)="XK.HSG_OU",TEXT(AY{idx},0)="SMC-XK")),'
                 f'OR(TEXT(BF{idx},0)="033-01",TEXT(BF{idx},0)="033-02")),"LOẠI","TÍNH"))'
             ),
-            14: f'=IF(Q{idx}="","",IF(O{idx}="","",IF(O{idx}<91,"Dưới 90 ngày",IF(O{idx}<121,"Từ 91 đến 120 ngày",IF(O{idx}<181,"Từ 121 đến 180 ngày",IF(O{idx}<361,"Từ 181 đến 360 ngày","Trên 361 ngày"))))))',
-            15: f'=$P$12-BC{idx}',
-            16: f'=IF(Q{idx}="","",IF(OR(V{idx}="1",V{idx}="A2"),1,2))',
-        }
+            f'=IF(Q{idx}="","",IF(O{idx}="","",IF(O{idx}<91,"Dưới 90 ngày",IF(O{idx}<121,"Từ 91 đến 120 ngày",IF(O{idx}<181,"Từ 121 đến 180 ngày",IF(O{idx}<361,"Từ 181 đến 360 ngày","Trên 361 ngày"))))))',
+            f'=$P$12-BC{idx}',
+            f'=IF(Q{idx}="","",IF(OR(V{idx}="1",V{idx}="A2"),1,2))',
+        ]
+        ws_ksnb.append(f_list_a_to_p + r_vals)
 
-        res_row = tinh_logic_ksnb_dong(
-            ten_hang=r_vals[3],
-            phan_loai=r_vals[5],
-            ma_lo=r_vals[17],
-            kl_net=to_float(r_vals[20], 0.0),
-            dv_kd=r_vals[33],
-            danh_ten=r_vals[34],
-            ngay_nhap=r_vals[38],
-            kho_cn=r_vals[41],
-            ngay_chot=ngay_chot,
-        )
-        pcu_info = dict_pcu_lookup.get(res_row['chuoi'])
+        for c_flag, is_ok in check_flags.items():
+            if not is_ok:
+                cells_to_highlight_red.append((idx, c_flag))
 
-        err_notes = []
-        check_flags = {1: True, 3: True, 5: True, 7: True}
-        if pcu_info is None:
-            err_notes.append('Không tìm thấy chuỗi cuộn bên P.Cung ứng')
-            check_flags = {1: False, 3: False, 5: False, 7: False}
-        else:
-            if pcu_info['tuoi'].strip() != res_row['tuoi_tk'].strip():
-                check_flags[1] = False
-                err_notes.append(f"Tuổi TK: P.CƯ ({pcu_info['tuoi']}) ≠ KSNB ({res_row['tuoi_tk']})")
-            if pcu_info['clc'].strip() != res_row['muc_clc'].strip():
-                check_flags[3] = False
-                err_notes.append(f"Tính phạt CLC: P.CƯ ({pcu_info['clc']}) ≠ KSNB ({res_row['muc_clc']})")
-            if pcu_info['dvkd'].strip() != res_row['danh_ten_dv'].strip():
-                check_flags[5] = False
-                err_notes.append(f"Đánh tên ĐVKD: P.CƯ ({pcu_info['dvkd']}) ≠ KSNB ({res_row['danh_ten_dv']})")
-            if pcu_info['tinh_tk'].strip() != res_row['danh_loai'].strip():
-                check_flags[7] = False
-                err_notes.append(f"Đánh loại: P.CƯ ({pcu_info['tinh_tk']}) ≠ KSNB ({res_row['danh_loai']})")
-
-        for c_i, f_str in formulas_a_to_p.items():
-            cell = ws_ksnb.cell(idx, c_i, f_str)
-            cell.font = f_data
-            cell.border = border_all
-            if c_i in check_flags and not check_flags[c_i]:
-                cell.fill = fill_red
-                cell.font = f_red
-
-        if err_notes:
-            discrepancy_records.append({
-                'Dòng Excel (KSNB)': idx,
-                'Chuỗi cuộn': res_row['chuoi'],
-                'Mã hàng': r_vals[2],
-                'Khối lượng Net (kg)': to_float(r_vals[20], 0.0),
-                'ĐVKD (ERP)': r_vals[33],
-                'Đánh tên (ERP)': r_vals[34],
-                'Nội dung lệch giữa P.CƯ & KSNB': ' | '.join(err_notes),
-            })
+    # Chỉ tô đỏ trực tiếp những ô bị FALSE (khoảng 119 ô thay vì lặp qua 660,000 ô)
+    for r_err, c_err in cells_to_highlight_red:
+        cell_err = ws_ksnb.cell(r_err, c_err)
+        cell_err.fill = fill_red
+        cell_err.font = f_red
 
     # =========================================================
-    # C. GHI SHEET 'ĐỐI CHIẾU' (GỘP Ô & PHÂN 3 MÀU TÁCH BIỆT RÕ RÀNG)
+    # C. GHI SHEET 'ĐỐI CHIẾU' (GỘP Ô & PHÂN 3 MÀU RÕ RÀNG)
     # =========================================================
     ws_dc['A3'] = 'BÁO CÁO TỒN KHO THỰC TẾ SO VỚI ĐỊNH MỨC BAN HÀNH'
     ws_dc['A3'].font = f_title
@@ -638,7 +862,6 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
     ]
 
     def setup_dc_table_headers(start_r):
-        """Thiết lập tiêu đề 2 dòng có gộp ô (Merge) và tô 3 màu phân vùng: P.CƯ | KSNB | Chênh lệch."""
         ws_dc.cell(start_r, 1, 'Số TT')
         ws_dc.cell(start_r, 2, 'Hạng mục')
         ws_dc.cell(start_r, 3, 'Khối lượng định mức (DM)')
@@ -654,7 +877,6 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
             ws_dc.cell(start_r + 1, 12 + idx_a, lbl)
             ws_dc.cell(start_r + 1, 19 + idx_a, lbl)
 
-        # Tô màu & kẻ khung cho cả 2 dòng tiêu đề trước khi Merge
         for r_h in (start_r, start_r + 1):
             for c_h in range(1, 25):
                 c = ws_dc.cell(r_h, c_h)
@@ -668,23 +890,20 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
                     c.fill = fill_diff_orange
                 c.border = border_sep_left if c_h in (12, 19) else border_all
 
-        # Gộp ô dọc cho các cột đơn và gộp ô ngang cho 3 cụm tiêu đề lớn
         for col_m in (1, 2, 3, 10, 11, 18):
             ws_dc.merge_cells(start_row=start_r, start_column=col_m, end_row=start_r + 1, end_column=col_m)
         ws_dc.merge_cells(start_row=start_r, start_column=4, end_row=start_r, end_column=9)
         ws_dc.merge_cells(start_row=start_r, start_column=12, end_row=start_r, end_column=17)
         ws_dc.merge_cells(start_row=start_r, start_column=19, end_row=start_r, end_column=24)
 
-    # ---------------------------------------------------------
-    # Bảng I: Tổng tồn kho Nhà máy (Header tại dòng 10-11, Dữ liệu dòng 12-17)
-    # ---------------------------------------------------------
+    # Bảng I: Tổng tồn kho Nhà máy (Dòng 10-17)
     setup_dc_table_headers(10)
     for idx, row_pcu in enumerate(pcu_tk_table1):
         r_excel = 12 + idx
         is_total = (idx == 0)
         ws_dc.cell(r_excel, 1, 'I.' if is_total else idx)
-        ws_dc.cell(r_excel, 2, row_pcu[1])  # Cột C của P.CƯ: Hạng mục
-        ws_dc.cell(r_excel, 3, row_pcu[2])  # Cột D của P.CƯ: Định mức
+        ws_dc.cell(r_excel, 2, row_pcu[1])
+        ws_dc.cell(r_excel, 3, row_pcu[2])
 
         if is_total:
             for c_i in range(4, 11):
@@ -694,7 +913,6 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
                 col_l = get_column_letter(c_i)
                 ws_dc.cell(r_excel, c_i, f'=SUM({col_l}13:{col_l}17)')
         else:
-            # Cột D..J (4..10) tương ứng index 3..9 trong row_pcu
             for c_off in range(3, 10):
                 ws_dc.cell(r_excel, 1 + c_off, row_pcu[c_off])
             ws_dc.cell(r_excel, 12, f'=SUM(M{r_excel}:Q{r_excel})')
@@ -723,9 +941,7 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
                 cell.number_format = '#,##0'
                 cell.alignment = al_right
 
-    # ---------------------------------------------------------
-    # Bảng II: Tồn kho hàng L2-A1, XKRL, CXL (Header dòng 21-22, Dữ liệu dòng 23-28)
-    # ---------------------------------------------------------
+    # Bảng II: Tồn kho hàng L2-A1, XKRL, CXL (Dòng 21-28)
     ws_dc['A19'] = 'II. Tồn kho hàng L2-A1, XKRL, CXL'
     ws_dc['A19'].font = f_sec
     setup_dc_table_headers(21)
@@ -734,8 +950,8 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
         r_excel = 23 + idx
         is_total = (idx == 0)
         ws_dc.cell(r_excel, 1, 'II.' if is_total else idx)
-        ws_dc.cell(r_excel, 2, row_pcu[1])  # Hạng mục
-        ws_dc.cell(r_excel, 3, row_pcu[2])  # Định mức
+        ws_dc.cell(r_excel, 2, row_pcu[1])
+        ws_dc.cell(r_excel, 3, row_pcu[2])
 
         if is_total:
             for c_i in range(4, 11):
@@ -775,13 +991,9 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
                 cell.number_format = '#,##0'
                 cell.alignment = al_right
 
-    # ---------------------------------------------------------
-    # Bảng III: Tồn kho Chậm Luân Chuyển (CLC) (Dòng 30..33)
-    # ---------------------------------------------------------
+    # Bảng III: Tồn kho CLC (Dòng 30-33)
     ws_dc['A30'] = 'III. Tồn kho CLC'
     ws_dc['A30'].font = f_sec
-
-    # Dòng 30: Tiêu đề phân vùng 3 bên cho bảng CLC
     ws_dc['B30'] = 'THEO P.CUNG ỨNG'
     ws_dc['F30'] = 'THEO KSNB'
     ws_dc['J30'] = 'CHÊNH LỆCH (P.CƯ - KSNB)'
@@ -844,7 +1056,7 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
     ws_dc.merge_cells('L31:L32')
 
     # =========================================================
-    # D. GHI SHEET 'TTR' (TỜ TRÌNH TỔNG HỢP PHẠT)
+    # D. GHI SHEET 'TTR' (ĐỒNG BỘ SỐ LIỆU XIN GIẢM PHẠT TỪ WEB NẾU CÓ)
     # =========================================================
     ws_ttr['C1'] = 'BÁO CÁO ĐỊNH MỨC TỒN KHO VÀ CHẬM LUÂN CHUYỂN'
     ws_ttr['C1'].font = f_title
@@ -894,6 +1106,13 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
     ws_ttr['J7'] = "=SUMIFS('ĐỐI CHIẾU'!$L$13:$L$17,'ĐỐI CHIẾU'!$B$13:$B$17,TTR!J$5)"
 
     ws_ttr['B8'] = 'Tờ trình xin giảm phạt tồn kho hàng VLXD, BTP'
+    ws_ttr['C8'] = '=SUM(D8:J8)'
+    giam_keys = ['NM THSPM', 'BTP- Mạ màu & Xẻ băng ', 'BTP- BAO BÌ', 'VLXD', 'TXL-ĐT', 'KHCU', 'Các NM Khác']
+    for idx, gk in enumerate(giam_keys, start=4):
+        val_gp = to_float(giam_phat_dict.get(gk, 0.0), 0.0)
+        if val_gp != 0:
+            ws_ttr.cell(8, idx, val_gp)
+
     ws_ttr['B9'] = 'Chênh lệch'
     ws_ttr['C9'] = '=SUM(D9:J9)'
     for idx, col_l in enumerate(['D', 'E', 'F', 'G', 'H', 'I', 'J'], start=4):
@@ -1009,93 +1228,25 @@ def tao_file_kiem_tra_dinh_muc(f_erp, f_pcu):
         c_val.number_format = '#,##0'
 
     # Căn chỉnh độ rộng cột
-    for ws_tmp in (ws_ttr, ws_dc, ws_ksnb, ws_pcu_out):
-        for col_idx in range(1, ws_tmp.max_column + 1):
+    for ws_tmp in (ws_ttr, ws_dc):
+        for col_idx in range(1, 25):
             ws_tmp.column_dimensions[get_column_letter(col_idx)].width = 18
+    for col_idx in range(1, 17):
+        ws_ksnb.column_dimensions[get_column_letter(col_idx)].width = 20
     ws_ttr.column_dimensions['B'].width = 42
     ws_dc.column_dimensions['A'].width = 8
     ws_dc.column_dimensions['B'].width = 28
 
     output = io.BytesIO()
     wb_out.save(output)
-
-    # ---------------------------------------------------------
-    # 4. TỔNG HỢP SỐ LIỆU HIỂN THỊ NHANH TRÊN WEB STREAMLIT
-    # ---------------------------------------------------------
-    kl_nm_total = sum(to_float(r[20], 0.0) for r in erp_data_rows)
-    kl_pcu_total = sum(to_float(r[18], 0.0) for r in pcu_data_rows)
-
-    tt_tong_nm = to_float(pcu_tk_table1[0][3], 0.0)
-    dm_tong_nm = 7640000.0
-    phat_dm = max(0.0, (tt_tong_nm - dm_tong_nm) * 7.0)
-
-    tt_l2 = to_float(pcu_tk_table2[0][3], 0.0)
-    dm_l2 = 1800000.0
-    phat_l2 = max(0.0, (tt_l2 - dm_l2) * 7.0)
-
-    m1_kl = to_float(pcu_tk_clc[0], 0.0)
-    m2_kl = to_float(pcu_tk_clc[1], 0.0)
-    phat_clc = m1_kl * 5.0 + m2_kl * 10.0
-
-    tong_phat = phat_dm + phat_l2 + phat_clc
-
-    summary_rows = [
-        {
-            'Hạng mục kiểm tra': 'I. Tổng tồn kho Nhà máy (Vượt ĐM)',
-            'Định mức (kg)': f'{dm_tong_nm:,.0f}',
-            'Thực tế chốt (kg)': f'{tt_tong_nm:,.2f}',
-            'Chênh lệch / Tính phạt (kg)': f'{tt_tong_nm - dm_tong_nm:,.2f}',
-            'Đơn giá (đ/kg)': '7',
-            'Thành tiền phạt (VNĐ)': f'{phat_dm:,.0f}',
-        },
-        {
-            'Hạng mục kiểm tra': 'II. Tồn kho Hàng Loại 2 (L2-A1, XKRL, CXL)',
-            'Định mức (kg)': f'{dm_l2:,.0f}',
-            'Thực tế chốt (kg)': f'{tt_l2:,.2f}',
-            'Chênh lệch / Tính phạt (kg)': f'{tt_l2 - dm_l2:,.2f}',
-            'Đơn giá (đ/kg)': '7',
-            'Thành tiền phạt (VNĐ)': f'{phat_l2:,.0f}',
-        },
-        {
-            'Hạng mục kiểm tra': 'III.1. Tồn kho Chậm luân chuyển M1 (91-180 ngày)',
-            'Định mức (kg)': '-',
-            'Thực tế chốt (kg)': f'{m1_kl:,.2f}',
-            'Chênh lệch / Tính phạt (kg)': f'{m1_kl:,.2f}',
-            'Đơn giá (đ/kg)': '5',
-            'Thành tiền phạt (VNĐ)': f'{m1_kl * 5.0:,.0f}',
-        },
-        {
-            'Hạng mục kiểm tra': 'III.2. Tồn kho Chậm luân chuyển M2 (>180 ngày)',
-            'Định mức (kg)': '-',
-            'Thực tế chốt (kg)': f'{m2_kl:,.2f}',
-            'Chênh lệch / Tính phạt (kg)': f'{m2_kl:,.2f}',
-            'Đơn giá (đ/kg)': '10',
-            'Thành tiền phạt (VNĐ)': f'{m2_kl * 10.0:,.0f}',
-        },
-    ]
-
-    return {
-        'excel_bytes': output.getvalue(),
-        'ngay_chot_str': ngay_chot.strftime('%d/%m/%Y'),
-        'file_out_name': f"KIỂM TRA ĐỊNH MỨC TỒN KHO & CLC NM THSPM T{ngay_chot.strftime('%m.%Y')}.xlsx",
-        'count_nm': len(erp_data_rows),
-        'count_pcu': len(pcu_data_rows),
-        'kl_nm': kl_nm_total,
-        'kl_pcu': kl_pcu_total,
-        'phat_dm': phat_dm,
-        'phat_l2': phat_l2,
-        'phat_clc': phat_clc,
-        'tong_phat': tong_phat,
-        'summary_rows': summary_rows,
-        'discrepancy_records': discrepancy_records,
-    }
+    return output.getvalue()
 
 
 # -------------------------------------------------------------
-# CHỨC NĂNG CHÍNH (GIAO DIỆN UPLOAD & KẾT QUẢ)
+# GIAO DIỆN CHÍNH & BẢNG ĐIỀU KHIỂN TƯƠNG TÁC TRỰC TIẾP TRÊN WEB
 # -------------------------------------------------------------
 def kiem_tra_dinh_muc_ton_kho():
-    st.caption('Kiểm soát nội bộ • Tự động đối chiếu dữ liệu ERP với P.Cung ứng và xuất báo cáo Tờ trình phạt tồn kho')
+    st.caption('Kiểm soát nội bộ • Thao tác rà soát trực tiếp trên Web & Xuất báo cáo Excel giữ nguyên 100% công thức sống')
     st.markdown('### 📥 Nạp Dữ Liệu Nguồn')
 
     col_upload1, col_upload2 = st.columns(2, gap='large')
@@ -1108,9 +1259,8 @@ def kiem_tra_dinh_muc_ton_kho():
 <div class="guide-box">
 <div class="guide-header">📌 1. Báo cáo Tồn kho theo lô (cuộn) - File 003</div>
 <div class="guide-text">
-Xuất từ hệ thống ERP (Kho: 031-036-038)<br>
-Từ loại hàng: 3.01.01 đến 4.08.02<br>
-Lưu ý: Nạp trực tiếp file gốc xuất từ ERP (code tự động loại bỏ dòng trống cuối file)
+Xuất từ hệ thống ERP (Kho: 031-036-038) • Từ loại hàng: 3.01.01 đến 4.08.02<br>
+Lưu ý: Nạp trực tiếp file gốc xuất từ ERP (hệ thống tự động lọc bỏ dòng trống cuối file)
 </div>
 </div>
 """,
@@ -1137,78 +1287,462 @@ Bao gồm đầy đủ các sheet: <b>Tồn kho</b>, <b>Data</b>, <b>Đánh tên
 
     st.write('')
     if f_erp is not None and f_pcu is not None:
-        if st.button('🚀 Bắt đầu kiểm tra & xuất báo cáo tự động', use_container_width=True):
-            with st.spinner('Đang đối chiếu dữ liệu từng cuộn và lập bảng tính phạt...'):
-                try:
-                    res = tao_file_kiem_tra_dinh_muc(f_erp, f_pcu)
-
-                    st.success(
-                        f"✅ Đã đối soát hoàn tất số liệu chốt ngày **{res['ngay_chot_str']}**! "
-                        f"File xuất ra gồm đúng 4 sheet chính (`TTR`, `ĐỐI CHIẾU`, `KSNB`, `P.Cung ứng`) và đã phân vùng màu rõ ràng."
-                    )
-                    st.download_button(
-                        f"📥 Tải File Kết Quả ({res['file_out_name']})",
-                        data=res['excel_bytes'],
-                        file_name=res['file_out_name'],
-                        mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                        use_container_width=True,
-                    )
-
-                    # ---------------------------------------------------------
-                    # HIỂN THỊ BÁO CÁO NHANH KẾT QUẢ KIỂM SOÁT TRÊN WEB
-                    # ---------------------------------------------------------
-                    st.markdown('### 📊 Báo Cáo Nhanh Kết Quả Kiểm Soát Tồn Kho & CLC')
-                    with st.container(border=True):
-                        c1, c2, c3, c4 = st.columns(4)
-                        c1.metric(
-                            '📦 Số cuộn đối chiếu (NM / P.CƯ)',
-                            f"{res['count_nm']:,} / {res['count_pcu']:,}",
-                            delta=f"Lệch {res['count_nm'] - res['count_pcu']} cuộn",
-                            delta_color='off' if res['count_nm'] == res['count_pcu'] else 'inverse',
-                        )
-                        c2.metric(
-                            '⚖️ Tổng KL đối chiếu (kg)',
-                            f"{res['kl_nm']:,.2f}",
-                            delta=f"Lệch {res['kl_nm'] - res['kl_pcu']:,.2f} kg",
-                            delta_color='off' if round(res['kl_nm'], 2) == round(res['kl_pcu'], 2) else 'inverse',
-                        )
-                        c3.metric(
-                            '💰 Tổng tiền phạt tháng',
-                            f"{res['tong_phat']:,.0f} đ",
-                            delta=f"BGĐ (30%): {res['tong_phat']*0.3:,.0f} đ",
-                            delta_color='off',
-                        )
-                        c4.metric(
-                            '🔍 Cuộn lệch giữa P.CƯ & KSNB',
-                            f"{len(res['discrepancy_records'])} cuộn",
-                            delta='Khớp 100%' if len(res['discrepancy_records']) == 0 else 'Cần rà soát',
-                            delta_color='normal' if len(res['discrepancy_records']) == 0 else 'inverse',
-                        )
-
-                        st.markdown('#### 📋 Bảng Tổng Hợp Tính Phạt (Tờ Trình)')
-                        st.dataframe(
-                            pd.DataFrame(res['summary_rows']),
-                            use_container_width=True,
-                            hide_index=True,
-                        )
-
-                        if res['discrepancy_records']:
-                            st.warning(
-                                f"🚨 **Phát hiện {len(res['discrepancy_records'])} cuộn có chênh lệch cách phân loại giữa P.Cung ứng và công thức KSNB** "
-                                f"(Đã tô đỏ tại các cột đối chiếu trong sheet `KSNB`):"
-                            )
-                            st.dataframe(
-                                pd.DataFrame(res['discrepancy_records']),
-                                use_container_width=True,
-                                hide_index=True,
-                            )
-                        else:
-                            st.success('🎉 Toàn bộ các cuộn đều khớp 100% giữa P.Cung ứng và KSNB!')
-
-                except Exception as e:
-                    st.error(f'Lỗi xử lý dữ liệu: {e}')
+        if st.button('🚀 Chạy Đối Chiếu & Mở Bảng Điều Khiển Tương Tác', use_container_width=True):
+            prog = st.progress(0, text='⏳ Đang khởi động bộ xử lý dữ liệu siêu tốc...')
+            try:
+                bundle = doc_va_phan_tich_du_lieu(f_erp, f_pcu, prog)
+                st.session_state['clc_bundle'] = bundle
+                st.session_state['clc_giam_phat'] = {
+                    'NM THSPM': 0.0,
+                    'BTP- Mạ màu & Xẻ băng ': 0.0,
+                    'BTP- BAO BÌ': 0.0,
+                    'VLXD': 0.0,
+                }
+                st.session_state['clc_excel_bytes'] = xuat_workbook_excel(
+                    bundle, st.session_state['clc_giam_phat']
+                )
+            except Exception as e:
+                st.error(f'Lỗi xử lý dữ liệu: {e}')
     else:
-        st.info('👉 Vui lòng nạp đủ cả 2 file (File Tồn kho ERP `003` và File Chốt phạt của P.Cung ứng) để bắt đầu kiểm tra.')
+        st.info('👉 Vui lòng nạp đủ cả 2 file (File Tồn kho ERP `003` và File Chốt phạt của P.Cung ứng) để mở bảng thao tác.')
+
+    # ---------------------------------------------------------
+    # KHU VỰC THAO TÁC TRỰC TIẾP TRÊN WEB (CHẠY TỨC THÌ TỪ SESSION_STATE)
+    # ---------------------------------------------------------
+    if 'clc_bundle' in st.session_state:
+        res = st.session_state['clc_bundle']
+        gp_dict = st.session_state.get('clc_giam_phat', {})
+        tong_giam_phat_kg = sum(to_float(v, 0.0) for v in gp_dict.values())
+
+        # Tính toán số tiền phạt theo thời gian thực (có trừ số kg xin giảm phạt nếu người dùng nhập trên Web)
+        tt_tong_nm = to_float(res['pcu_tk_table1'][0][3], 0.0)
+        dm_tong_nm = 7640000.0
+        cl_tong_nm = tt_tong_nm - dm_tong_nm - tong_giam_phat_kg
+        phat_dm = max(0.0, cl_tong_nm * 7.0)
+
+        tt_l2 = to_float(res['pcu_tk_table2'][0][3], 0.0)
+        dm_l2 = 1800000.0
+        cl_l2 = tt_l2 - dm_l2
+        phat_l2 = max(0.0, cl_l2 * 7.0)
+
+        m1_kl = res['ksnb_clc_m1']
+        m2_kl = res['ksnb_clc_m2']
+        phat_clc = m1_kl * 5.0 + m2_kl * 10.0
+
+        tong_phat = phat_dm + phat_l2 + phat_clc
+
+        st.markdown("<hr style='border: none; border-top: 1px solid #e2e8f0; margin: 18px 0;'>", unsafe_allow_html=True)
+
+        # Thanh tiêu đề Kết quả & Nút tải file Excel ngay góc phải
+        col_title_res, col_dl_btn = st.columns([6.5, 3.5])
+        with col_title_res:
+            st.markdown(
+                f"### 📊 Bảng Điều Khiển Kiểm Soát Tồn Kho & CLC *(Chốt ngày {res['ngay_chot_str']} • Xử lý trong {res['elapsed_sec']}s)*"
+            )
+        with col_dl_btn:
+            st.download_button(
+                f"📥 Xuất File Excel Hoàn Chỉnh ({res['file_out_name']})",
+                data=st.session_state['clc_excel_bytes'],
+                file_name=res['file_out_name'],
+                mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                use_container_width=True,
+            )
+
+        # 4 Thẻ KPI Apple Bento Grid
+        k1, k2, k3, k4 = st.columns(4, gap='medium')
+        with k1:
+            diff_c = res['count_nm'] - res['count_pcu']
+            diff_kl = res['kl_nm'] - res['kl_pcu']
+            status_txt = '✓ Khớp 100% số cuộn & KL với P.CƯ' if (diff_c == 0 and round(diff_kl, 2) == 0) else f'⚠️ Lệch {diff_c} cuộn ({diff_kl:+,.1f} kg)'
+            st.markdown(
+                f"""
+<div class="bento-card">
+    <div class="bento-label">📦 TỔNG CUỘN & KHỐI LƯỢNG</div>
+    <div class="bento-value">{res['count_nm']:,} cuộn</div>
+    <div class="bento-sub">{res['kl_nm']:,.2f} kg<br><span style="color:#1e7e34;font-weight:600;">{status_txt}</span></div>
+</div>
+""",
+                unsafe_allow_html=True,
+            )
+        with k2:
+            st.markdown(
+                f"""
+<div class="bento-card">
+    <div class="bento-label">⚖️ PHẠT VƯỢT ĐỊNH MỨC (I + II)</div>
+    <div class="bento-value">{phat_dm + phat_l2:,.0f} đ</div>
+    <div class="bento-sub">• Định mức chung: <b>{phat_dm:,.0f} đ</b><br>• Hàng Loại 2: <b>{phat_l2:,.0f} đ</b></div>
+</div>
+""",
+                unsafe_allow_html=True,
+            )
+        with k3:
+            st.markdown(
+                f"""
+<div class="bento-card">
+    <div class="bento-label">⏳ PHẠT CHẬM LUÂN CHUYỂN (III)</div>
+    <div class="bento-value">{phat_clc:,.0f} đ</div>
+    <div class="bento-sub">• M1 (91-180 ngày): <b>{m1_kl * 5:,.0f} đ</b><br>• M2 (>180 ngày): <b>{m2_kl * 10:,.0f} đ</b></div>
+</div>
+""",
+                unsafe_allow_html=True,
+            )
+        with k4:
+            st.markdown(
+                f"""
+<div class="bento-card-highlight">
+    <div class="bento-label-white">💰 TỔNG TIỀN PHẠT THÁNG</div>
+    <div class="bento-value-white">{tong_phat:,.0f} đ</div>
+    <div class="bento-sub-white">• BGĐ (30%): <b>{tong_phat * 0.3:,.0f} đ</b><br>• P.KHCU NM (70%): <b>{tong_phat * 0.7:,.0f} đ</b></div>
+</div>
+""",
+                unsafe_allow_html=True,
+            )
+
+        st.write('')
+
+        # ---------------------------------------------------------
+        # 4 TAB THAO TÁC TRỰC TIẾP TRÊN WEB
+        # ---------------------------------------------------------
+        tab1, tab2, tab3, tab4 = st.tabs([
+            f"🚨 1. Rà Soát Cuộn Lệch ({len(res['discrepancy_records'])} cuộn)",
+            '📄 2. Tờ Trình Tính Phạt (TTR)',
+            '⚖️ 3. Bảng Đối Chiếu 3 Bên (ĐỐI CHIẾU)',
+            f"🔍 4. Tra Cứu Toàn Bộ ({res['count_nm']:,} cuộn)",
+        ])
+
+        # =========================================================
+        # TAB 1: RÀ SOÁT & TƯƠNG TÁC TRỰC TIẾP TRÊN CÁC CUỘN LỆCH
+        # =========================================================
+        with tab1:
+            with st.container(border=True):
+                df_disc = pd.DataFrame(res['discrepancy_records'])
+                if df_disc.empty:
+                    st.success('🎉 Toàn bộ các cuộn đều khớp 100% giữa P.Cung ứng và công thức KSNB!')
+                else:
+                    c_f1, c_f2, c_f3 = st.columns([4, 3, 3])
+                    with c_f1:
+                        loai_lech_chon = st.radio(
+                            '🎯 Nhấp chọn nhóm cuộn lệch cần kiểm tra:',
+                            options=[
+                                f'Tất cả ({len(df_disc)})',
+                                f"Lệch Đánh loại TÍNH/LOẠI ({df_disc['Nhóm lỗi'].str.contains('Lệch Đánh loại').sum()})",
+                                f"Lệch Đánh tên ĐVKD ({df_disc['Nhóm lỗi'].str.contains('Lệch Đánh tên').sum()})",
+                                f"Lệch Phạt CLC ({df_disc['Nhóm lỗi'].str.contains('Lệch Phạt CLC').sum()})",
+                            ],
+                            horizontal=True,
+                        )
+                    with c_f2:
+                        kho_list_err = ['Tất cả'] + sorted(df_disc['Kho'].unique().tolist())
+                        chon_kho_err = st.selectbox('🏭 Lọc theo Kho:', kho_list_err, key='err_kho')
+                    with c_f3:
+                        tim_ma_err = st.text_input('🔎 Tìm nhanh theo Chuỗi / Đánh tên:', key='err_search')
+
+                    df_disc_view = df_disc.copy()
+                    if 'Lệch Đánh loại' in loai_lech_chon:
+                        df_disc_view = df_disc_view[df_disc_view['Nhóm lỗi'].str.contains('Lệch Đánh loại')]
+                    elif 'Lệch Đánh tên' in loai_lech_chon:
+                        df_disc_view = df_disc_view[df_disc_view['Nhóm lỗi'].str.contains('Lệch Đánh tên')]
+                    elif 'Lệch Phạt CLC' in loai_lech_chon:
+                        df_disc_view = df_disc_view[df_disc_view['Nhóm lỗi'].str.contains('Lệch Phạt CLC')]
+
+                    if chon_kho_err != 'Tất cả':
+                        df_disc_view = df_disc_view[df_disc_view['Kho'] == chon_kho_err]
+                    if tim_ma_err.strip():
+                        kw = tim_ma_err.strip().upper()
+                        df_disc_view = df_disc_view[
+                            df_disc_view['Chuỗi cuộn'].str.upper().str.contains(kw)
+                            | df_disc_view['Đánh tên (ERP)'].str.upper().str.contains(kw)
+                        ]
+
+                    st.caption(
+                        f"💡 Đang hiển thị **{len(df_disc_view)} cuộn** (Tổng KL: **{df_disc_view['KL Net (kg)'].sum():,.0f} kg**). "
+                        f"Bạn có thể tích chọn ô **Đã rà soát** hoặc nhấp đúp vào cột **Ghi chú KSNB** để ghi chú trực tiếp trên bảng."
+                    )
+
+                    st.data_editor(
+                        df_disc_view,
+                        use_container_width=True,
+                        hide_index=True,
+                        height=420,
+                        column_config={
+                            'Đã rà soát': st.column_config.CheckboxColumn('☑️ Đã rà soát', width='small'),
+                            'KL Net (kg)': st.column_config.NumberColumn('KL Net (kg)', format='%d'),
+                            'Ghi chú KSNB': st.column_config.TextColumn('📝 Ghi chú KSNB (Nhấp để sửa)', width='large'),
+                        },
+                        disabled=[
+                            'Dòng Excel', 'Kho', 'Chuỗi cuộn', 'KL Net (kg)', 'ĐVKD (ERP)',
+                            'Đánh tên (ERP)', 'KSNB: Đánh tên', 'P.CƯ: Đánh tên',
+                            'KSNB: Đánh loại', 'P.CƯ: Đánh loại', 'KSNB: Phạt CLC', 'P.CƯ: Phạt CLC', 'Nhóm lỗi'
+                        ],
+                        key='editor_discrepancy',
+                    )
+
+        # =========================================================
+        # TAB 2: TỜ TRÌNH TÍNH PHẠT (TƯƠNG TÁC GIẢM PHẠT TRỰC TIẾP)
+        # =========================================================
+        with tab2:
+            with st.container(border=True):
+                st.markdown('#### 📄 I. Định Mức Tồn Kho Nhà Máy & Tờ Trình Xin Giảm Phạt')
+                st.caption('💡 Nếu tháng này có Tờ trình xin giảm phạt hàng VLXD/BTP, bạn nhập số kg vào ô bên dưới để tự động cập nhật lại số tiền phạt và file Excel.')
+
+                col_gp1, col_gp2, col_gp3, col_gp4, col_gp_btn = st.columns([2, 2, 2, 2, 2])
+                with col_gp1:
+                    gp_nm = st.number_input('Giảm phạt NM THSPM (kg):', min_value=0.0, value=float(gp_dict.get('NM THSPM', 0.0)), step=1000.0)
+                with col_gp2:
+                    gp_btp = st.number_input('Giảm phạt BTP Mạ màu & XB (kg):', min_value=0.0, value=float(gp_dict.get('BTP- Mạ màu & Xẻ băng ', 0.0)), step=1000.0)
+                with col_gp3:
+                    gp_bb = st.number_input('Giảm phạt BTP Bao bì (kg):', min_value=0.0, value=float(gp_dict.get('BTP- BAO BÌ', 0.0)), step=1000.0)
+                with col_gp4:
+                    gp_vlxd = st.number_input('Giảm phạt VLXD (kg):', min_value=0.0, value=float(gp_dict.get('VLXD', 0.0)), step=1000.0)
+                with col_gp_btn:
+                    st.write('')
+                    if st.button('🔄 Áp dụng vào Tờ trình', use_container_width=True):
+                        st.session_state['clc_giam_phat'] = {
+                            'NM THSPM': gp_nm,
+                            'BTP- Mạ màu & Xẻ băng ': gp_btp,
+                            'BTP- BAO BÌ': gp_bb,
+                            'VLXD': gp_vlxd,
+                        }
+                        st.session_state['clc_excel_bytes'] = xuat_workbook_excel(
+                            res, st.session_state['clc_giam_phat']
+                        )
+                        st.rerun()
+
+                # Hiển thị bảng Tờ trình mục I, II, III, IV
+                t1_rows = res['pcu_tk_table1']
+                df_ttr_1 = pd.DataFrame([
+                    {
+                        'Nội dung': '1. Định mức theo TTr số 099/TTr/P.CƯ/2023 (kg)',
+                        'Tổng cộng': 7640000.0,
+                        'NM THSPM': 2000000.0,
+                        'BTP- Mạ màu & Xẻ băng': 3500000.0,
+                        'BTP- BAO BÌ': 140000.0,
+                        'VLXD': 2000000.0,
+                        'Các NM Khác': 0.0,
+                    },
+                    {
+                        'Nội dung': f"2. Số liệu tồn kho thực tế {res['ngay_chot_str']} (kg)",
+                        'Tổng cộng': to_float(t1_rows[0][3]),
+                        'NM THSPM': to_float(t1_rows[1][3]),
+                        'BTP- Mạ màu & Xẻ băng': to_float(t1_rows[2][3]),
+                        'BTP- BAO BÌ': to_float(t1_rows[3][3]),
+                        'VLXD': to_float(t1_rows[4][3]),
+                        'Các NM Khác': to_float(t1_rows[5][3]),
+                    },
+                    {
+                        'Nội dung': '3. Tờ trình xin giảm phạt tồn kho (kg)',
+                        'Tổng cộng': tong_giam_phat_kg,
+                        'NM THSPM': gp_dict.get('NM THSPM', 0.0),
+                        'BTP- Mạ màu & Xẻ băng': gp_dict.get('BTP- Mạ màu & Xẻ băng ', 0.0),
+                        'BTP- BAO BÌ': gp_dict.get('BTP- BAO BÌ', 0.0),
+                        'VLXD': gp_dict.get('VLXD', 0.0),
+                        'Các NM Khác': 0.0,
+                    },
+                    {
+                        'Nội dung': '4. Chênh lệch vượt định mức (kg)',
+                        'Tổng cộng': cl_tong_nm,
+                        'NM THSPM': to_float(t1_rows[1][3]) - 2000000.0 - gp_dict.get('NM THSPM', 0.0),
+                        'BTP- Mạ màu & Xẻ băng': to_float(t1_rows[2][3]) - 3500000.0 - gp_dict.get('BTP- Mạ màu & Xẻ băng ', 0.0),
+                        'BTP- BAO BÌ': to_float(t1_rows[3][3]) - 140000.0 - gp_dict.get('BTP- BAO BÌ', 0.0),
+                        'VLXD': to_float(t1_rows[4][3]) - 2000000.0 - gp_dict.get('VLXD', 0.0),
+                        'Các NM Khác': to_float(t1_rows[5][3]),
+                    },
+                ])
+                st.dataframe(
+                    df_ttr_1.style.format({c: '{:,.2f}' for c in df_ttr_1.columns if c != 'Nội dung'}),
+                    use_container_width=True,
+                    hide_index=True,
+                )
+                st.info(f"📌 **Kết luận Mục I:** Đơn giá phạt **7 đ/kg** ➔ Thành tiền phạt vượt định mức chung = **{phat_dm:,.0f} đồng**.")
+
+                col_ttr_sub1, col_ttr_sub2 = st.columns(2, gap='large')
+                with col_ttr_sub1:
+                    st.markdown('#### 📄 II. Định Mức Tồn Kho Hàng Loại 2')
+                    df_ttr_2 = pd.DataFrame([
+                        {'Chỉ tiêu': 'Định mức theo TT (kg)', 'Giá trị': f'{dm_l2:,.0f}'},
+                        {'Chỉ tiêu': f"Tồn kho thực tế {res['ngay_chot_str']} (kg)", 'Giá trị': f'{tt_l2:,.2f}'},
+                        {'Chỉ tiêu': 'Chênh lệch vượt định mức (kg)', 'Giá trị': f'{cl_l2:,.2f}'},
+                        {'Chỉ tiêu': 'Đơn giá phạt (Đồng/kg)', 'Giá trị': '7'},
+                        {'Chỉ tiêu': '💰 Thành tiền phạt Hàng Loại 2 (VNĐ)', 'Giá trị': f'{phat_l2:,.0f}'},
+                    ])
+                    st.dataframe(df_ttr_2, use_container_width=True, hide_index=True)
+
+                with col_ttr_sub2:
+                    st.markdown('#### 📄 III. Tồn Kho Chậm Luân Chuyển (CLC)')
+                    df_ttr_3 = pd.DataFrame([
+                        {
+                            'Chỉ tiêu': 'Số ngày tồn kho',
+                            'Loại M1': 'Từ 91 - 180 ngày',
+                            'Loại M2': '> 180 ngày',
+                            'Tổng cộng': '-',
+                        },
+                        {
+                            'Chỉ tiêu': 'Đơn giá phạt (Đồng/kg)',
+                            'Loại M1': '5',
+                            'Loại M2': '10',
+                            'Tổng cộng': '-',
+                        },
+                        {
+                            'Chỉ tiêu': 'Khối lượng tồn kho CLC (kg)',
+                            'Loại M1': f'{m1_kl:,.2f}',
+                            'Loại M2': f'{m2_kl:,.2f}',
+                            'Tổng cộng': f'{m1_kl + m2_kl:,.2f}',
+                        },
+                        {
+                            'Chỉ tiêu': '💰 Thành tiền phạt CLC (VNĐ)',
+                            'Loại M1': f'{m1_kl * 5:,.0f}',
+                            'Loại M2': f'{m2_kl * 10:,.0f}',
+                            'Tổng cộng': f'{phat_clc:,.0f}',
+                        },
+                    ])
+                    st.dataframe(df_ttr_3, use_container_width=True, hide_index=True)
+
+        # =========================================================
+        # TAB 3: BẢNG ĐỐI CHIẾU TỔNG HỢP 3 BÊN (P.CƯ vs KSNB vs CHÊNH LỆCH)
+        # =========================================================
+        with tab3:
+            with st.container(border=True):
+                chon_bang_dc = st.radio(
+                    '📊 Chọn bảng đối chiếu cần xem:',
+                    options=[
+                        'Bảng I: Tổng Tồn Kho Nhà Máy',
+                        'Bảng II: Tồn Kho Hàng Loại 2 (L2-A1, XKRL, CXL)',
+                        'Bảng III: Tồn Kho Chậm Luân Chuyển (M1 & M2)',
+                    ],
+                    horizontal=True,
+                )
+
+                age_order = ['Dưới 90 ngày', 'Từ 91 đến 120 ngày', 'Từ 121 đến 180 ngày', 'Từ 181 đến 360 ngày', 'Trên 361 ngày']
+                if 'Bảng I:' in chon_bang_dc or 'Bảng II:' in chon_bang_dc:
+                    is_b1 = 'Bảng I:' in chon_bang_dc
+                    src_pcu = res['pcu_tk_table1'] if is_b1 else res['pcu_tk_table2']
+                    src_ksnb = res['ksnb_agg_t1'] if is_b1 else res['ksnb_agg_t2']
+
+                    dc_rows_web = []
+                    for idx_r in range(1, 6):
+                        r_p = src_pcu[idx_r]
+                        hm = str(r_p[1]).strip()
+                        dm_val = to_float(r_p[2], 0.0)
+                        pcu_tot = to_float(r_p[3], 0.0)
+
+                        # Map sang key trong src_ksnb
+                        k_hm = next((k for k in src_ksnb.keys() if k.strip().upper() == hm.upper()), hm)
+                        ksnb_dict_age = src_ksnb.get(k_hm, {ag: 0.0 for ag in age_order})
+                        ksnb_tot = sum(ksnb_dict_age.values())
+
+                        dc_rows_web.append({
+                            'Hạng mục': hm,
+                            'Định mức (DM)': dm_val,
+                            'P.CƯ: Tổng TT': pcu_tot,
+                            'KSNB: Tổng TT': ksnb_tot,
+                            'Lệch Tổng (KSNB - P.CƯ)': ksnb_tot - pcu_tot,
+                            'KSNB: < 90 ngày': ksnb_dict_age['Dưới 90 ngày'],
+                            'KSNB: 91-120 ngày': ksnb_dict_age['Từ 91 đến 120 ngày'],
+                            'KSNB: 121-180 ngày': ksnb_dict_age['Từ 121 đến 180 ngày'],
+                            'KSNB: 181-360 ngày': ksnb_dict_age['Từ 181 đến 360 ngày'],
+                            'KSNB: > 361 ngày': ksnb_dict_age['Trên 361 ngày'],
+                        })
+
+                    df_dc_web = pd.DataFrame(dc_rows_web)
+                    # Thêm dòng Tổng cộng ở đầu bảng
+                    tot_row = {
+                        'Hạng mục': 'TỔNG CỘNG TOÀN NHÀ MÁY',
+                        'Định mức (DM)': df_dc_web['Định mức (DM)'].sum() if is_b1 else 1800000.0,
+                        'P.CƯ: Tổng TT': df_dc_web['P.CƯ: Tổng TT'].sum(),
+                        'KSNB: Tổng TT': df_dc_web['KSNB: Tổng TT'].sum(),
+                        'Lệch Tổng (KSNB - P.CƯ)': df_dc_web['Lệch Tổng (KSNB - P.CƯ)'].sum(),
+                        'KSNB: < 90 ngày': df_dc_web['KSNB: < 90 ngày'].sum(),
+                        'KSNB: 91-120 ngày': df_dc_web['KSNB: 91-120 ngày'].sum(),
+                        'KSNB: 121-180 ngày': df_dc_web['KSNB: 121-180 ngày'].sum(),
+                        'KSNB: 181-360 ngày': df_dc_web['KSNB: 181-360 ngày'].sum(),
+                        'KSNB: > 361 ngày': df_dc_web['KSNB: > 361 ngày'].sum(),
+                    }
+                    df_dc_web = pd.concat([pd.DataFrame([tot_row]), df_dc_web], ignore_index=True)
+
+                    num_cols = [c for c in df_dc_web.columns if c != 'Hạng mục']
+                    st.dataframe(
+                        df_dc_web.style.format({c: '{:,.2f}' for c in num_cols}),
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+                else:
+                    p_m1 = to_float(res['pcu_tk_clc'][0], 0.0)
+                    p_m2 = to_float(res['pcu_tk_clc'][1], 0.0)
+                    p_tot = to_float(res['pcu_tk_clc'][2], 0.0)
+                    k_m1 = res['ksnb_clc_m1']
+                    k_m2 = res['ksnb_clc_m2']
+                    k_tot = k_m1 + k_m2
+
+                    df_clc_web = pd.DataFrame([
+                        {
+                            'Nhóm CLC': 'M1 (Từ 91 đến 180 ngày)',
+                            'Theo P.Cung ứng (kg)': p_m1,
+                            'Theo KSNB (kg)': k_m1,
+                            'Chênh lệch (P.CƯ - KSNB)': p_m1 - k_m1,
+                        },
+                        {
+                            'Nhóm CLC': 'M2 (Trên 180 ngày)',
+                            'Theo P.Cung ứng (kg)': p_m2,
+                            'Theo KSNB (kg)': k_m2,
+                            'Chênh lệch (P.CƯ - KSNB)': p_m2 - k_m2,
+                        },
+                        {
+                            'Nhóm CLC': 'TỔNG CỘNG TỒN KHO CLC',
+                            'Theo P.Cung ứng (kg)': p_tot,
+                            'Theo KSNB (kg)': k_tot,
+                            'Chênh lệch (P.CƯ - KSNB)': p_tot - k_tot,
+                        },
+                    ])
+                    st.dataframe(
+                        df_clc_web.style.format({
+                            'Theo P.Cung ứng (kg)': '{:,.2f}',
+                            'Theo KSNB (kg)': '{:,.2f}',
+                            'Chênh lệch (P.CƯ - KSNB)': '{:,.2f}',
+                        }),
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+
+        # =========================================================
+        # TAB 4: TRA CỨU & LỌC TOÀN BỘ 10,658 CUỘN NGAY TRÊN WEB
+        # =========================================================
+        with tab4:
+            with st.container(border=True):
+                df_all = pd.DataFrame(res['web_all_records'])
+                s1, s2, s3, s4 = st.columns([2.2, 2.5, 2.3, 3.0])
+                with s1:
+                    f_kho = st.selectbox('🏭 Kho vị trí:', ['Tất cả'] + sorted(df_all['Kho'].unique().tolist()))
+                with s2:
+                    f_dvkd = st.selectbox('🏢 KSNB Đánh tên ĐVKD:', ['Tất cả'] + sorted(df_all['KSNB: Đánh tên'].unique().tolist()))
+                with s3:
+                    f_loai = st.selectbox('📌 KSNB Đánh loại:', ['Tất cả', 'TÍNH', 'LOẠI'])
+                with s4:
+                    f_kw = st.text_input('🔎 Tìm Mã lô / Mã hàng / Tên hàng:')
+
+                df_view = df_all
+                if f_kho != 'Tất cả':
+                    df_view = df_view[df_view['Kho'] == f_kho]
+                if f_dvkd != 'Tất cả':
+                    df_view = df_view[df_view['KSNB: Đánh tên'] == f_dvkd]
+                if f_loai != 'Tất cả':
+                    df_view = df_view[df_view['KSNB: Đánh loại'] == f_loai]
+                if f_kw.strip():
+                    kw_u = f_kw.strip().upper()
+                    df_view = df_view[
+                        df_view['Chuỗi cuộn'].str.upper().str.contains(kw_u)
+                        | df_view['Mã hàng'].str.upper().str.contains(kw_u)
+                        | df_view['Tên hàng'].str.upper().str.contains(kw_u)
+                    ]
+
+                st.caption(
+                    f"📦 Kết quả lọc: **{len(df_view):,} cuộn** • Tổng khối lượng Net: **{df_view['KL Net (kg)'].sum():,.2f} kg**"
+                )
+                st.dataframe(
+                    df_view,
+                    use_container_width=True,
+                    hide_index=True,
+                    height=440,
+                )
 
 
 kiem_tra_dinh_muc_ton_kho()
