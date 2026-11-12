@@ -1203,7 +1203,7 @@ def xuat_workbook_excel(data_bundle, giam_phat_dict=None):
 # GIAO DIỆN CHÍNH & BẢNG ĐIỀU KHIỂN TƯƠNG TÁC TRỰC TIẾP TRÊN WEB
 # -------------------------------------------------------------
 def kiem_tra_dinh_muc_ton_kho():
-    st.caption('Kiểm soát nội bộ • 1 Ổ tải file duy nhất. Rà soát trực tiếp trên Web. Xuất báo cáo Excel siêu tốc.')
+    st.caption('KSNB')
 
     with st.container(border=True):
         st.markdown(
