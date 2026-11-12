@@ -12,7 +12,7 @@ import streamlit as st
 # CẤU HÌNH GIAO DIỆN CHUẨN APPLE & THANH TIỆN ÍCH CỐ ĐỊNH
 # -------------------------------------------------------------
 st.set_page_config(
-    page_title='Kiểm Tra Định Mức Tồn Kho & CLC - KSNB',
+    page_title='Tính Phạt Tồn Kho Thành Phẩm Bán Thành Phẩm',
     page_icon='🛡️',
     layout='wide',
 )
