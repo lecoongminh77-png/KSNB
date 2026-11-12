@@ -20,24 +20,20 @@ st.set_page_config(
     layout='wide',
 )
 
-# Link Google Apps Script Web App của bạn
 GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwuOmsAADuQ9pkzMA8_o5Ux5mOU1IaCjB6sQheUOI9LY1P45V8dIR97-mTHZ2N4X_O9/exec"
 
 st.markdown(
     """
 <style>
-    /* Ẩn sidebar */
     [data-testid="stSidebar"] { display: none !important; }
     [data-testid="collapsedControl"] { display: none !important; }
 
-    /* Nền trang */
     .stApp {
         background-color: #f5f5f7;
         font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
         color: #1d1d1f;
     }
     
-    /* Header */
     .apple-header-box {
         display: flex;
         justify-content: space-between;
@@ -53,7 +49,6 @@ st.markdown(
         margin: 0;
     }
     
-    /* Nút bấm Apple Style */
     div.stButton > button:first-child {
         background: #0071e3 !important;
         color: #ffffff !important;
@@ -71,7 +66,6 @@ st.markdown(
         transform: translateY(-1px);
     }
 
-    /* Nút Download nổi bật */
     div.stDownloadButton > button:first-child {
         background: #1e7e34 !important;
         color: #ffffff !important;
@@ -87,7 +81,6 @@ st.markdown(
         color: #ffffff !important;
     }
 
-    /* Container Streamlit Thẻ Apple */
     [data-testid="stVerticalBlockBorderWrapper"] {
         background: #ffffff;
         border-radius: 18px;
@@ -96,7 +89,6 @@ st.markdown(
         box-shadow: 0 4px 18px rgba(0, 0, 0, 0.03);
     }
 
-    /* Thẻ KPI Bento Apple */
     .bento-card {
         background: #ffffff;
         border-radius: 16px;
@@ -185,7 +177,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Thanh điều hướng (Nút Trang chủ)
 col_home, _ = st.columns([1.5, 8.5])
 with col_home:
     if st.button('🏠 Trang chủ', use_container_width=True):
@@ -1361,13 +1352,7 @@ def kiem_tra_dinh_muc_ton_kho():
                             | df_disc_view['Đánh tên (ERP)'].str.upper().str.contains(kw)
                         ]
 
-                    # Nút lưu tiến độ rà soát đang làm dở
-                    col_save_prog1, col_save_prog2 = st.columns([3, 7])
-                    with col_save_prog1:
-                        if st.button("💾 Lưu Tiến Độ Rà Soát Dở Dang", use_container_width=True):
-                            st.success("✅ Đã ghi nhớ trạng thái rà soát hiện tại trên trình duyệt!")
-
-                    edited_df = st.data_editor(
+                    st.data_editor(
                         df_disc_view,
                         use_container_width=True,
                         hide_index=True,
@@ -1384,6 +1369,7 @@ def kiem_tra_dinh_muc_ton_kho():
                         ],
                         key='editor_discrepancy',
                     )
+                    st.caption("⚡ Mọi thay đổi tích chọn hoặc ghi chú được ghi nhận tự động tức thì trên giao diện.")
 
         with tab2:
             with st.container(border=True):
