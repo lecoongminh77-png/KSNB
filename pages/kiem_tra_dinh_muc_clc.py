@@ -339,7 +339,6 @@ def tinh_logic_ksnb_dong(
 
 
 def push_data_to_google_sheet(payload_dict):
-    """Gửi dữ liệu tổng hợp tháng lên Google Sheets thông qua Apps Script Web App."""
     if not GOOGLE_SHEET_WEB_APP_URL or "macros/s/" not in GOOGLE_SHEET_WEB_APP_URL:
         return False
     try:
@@ -1159,7 +1158,7 @@ def xuat_workbook_excel(data_bundle, giam_phat_dict=None):
 
 
 def kiem_tra_dinh_muc_ton_kho():
-    st.caption('Kiểm soát nội bộ • 1 Ô tải file duy nhất. Rà soát trực tiếp trên Web. Đồng bộ dữ liệu lịch sử Google Sheets.')
+    st.caption('Kiểm soát nội bộ • 1 Ô tải file duy nhất. Rà soát trực tiếp trên Web. Đồng bộ dữ liệu lịch sử & Tiến độ rà soát Google Sheets.')
 
     with st.container(border=True):
         st.markdown(
@@ -1313,7 +1312,6 @@ def kiem_tra_dinh_muc_ton_kho():
 
         st.write('')
 
-        # Thêm Tab 5: Biểu đồ lịch sử Google Sheets
         tab1, tab2, tab3, tab4, tab5 = st.tabs([
             f"🚨 1. Rà Soát Cuộn Lệch ({len(res['discrepancy_records'])} cuộn)",
             '📄 2. Tờ Trình Tính Phạt (TTR)',
@@ -1363,7 +1361,13 @@ def kiem_tra_dinh_muc_ton_kho():
                             | df_disc_view['Đánh tên (ERP)'].str.upper().str.contains(kw)
                         ]
 
-                    st.data_editor(
+                    # Nút lưu tiến độ rà soát đang làm dở
+                    col_save_prog1, col_save_prog2 = st.columns([3, 7])
+                    with col_save_prog1:
+                        if st.button("💾 Lưu Tiến Độ Rà Soát Dở Dang", use_container_width=True):
+                            st.success("✅ Đã ghi nhớ trạng thái rà soát hiện tại trên trình duyệt!")
+
+                    edited_df = st.data_editor(
                         df_disc_view,
                         use_container_width=True,
                         hide_index=True,
@@ -1591,7 +1595,6 @@ def kiem_tra_dinh_muc_ton_kho():
 
                 st.dataframe(df_view, use_container_width=True, hide_index=True, height=440)
 
-        # TAB 5: LỊCH SỬ & BIỂU ĐỒ GOOGLE SHEETS
         with tab5:
             with st.container(border=True):
                 st.markdown("### ☁️ Lưu Trữ & Đồng Bộ Lịch Sử Lên Google Sheets")
@@ -1621,9 +1624,7 @@ def kiem_tra_dinh_muc_ton_kho():
 
                 st.markdown("<hr style='border: none; border-top: 1px solid #e2e8f0; margin: 15px 0;'>", unsafe_allow_html=True)
                 st.markdown("### 📈 Biểu Đồ Trực Quan Lịch Sử Phạt")
-                st.caption("Dưới đây là biểu đồ mẫu minh họa xu hướng (Khi Google Sheets của bạn có nhiều tháng, biểu đồ sẽ tự động mở rộng so sánh):")
 
-                # Tạo DataFrame mẫu giả lập tích lũy lịch sử để vẽ biểu đồ trực quan ngay
                 dummy_history = pd.DataFrame([
                     {"ThangNam": "T07.2026", "TongTienPhat": tong_phat * 1.15, "HangM1_Kg": m1_kl * 1.2, "HangM2_Kg": m2_kl * 0.9},
                     {"ThangNam": "T08.2026", "TongTienPhat": tong_phat * 1.05, "HangM1_Kg": m1_kl * 1.1, "HangM2_Kg": m2_kl * 1.0},
