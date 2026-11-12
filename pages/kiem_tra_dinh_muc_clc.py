@@ -296,7 +296,7 @@ def tinh_logic_ksnb_dong(
     pl_str = clean_str_code(phan_loai)
     so_phan_loai = 1 if pl_str in ('1', 'A2') else 2
 
-    # 4. Đánh tên đơn vị kinh doanh (Cột L - Giữ nguyên 100% công thức IF của bạn)
+    # 4. Đánh tên đơn vị kinh doanh (Cột L)
     ax = '' if dv_kd is None else str(dv_kd)
     ay = '' if danh_ten is None else str(danh_ten)
     ay_up = ay.upper()
@@ -328,7 +328,7 @@ def tinh_logic_ksnb_dong(
     else:
         danh_ten_dv = 'NM THSPM'
 
-    # 5. Đánh loại TÍNH / LOẠI (Cột M - Giữ nguyên 100% công thức IF của bạn)
+    # 5. Đánh loại TÍNH / LOẠI (Cột M)
     sub_033_active = clean_str_code(kho_cn) in SUB_KHO_033_ACTIVE
     cond_loai = (
         ('BPDT' in ay_up)
@@ -343,7 +343,7 @@ def tinh_logic_ksnb_dong(
     )
     danh_loai = 'LOẠI' if cond_loai else 'TÍNH'
 
-    # 6. Mức tính phạt CLC (Cột K - Giữ nguyên 100% công thức IF của bạn)
+    # 6. Mức tính phạt CLC (Cột K)
     ten_up = '' if ten_hang is None else str(ten_hang).upper()
     if danh_ten_dv == 'NM Lợp xưởng' or so_ngay_ton < 91 or (('HOA SEN GOLD' in ten_up) and so_ngay_ton < 180):
         muc_clc = 'LOẠI'
@@ -369,7 +369,7 @@ def tinh_logic_ksnb_dong(
 def doc_va_phan_tich_du_lieu(f_erp, f_pcu, progress_bar):
     t_start = time.time()
 
-    # 1. Đọc siêu tốc File ERP (003.xlsx) bằng chế độ read_only
+    # 1. Đọc siêu tốc File ERP (003.xlsx)
     progress_bar.progress(10, text='📥 [10%] Đang đọc dữ liệu Tồn kho theo lô từ ERP (File 003)...')
     f_erp.seek(0)
     wb_erp = openpyxl.load_workbook(f_erp, data_only=True, read_only=True)
@@ -410,7 +410,7 @@ def doc_va_phan_tich_du_lieu(f_erp, f_pcu, progress_bar):
             continue
         erp_data_rows.append(pad_row(r_tuple, 46))
 
-    # 2. Đọc siêu tốc File Phòng Cung ứng bằng chế độ read_only
+    # 2. Đọc siêu tốc File Phòng Cung ứng
     progress_bar.progress(30, text='📥 [30%] Đang đọc dữ liệu Chốt phạt của Phòng Cung ứng...')
     f_pcu.seek(0)
     wb_pcu = openpyxl.load_workbook(f_pcu, data_only=True, read_only=True)
@@ -450,7 +450,7 @@ def doc_va_phan_tich_du_lieu(f_erp, f_pcu, progress_bar):
 
         dict_pcu_lookup[key_chuoi] = {
             'dvkd': str(row_vals[40] or '').strip(),
-            'tinh_tk': str(row_vals[41] or '').strip(),
+            'tinh_tk': str(row_vals[41] or '').strip(),  # Cột AQ - Tính TK
             'tuoi': str(row_vals[45] or '').strip(),
             'clc': str(row_vals[46] or '').strip(),
         }
@@ -497,7 +497,6 @@ def doc_va_phan_tich_du_lieu(f_erp, f_pcu, progress_bar):
             ngay_chot=ngay_chot,
         )
 
-        # Cộng dồn cho bảng ĐỐI CHIẾU theo KSNB
         dv_key = res_row['danh_ten_dv']
         ag_key = res_row['tuoi_tk']
         if dv_key in ksnb_agg_t1 and ag_key in ksnb_agg_t1[dv_key]:
@@ -550,16 +549,9 @@ def doc_va_phan_tich_du_lieu(f_erp, f_pcu, progress_bar):
             'Dòng Excel': idx_excel,
             'Kho': clean_str_code(r_vals[0]),
             'Chuỗi cuộn': res_row['chuoi'],
-            'Mã lô': clean_str_code(r_vals[17]),
-            'Mã hàng': clean_str_code(r_vals[2]),
-            'Tên hàng': str(r_vals[3] or ''),
-            'Phân loại': clean_str_code(r_vals[5]),
             'KL Net (kg)': kl_net,
             'ĐVKD (ERP)': str(r_vals[33] or ''),
             'Đánh tên (ERP)': str(r_vals[34] or ''),
-            'Số ngày tồn': res_row['so_ngay_ton'],
-            'KSNB: Tuổi TK': res_row['tuoi_tk'],
-            'P.CƯ: Tuổi TK': pcu_tuoi,
             'KSNB: Đánh tên': res_row['danh_ten_dv'].strip(),
             'P.CƯ: Đánh tên': pcu_dvkd,
             'KSNB: Đánh loại': res_row['danh_loai'],
@@ -626,13 +618,9 @@ def doc_va_phan_tich_du_lieu(f_erp, f_pcu, progress_bar):
 
 
 # -------------------------------------------------------------
-# BƯỚC 2: HÀM XUẤT FILE EXCEL SIÊU TỐC (GIỮ NGUYÊN 100% CÔNG THỨC SỐNG)
+# BƯỚC 2: HÀM XUẤT FILE EXCEL SIÊU TỐC (GIỮ NGUYÊN 100% CÔNG THỨC)
 # -------------------------------------------------------------
 def xuat_workbook_excel(data_bundle, giam_phat_dict=None):
-    """
-    Tạo file Excel giữ nguyên 100% công thức sống của KSNB.
-    Tối ưu tốc độ ghi 21,000 dòng bằng cách đẩy dữ liệu nhanh và chỉ định dạng ô cần thiết.
-    """
     if giam_phat_dict is None:
         giam_phat_dict = {}
 
@@ -656,7 +644,6 @@ def xuat_workbook_excel(data_bundle, giam_phat_dict=None):
     ws_ksnb = wb_out.create_sheet('KSNB')
     ws_pcu_out = wb_out.create_sheet('P.Cung ứng')
 
-    # Fonts, Fills & Borders chuẩn
     f_title = Font(name='Times New Roman', size=14, bold=True, color='000000')
     f_sec = Font(name='Times New Roman', size=12, bold=True, color='000000')
     f_hdr = Font(name='Times New Roman', size=11, bold=True, color='000000')
@@ -683,7 +670,7 @@ def xuat_workbook_excel(data_bundle, giam_phat_dict=None):
     max_row_pcu = len(pcu_data_rows) + 3
 
     # =========================================================
-    # A. GHI SIÊU TỐC SHEET 'P.Cung ứng' BẰNG APPEND()
+    # A. GHI SHEET 'P.Cung ứng' BẰNG APPEND()
     # =========================================================
     row1_pcu = [None] * 50
     row1_pcu[20] = f"=SUBTOTAL(9,$U$4:$U${max_row_pcu})"
@@ -707,13 +694,12 @@ def xuat_workbook_excel(data_bundle, giam_phat_dict=None):
         ws_pcu_out.append([f_a, f_b] + r_vals)
 
     # =========================================================
-    # B. GHI SIÊU TỐC SHEET 'KSNB' BẰNG APPEND() + TÔ ĐỎ Ô LỖI
+    # B. GHI SHEET 'KSNB' BẰNG APPEND() + TÔ ĐỎ Ô LỖI
     # =========================================================
     for r_idx in range(1, 12):
         m_row = erp_meta_rows[r_idx - 1] if r_idx - 1 < len(erp_meta_rows) else [None] * 46
         ws_ksnb.append([None] * 16 + m_row)
 
-    # Ghi khối tổng hợp đối chiếu đầu trang (Rows 3..6)
     ws_ksnb['I3'] = 'Đối chiếu KL & Số lượng'
     ws_ksnb['K3'] = 'Số lượng (cuộn)'
     ws_ksnb['M3'] = 'Khối lượng kg'
@@ -738,7 +724,6 @@ def xuat_workbook_excel(data_bundle, giam_phat_dict=None):
             if r_i == 5 and c_i in (11, 12, 13, 14):
                 cell.number_format = '#,##0'
 
-    # Dòng 12 & 13: Tiêu đề
     row12_ksnb = [None] * 15 + [datetime.datetime(ngay_chot.year, ngay_chot.month, ngay_chot.day)] + erp_headers_r11
     ws_ksnb.append(row12_ksnb)
 
@@ -780,7 +765,6 @@ def xuat_workbook_excel(data_bundle, giam_phat_dict=None):
         c13.alignment = al_center
         c13.border = border_all
 
-    # Đẩy nhanh 10,658 dòng KSNB bằng append() (Giữ nguyên 100% công thức gốc của bạn)
     cells_to_highlight_red = []
     for i, r_vals in enumerate(erp_data_rows):
         idx = i + 14
@@ -833,7 +817,6 @@ def xuat_workbook_excel(data_bundle, giam_phat_dict=None):
             if not is_ok:
                 cells_to_highlight_red.append((idx, c_flag))
 
-    # Chỉ tô đỏ trực tiếp những ô bị FALSE (khoảng 119 ô thay vì lặp qua 660,000 ô)
     for r_err, c_err in cells_to_highlight_red:
         cell_err = ws_ksnb.cell(r_err, c_err)
         cell_err.fill = fill_red
@@ -853,12 +836,8 @@ def xuat_workbook_excel(data_bundle, giam_phat_dict=None):
     ws_dc['H7'].font = f_hdr
 
     age_cols_6 = [
-        'Tổng cộng',
-        'Dưới 90 ngày',
-        'Từ 91 đến 120 ngày',
-        'Từ 121 đến 180 ngày',
-        'Từ 181 đến 360 ngày',
-        'Trên 361 ngày',
+        'Tổng cộng', 'Dưới 90 ngày', 'Từ 91 đến 120 ngày',
+        'Từ 121 đến 180 ngày', 'Từ 181 đến 360 ngày', 'Trên 361 ngày'
     ]
 
     def setup_dc_table_headers(start_r):
@@ -896,7 +875,7 @@ def xuat_workbook_excel(data_bundle, giam_phat_dict=None):
         ws_dc.merge_cells(start_row=start_r, start_column=12, end_row=start_r, end_column=17)
         ws_dc.merge_cells(start_row=start_r, start_column=19, end_row=start_r, end_column=24)
 
-    # Bảng I: Tổng tồn kho Nhà máy (Dòng 10-17)
+    # Bảng I: Tổng tồn kho
     setup_dc_table_headers(10)
     for idx, row_pcu in enumerate(pcu_tk_table1):
         r_excel = 12 + idx
@@ -917,11 +896,7 @@ def xuat_workbook_excel(data_bundle, giam_phat_dict=None):
                 ws_dc.cell(r_excel, 1 + c_off, row_pcu[c_off])
             ws_dc.cell(r_excel, 12, f'=SUM(M{r_excel}:Q{r_excel})')
             for idx_age, col_ksnb_let in enumerate(['M', 'N', 'O', 'P', 'Q']):
-                ws_dc.cell(
-                    r_excel,
-                    13 + idx_age,
-                    f"=SUMIFS(KSNB!$AK$14:$AK${max_row_ksnb},KSNB!$L$14:$L${max_row_ksnb},'ĐỐI CHIẾU'!$B{r_excel},KSNB!$N$14:$N${max_row_ksnb},'ĐỐI CHIẾU'!{col_ksnb_let}$11)",
-                )
+                ws_dc.cell(r_excel, 13 + idx_age, f"=SUMIFS(KSNB!$AK$14:$AK${max_row_ksnb},KSNB!$L$14:$L${max_row_ksnb},'ĐỐI CHIẾU'!$B{r_excel},KSNB!$N$14:$N${max_row_ksnb},'ĐỐI CHIẾU'!{col_ksnb_let}$11)")
             ws_dc.cell(r_excel, 18, f'=L{r_excel}-C{r_excel}')
             ws_dc.cell(r_excel, 19, f'=SUM(T{r_excel}:X{r_excel})')
             for idx_diff, (c_k, c_p) in enumerate([('M', 'E'), ('N', 'F'), ('O', 'G'), ('P', 'H'), ('Q', 'I')]):
@@ -941,7 +916,7 @@ def xuat_workbook_excel(data_bundle, giam_phat_dict=None):
                 cell.number_format = '#,##0'
                 cell.alignment = al_right
 
-    # Bảng II: Tồn kho hàng L2-A1, XKRL, CXL (Dòng 21-28)
+    # Bảng II: Tồn kho Loại 2
     ws_dc['A19'] = 'II. Tồn kho hàng L2-A1, XKRL, CXL'
     ws_dc['A19'].font = f_sec
     setup_dc_table_headers(21)
@@ -967,11 +942,7 @@ def xuat_workbook_excel(data_bundle, giam_phat_dict=None):
                 ws_dc.cell(r_excel, 10, '=SUM(D24:D28)-C24')
             ws_dc.cell(r_excel, 12, f'=SUM(M{r_excel}:Q{r_excel})')
             for idx_age, col_ksnb_let in enumerate(['M', 'N', 'O', 'P', 'Q']):
-                ws_dc.cell(
-                    r_excel,
-                    13 + idx_age,
-                    f"=SUMIFS(KSNB!$AK$14:$AK${max_row_ksnb},KSNB!$L$14:$L${max_row_ksnb},'ĐỐI CHIẾU'!$B{r_excel},KSNB!$N$14:$N${max_row_ksnb},'ĐỐI CHIẾU'!{col_ksnb_let}$22,KSNB!$P$14:$P${max_row_ksnb},\"2\")",
-                )
+                ws_dc.cell(r_excel, 13 + idx_age, f"=SUMIFS(KSNB!$AK$14:$AK${max_row_ksnb},KSNB!$L$14:$L${max_row_ksnb},'ĐỐI CHIẾU'!$B{r_excel},KSNB!$N$14:$N${max_row_ksnb},'ĐỐI CHIẾU'!{col_ksnb_let}$22,KSNB!$P$14:$P${max_row_ksnb},\"2\")")
             ws_dc.cell(r_excel, 18, f'=L{r_excel}-C{r_excel}')
             ws_dc.cell(r_excel, 19, f'=SUM(T{r_excel}:X{r_excel})')
             for idx_diff, (c_k, c_p) in enumerate([('M', 'E'), ('N', 'F'), ('O', 'G'), ('P', 'H'), ('Q', 'I')]):
@@ -991,7 +962,7 @@ def xuat_workbook_excel(data_bundle, giam_phat_dict=None):
                 cell.number_format = '#,##0'
                 cell.alignment = al_right
 
-    # Bảng III: Tồn kho CLC (Dòng 30-33)
+    # Bảng III: Tồn kho CLC
     ws_dc['A30'] = 'III. Tồn kho CLC'
     ws_dc['A30'].font = f_sec
     ws_dc['B30'] = 'THEO P.CUNG ỨNG'
@@ -1056,7 +1027,7 @@ def xuat_workbook_excel(data_bundle, giam_phat_dict=None):
     ws_dc.merge_cells('L31:L32')
 
     # =========================================================
-    # D. GHI SHEET 'TTR' (ĐỒNG BỘ SỐ LIỆU XIN GIẢM PHẠT TỪ WEB NẾU CÓ)
+    # D. GHI SHEET 'TTR' (ĐỒNG BỘ SỐ LIỆU XIN GIẢM PHẠT TỪ WEB)
     # =========================================================
     ws_ttr['C1'] = 'BÁO CÁO ĐỊNH MỨC TỒN KHO VÀ CHẬM LUÂN CHUYỂN'
     ws_ttr['C1'].font = f_title
@@ -1071,17 +1042,7 @@ def xuat_workbook_excel(data_bundle, giam_phat_dict=None):
     ws_ttr['B3'].font = f_sec
     ws_ttr['H4'] = 'Đvt: kg'
 
-    ttr_cols = [
-        'Nội dung',
-        'Tổng',
-        'NM THSPM',
-        'BTP- Mạ màu & Xẻ băng ',
-        'BTP- BAO BÌ',
-        'VLXD',
-        'TXL-ĐT',
-        'KHCU',
-        'Các NM Khác',
-    ]
+    ttr_cols = ['Nội dung', 'Tổng', 'NM THSPM', 'BTP- Mạ màu & Xẻ băng ', 'BTP- BAO BÌ', 'VLXD', 'TXL-ĐT', 'KHCU', 'Các NM Khác']
     for idx, h_lbl in enumerate(ttr_cols, start=2):
         c = ws_ttr.cell(5, idx, h_lbl)
         c.font = f_hdr
@@ -1134,7 +1095,6 @@ def xuat_workbook_excel(data_bundle, giam_phat_dict=None):
                 c.number_format = '#,##0'
                 c.alignment = al_right
 
-    # Mục II: Định Mức Tồn Kho Hàng Loại 2
     ws_ttr['A14'] = 'II.'
     ws_ttr['B14'] = 'Định Mức Tồn Kho Hàng Loại 2'
     ws_ttr['A14'].font = f_sec
@@ -1167,7 +1127,6 @@ def xuat_workbook_excel(data_bundle, giam_phat_dict=None):
             if c_i == 3 and r_i >= 17:
                 c.number_format = '#,##0'
 
-    # Mục III: Tồn Kho Chậm Luân Chuyển
     ws_ttr['A25'] = 'III.'
     ws_ttr['B25'] = 'Tồn Kho Chậm Luân Chuyển'
     ws_ttr['A25'].font = f_sec
@@ -1204,7 +1163,6 @@ def xuat_workbook_excel(data_bundle, giam_phat_dict=None):
             if r_i >= 28 and c_i >= 3:
                 c.number_format = '#,##0'
 
-    # Mục IV: Tổng Tiền Phạt
     ws_ttr['A33'] = 'IV.'
     ws_ttr['B33'] = 'Tổng Tiền Phạt'
     ws_ttr['A33'].font = f_sec
@@ -1227,7 +1185,6 @@ def xuat_workbook_excel(data_bundle, giam_phat_dict=None):
         c_val.font = f_bold
         c_val.number_format = '#,##0'
 
-    # Căn chỉnh độ rộng cột
     for ws_tmp in (ws_ttr, ws_dc):
         for col_idx in range(1, 25):
             ws_tmp.column_dimensions[get_column_letter(col_idx)].width = 18
@@ -1246,44 +1203,52 @@ def xuat_workbook_excel(data_bundle, giam_phat_dict=None):
 # GIAO DIỆN CHÍNH & BẢNG ĐIỀU KHIỂN TƯƠNG TÁC TRỰC TIẾP TRÊN WEB
 # -------------------------------------------------------------
 def kiem_tra_dinh_muc_ton_kho():
-    st.caption('Kiểm soát nội bộ • Thao tác rà soát trực tiếp trên Web & Xuất báo cáo Excel giữ nguyên 100% công thức sống')
-    st.markdown('### 📥 Nạp Dữ Liệu Nguồn')
+    st.caption('Kiểm soát nội bộ • 1 Ổ tải file duy nhất. Rà soát trực tiếp trên Web. Xuất báo cáo Excel siêu tốc.')
 
-    col_upload1, col_upload2 = st.columns(2, gap='large')
-
-    with col_upload1:
-        with st.container(border=True):
-            st.markdown(
-                """
-<div class="upload-title">1️⃣ Dữ liệu Tồn kho theo lô (ERP)</div>
+    with st.container(border=True):
+        st.markdown(
+            """
+<div class="upload-title">📥 Nạp Dữ Liệu Nguồn (Kéo thả cùng lúc 2 file)</div>
 <div class="guide-box">
-<div class="guide-header">📌 1. Báo cáo Tồn kho theo lô (cuộn) - File 003</div>
 <div class="guide-text">
-Xuất từ hệ thống ERP (Kho: 031-036-038) • Từ loại hàng: 3.01.01 đến 4.08.02<br>
-Lưu ý: Nạp trực tiếp file gốc xuất từ ERP (hệ thống tự động lọc bỏ dòng trống cuối file)
+👉 <b>Quét chọn 2 file rồi kéo thả vào ô bên dưới:</b><br>
+1. <b>Báo cáo Tồn kho theo lô (File 003 ERP):</b> Kho: 031-036-038 • Loại hàng: 3.01.01 đến 4.08.02<br>
+2. <b>File Chốt phạt của P.Cung ứng:</b> Chứa đủ sheet <i>Tồn kho, Data, Đánh tên, Mã hh</i><br>
+<span style="color:#0071e3;">Hệ thống sẽ tự động nhận diện đâu là file ERP, đâu là file P.Cung ứng.</span>
 </div>
 </div>
 """,
-                unsafe_allow_html=True,
-            )
-            f_erp = st.file_uploader('1. File Tồn kho theo lô ERP (003.xlsx)', type=['xlsx', 'xls'])
-
-    with col_upload2:
-        with st.container(border=True):
-            st.markdown(
-                """
-<div class="upload-title">2️⃣ Dữ liệu Chốt phạt của P.Cung ứng</div>
-<div class="guide-box">
-<div class="guide-header">📌 2. File Chốt phạt tồn kho (P.Cung ứng gửi)</div>
-<div class="guide-text">
-File tổng hợp của Phòng Cung ứng (ví dụ: CHỐT PHẠT TK T09.2026.xlsx)<br>
-Bao gồm đầy đủ các sheet: <b>Tồn kho</b>, <b>Data</b>, <b>Đánh tên</b>, <b>Mã hh</b>
-</div>
-</div>
-""",
-                unsafe_allow_html=True,
-            )
-            f_pcu = st.file_uploader('2. File Chốt phạt tồn kho P.Cung ứng', type=['xlsx', 'xls'])
+            unsafe_allow_html=True,
+        )
+        
+        uploaded_files = st.file_uploader(
+            'Chọn 2 file (003 ERP và P.Cung ứng)', 
+            type=['xlsx', 'xls'], 
+            accept_multiple_files=True,
+            label_visibility="collapsed"
+        )
+        
+        f_erp = None
+        f_pcu = None
+        
+        if uploaded_files:
+            if len(uploaded_files) == 2:
+                for f in uploaded_files:
+                    f.seek(0)
+                    try:
+                        xl = pd.ExcelFile(f)
+                        sheets = xl.sheet_names
+                        f.seek(0)
+                        if "Tồn kho" in sheets and "Data" in sheets:
+                            f_pcu = f
+                        else:
+                            f_erp = f
+                    except Exception as e:
+                        st.error(f"Lỗi đọc file {f.name}: {e}")
+            elif len(uploaded_files) > 2:
+                st.warning("⚠️ Vui lòng chỉ kéo thả đúng 2 file (1 file ERP 003 và 1 file Chốt phạt P.CƯ).")
+            elif len(uploaded_files) == 1:
+                st.info("👉 Vui lòng kéo thả thêm 1 file nữa (Cần đủ cả 2 file để đối chiếu).")
 
     st.write('')
     if f_erp is not None and f_pcu is not None:
@@ -1303,18 +1268,15 @@ Bao gồm đầy đủ các sheet: <b>Tồn kho</b>, <b>Data</b>, <b>Đánh tên
                 )
             except Exception as e:
                 st.error(f'Lỗi xử lý dữ liệu: {e}')
-    else:
-        st.info('👉 Vui lòng nạp đủ cả 2 file (File Tồn kho ERP `003` và File Chốt phạt của P.Cung ứng) để mở bảng thao tác.')
 
     # ---------------------------------------------------------
-    # KHU VỰC THAO TÁC TRỰC TIẾP TRÊN WEB (CHẠY TỨC THÌ TỪ SESSION_STATE)
+    # KHU VỰC THAO TÁC TRỰC TIẾP TRÊN WEB (CHẠY TỨC THÌ)
     # ---------------------------------------------------------
     if 'clc_bundle' in st.session_state:
         res = st.session_state['clc_bundle']
         gp_dict = st.session_state.get('clc_giam_phat', {})
         tong_giam_phat_kg = sum(to_float(v, 0.0) for v in gp_dict.values())
 
-        # Tính toán số tiền phạt theo thời gian thực (có trừ số kg xin giảm phạt nếu người dùng nhập trên Web)
         tt_tong_nm = to_float(res['pcu_tk_table1'][0][3], 0.0)
         dm_tong_nm = 7640000.0
         cl_tong_nm = tt_tong_nm - dm_tong_nm - tong_giam_phat_kg
@@ -1333,7 +1295,6 @@ Bao gồm đầy đủ các sheet: <b>Tồn kho</b>, <b>Data</b>, <b>Đánh tên
 
         st.markdown("<hr style='border: none; border-top: 1px solid #e2e8f0; margin: 18px 0;'>", unsafe_allow_html=True)
 
-        # Thanh tiêu đề Kết quả & Nút tải file Excel ngay góc phải
         col_title_res, col_dl_btn = st.columns([6.5, 3.5])
         with col_title_res:
             st.markdown(
@@ -1348,7 +1309,6 @@ Bao gồm đầy đủ các sheet: <b>Tồn kho</b>, <b>Data</b>, <b>Đánh tên
                 use_container_width=True,
             )
 
-        # 4 Thẻ KPI Apple Bento Grid
         k1, k2, k3, k4 = st.columns(4, gap='medium')
         with k1:
             diff_c = res['count_nm'] - res['count_pcu']
@@ -1400,9 +1360,6 @@ Bao gồm đầy đủ các sheet: <b>Tồn kho</b>, <b>Data</b>, <b>Đánh tên
 
         st.write('')
 
-        # ---------------------------------------------------------
-        # 4 TAB THAO TÁC TRỰC TIẾP TRÊN WEB
-        # ---------------------------------------------------------
         tab1, tab2, tab3, tab4 = st.tabs([
             f"🚨 1. Rà Soát Cuộn Lệch ({len(res['discrepancy_records'])} cuộn)",
             '📄 2. Tờ Trình Tính Phạt (TTR)',
@@ -1410,9 +1367,6 @@ Bao gồm đầy đủ các sheet: <b>Tồn kho</b>, <b>Data</b>, <b>Đánh tên
             f"🔍 4. Tra Cứu Toàn Bộ ({res['count_nm']:,} cuộn)",
         ])
 
-        # =========================================================
-        # TAB 1: RÀ SOÁT & TƯƠNG TÁC TRỰC TIẾP TRÊN CÁC CUỘN LỆCH
-        # =========================================================
         with tab1:
             with st.container(border=True):
                 df_disc = pd.DataFrame(res['discrepancy_records'])
@@ -1456,7 +1410,7 @@ Bao gồm đầy đủ các sheet: <b>Tồn kho</b>, <b>Data</b>, <b>Đánh tên
 
                     st.caption(
                         f"💡 Đang hiển thị **{len(df_disc_view)} cuộn** (Tổng KL: **{df_disc_view['KL Net (kg)'].sum():,.0f} kg**). "
-                        f"Bạn có thể tích chọn ô **Đã rà soát** hoặc nhấp đúp vào cột **Ghi chú KSNB** để ghi chú trực tiếp trên bảng."
+                        f"Bạn có thể tích chọn ô **Đã rà soát** hoặc nhấp đúp vào cột **Ghi chú KSNB** để sửa/ghi chú trực tiếp trên bảng."
                     )
 
                     st.data_editor(
@@ -1477,13 +1431,10 @@ Bao gồm đầy đủ các sheet: <b>Tồn kho</b>, <b>Data</b>, <b>Đánh tên
                         key='editor_discrepancy',
                     )
 
-        # =========================================================
-        # TAB 2: TỜ TRÌNH TÍNH PHẠT (TƯƠNG TÁC GIẢM PHẠT TRỰC TIẾP)
-        # =========================================================
         with tab2:
             with st.container(border=True):
                 st.markdown('#### 📄 I. Định Mức Tồn Kho Nhà Máy & Tờ Trình Xin Giảm Phạt')
-                st.caption('💡 Nếu tháng này có Tờ trình xin giảm phạt hàng VLXD/BTP, bạn nhập số kg vào ô bên dưới để tự động cập nhật lại số tiền phạt và file Excel.')
+                st.caption('💡 Nhập số kg xin giảm phạt vào ô bên dưới, hệ thống sẽ tự động cập nhật lại số tiền phạt và làm mới lại file Excel xuất ra.')
 
                 col_gp1, col_gp2, col_gp3, col_gp4, col_gp_btn = st.columns([2, 2, 2, 2, 2])
                 with col_gp1:
@@ -1496,7 +1447,7 @@ Bao gồm đầy đủ các sheet: <b>Tồn kho</b>, <b>Data</b>, <b>Đánh tên
                     gp_vlxd = st.number_input('Giảm phạt VLXD (kg):', min_value=0.0, value=float(gp_dict.get('VLXD', 0.0)), step=1000.0)
                 with col_gp_btn:
                     st.write('')
-                    if st.button('🔄 Áp dụng vào Tờ trình', use_container_width=True):
+                    if st.button('🔄 Cập nhật vào Tờ trình', use_container_width=True):
                         st.session_state['clc_giam_phat'] = {
                             'NM THSPM': gp_nm,
                             'BTP- Mạ màu & Xẻ băng ': gp_btp,
@@ -1508,7 +1459,6 @@ Bao gồm đầy đủ các sheet: <b>Tồn kho</b>, <b>Data</b>, <b>Đánh tên
                         )
                         st.rerun()
 
-                # Hiển thị bảng Tờ trình mục I, II, III, IV
                 t1_rows = res['pcu_tk_table1']
                 df_ttr_1 = pd.DataFrame([
                     {
@@ -1597,9 +1547,6 @@ Bao gồm đầy đủ các sheet: <b>Tồn kho</b>, <b>Data</b>, <b>Đánh tên
                     ])
                     st.dataframe(df_ttr_3, use_container_width=True, hide_index=True)
 
-        # =========================================================
-        # TAB 3: BẢNG ĐỐI CHIẾU TỔNG HỢP 3 BÊN (P.CƯ vs KSNB vs CHÊNH LỆCH)
-        # =========================================================
         with tab3:
             with st.container(border=True):
                 chon_bang_dc = st.radio(
@@ -1625,7 +1572,6 @@ Bao gồm đầy đủ các sheet: <b>Tồn kho</b>, <b>Data</b>, <b>Đánh tên
                         dm_val = to_float(r_p[2], 0.0)
                         pcu_tot = to_float(r_p[3], 0.0)
 
-                        # Map sang key trong src_ksnb
                         k_hm = next((k for k in src_ksnb.keys() if k.strip().upper() == hm.upper()), hm)
                         ksnb_dict_age = src_ksnb.get(k_hm, {ag: 0.0 for ag in age_order})
                         ksnb_tot = sum(ksnb_dict_age.values())
@@ -1644,7 +1590,6 @@ Bao gồm đầy đủ các sheet: <b>Tồn kho</b>, <b>Data</b>, <b>Đánh tên
                         })
 
                     df_dc_web = pd.DataFrame(dc_rows_web)
-                    # Thêm dòng Tổng cộng ở đầu bảng
                     tot_row = {
                         'Hạng mục': 'TỔNG CỘNG TOÀN NHÀ MÁY',
                         'Định mức (DM)': df_dc_web['Định mức (DM)'].sum() if is_b1 else 1800000.0,
@@ -1703,9 +1648,6 @@ Bao gồm đầy đủ các sheet: <b>Tồn kho</b>, <b>Data</b>, <b>Đánh tên
                         hide_index=True,
                     )
 
-        # =========================================================
-        # TAB 4: TRA CỨU & LỌC TOÀN BỘ 10,658 CUỘN NGAY TRÊN WEB
-        # =========================================================
         with tab4:
             with st.container(border=True):
                 df_all = pd.DataFrame(res['web_all_records'])
